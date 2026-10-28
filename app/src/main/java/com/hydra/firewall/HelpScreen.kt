@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun HelpScreen(context: Context, language: AppLanguage) {
-    val en = language == AppLanguage.EN || (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+    val en = language.isEnglish() || (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
     val title = if (en) "How to use Hydra Firewall" else "Cómo usar Hydra Firewall"
     val intro = if (en) {
         "Hydra Firewall is a no-root Android firewall. It uses Android's local VPN/TUN interface to inspect and filter application traffic. You do not need root access."

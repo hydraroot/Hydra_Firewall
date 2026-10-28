@@ -6,6 +6,9 @@
 - VPN: rutas NAT64 (64:ff9b::/96 y 64:ff9b:1::/48) para no dejar fugas en redes DNS64.
 - Resolución de UID en Android 7–9: espera máxima en el hilo del motor reducida de 535 ms a 85 ms.
 - Ayuda y docs: "Bloquear todo" explica sus excepciones.
+- UI: botones del prompt de primera conexión en una sola línea con fuente que se ajusta (ya no se corta "PERMISSIVE").
+- Idioma: con "Sistema" y el teléfono en inglés ahora toda la app usa inglés (antes solo con "English" forzado). Traducidos PERSONALIZED/PERMISSIVE/NO FIREWALL/Details en la lista de reglas, "Allow/Block by default" y las descripciones de canales de notificación.
+- Tests: corregidos 2 tests que ya fallaban (org.json de tests, aserción de checksum).
 - README en inglés ampliado, THIRD_PARTY_NOTICES con librerías, datos y servicios.
 
 ## 1.5-beta6-final-r13 — FIX172 (versionCode 161)

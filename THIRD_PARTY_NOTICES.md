@@ -18,6 +18,7 @@ below is kept in Spanish.
 | Jetpack Compose (BOM; ui, ui-graphics, material3, foundation) | see `app/build.gradle.kts` | Apache-2.0 | https://developer.android.com/jetpack/compose |
 | org.jetbrains.kotlinx:kotlinx-coroutines-android | 1.9.0 | Apache-2.0 | https://github.com/Kotlin/kotlinx.coroutines |
 | junit:junit (tests only, not shipped) | 4.13.2 | EPL-1.0 | https://junit.org/junit4/ |
+| org.json:json (tests only, not shipped) | 20240303 | Public Domain (JSON-java) | https://github.com/stleary/JSON-java |
 
 Apache-2.0 text: `third_party/licenses/Apache-2.0`. Transitive dependencies of the above are
 covered by their own (Apache-2.0 / compatible) licenses; run `./gradlew :app:dependencies` for the

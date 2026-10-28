@@ -95,7 +95,7 @@ private fun loadPermissionGroupsForPackage(
         groups.getOrPut(groupKey) { mutableListOf() }.add(permission)
     }
 
-    val english = AppSettings(context).language == AppLanguage.EN
+    val english = AppSettings(context).language.isEnglish()
     return groups.entries
         .sortedWith(compareBy({ if (it.key == "OTHER") 1 else 0 }, { it.key }))
         .take(maxGroups)

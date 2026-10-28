@@ -391,9 +391,9 @@ fun FirewallScreen(
                                 Text("Hydra Firewall", style = MaterialTheme.typography.titleSmall)
                                 Text(
                                     when (headerProtection.level) {
-                                        ProtectionStatus.Level.ACTIVE -> if (language == AppLanguage.EN) "PROTECTION ON" else "PROTECCIÓN ACTIVADA"
-                                        ProtectionStatus.Level.PARTIAL -> if (language == AppLanguage.EN) "PROTECTION PARTIAL" else "PROTECCIÓN PARCIAL"
-                                        ProtectionStatus.Level.OFF -> if (language == AppLanguage.EN) "PROTECTION OFF" else "PROTECCIÓN DESACTIVADA"
+                                        ProtectionStatus.Level.ACTIVE -> if (language.isEnglish()) "PROTECTION ON" else "PROTECCIÓN ACTIVADA"
+                                        ProtectionStatus.Level.PARTIAL -> if (language.isEnglish()) "PROTECTION PARTIAL" else "PROTECCIÓN PARCIAL"
+                                        ProtectionStatus.Level.OFF -> if (language.isEnglish()) "PROTECTION OFF" else "PROTECCIÓN DESACTIVADA"
                                     },
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
@@ -434,15 +434,15 @@ fun FirewallScreen(
                             text = {
                                 Text(
                                     when (tab) {
-                                        MainTab.PROTECTION -> if (language == AppLanguage.EN) "PROTECTION" else "PROTECCIÓN"
+                                        MainTab.PROTECTION -> if (language.isEnglish()) "PROTECTION" else "PROTECCIÓN"
                                         MainTab.RULES -> tr(context,"rules")
                                         MainTab.IP_PORTS -> tr(context,"ip_ports")
                                         MainTab.CONNECTIONS -> tr(context,"connections")
-                                        MainTab.ANALYZER -> if (language == AppLanguage.EN) "ANALYZER" else "ANALIZADOR"
+                                        MainTab.ANALYZER -> if (language.isEnglish()) "ANALYZER" else "ANALIZADOR"
                                         MainTab.STATS -> tr(context,"stats")
                                         MainTab.PROFILES -> tr(context,"profiles")
-                                        MainTab.SECURITY -> if (language == AppLanguage.EN) "SECURITY" else "SEGURIDAD"
-                                        MainTab.SELFTEST -> if (language == AppLanguage.EN) "TEST" else "PRUEBA"
+                                        MainTab.SECURITY -> if (language.isEnglish()) "SECURITY" else "SEGURIDAD"
+                                        MainTab.SELFTEST -> if (language.isEnglish()) "TEST" else "PRUEBA"
                                         MainTab.SETTINGS -> tr(context,"settings")
                                         MainTab.HELP -> tr(context,"help")
                                         MainTab.ABOUT -> tr(context,"about")
@@ -460,7 +460,7 @@ fun FirewallScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (AppSettings(context).language == AppLanguage.EN) "← more tabs →" else "← más pestañas →",
+                        if (AppSettings(context).language.isEnglish()) "← more tabs →" else "← más pestañas →",
                         fontSize = 9.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -540,14 +540,14 @@ fun FirewallScreen(
                             HydraHorizontalRow(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
                                 HydraChoiceButton(
                                     rulesSubTab == 0,
-                                    if (language == AppLanguage.EN) "APPS" else "APLICACIONES",
+                                    if (language.isEnglish()) "APPS" else "APLICACIONES",
                                     Color(0xFFE3D0FF), Color(0xFF241A34),
                                     onClick = { rulesSubTab = 0 }, modifier = Modifier.height(26.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 HydraChoiceButton(
                                     rulesSubTab == 1,
-                                    if (language == AppLanguage.EN) "DOMAINS" else "DOMINIOS",
+                                    if (language.isEnglish()) "DOMAINS" else "DOMINIOS",
                                     Color(0xFFE3D0FF), Color(0xFF241A34),
                                     onClick = { rulesSubTab = 1 }, modifier = Modifier.height(26.dp)
                                 )
@@ -597,7 +597,7 @@ fun FirewallScreen(
                             )
                             Spacer(Modifier.height(2.dp))
                             if (advancedMode) Text(
-                                if (language == AppLanguage.EN)
+                                if (language.isEnglish())
                                     "Apps de confianza: when enabled, apps installed from Google Play or platform-signed system apps can be auto-allowed. New ordinary apps still prompt when this is off."
                                 else
                                     "Apps de confianza: activado permite autorizar automáticamente apps instaladas desde Google Play o apps de sistema firmadas por la plataforma. Con el interruptor apagado, las apps nuevas preguntan."
@@ -610,7 +610,7 @@ fun FirewallScreen(
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.USER,
-                                    label = if(language==AppLanguage.EN) "User" else "Usuario",
+                                    label = if(language.isEnglish()) "User" else "Usuario",
                                     selectedColor = Color(0xFF2D79B7),
                                     selectedLabelColor = Color.White,
                                     onClick = { appListFilter = if (appListFilter == AppListFilter.USER) AppListFilter.ALL else AppListFilter.USER },
@@ -638,7 +638,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.SYSTEM,
-                                    label = if(language==AppLanguage.EN) "System" else "Sistema",
+                                    label = if(language.isEnglish()) "System" else "Sistema",
                                     selectedColor = Color(0xFF8B6B00),
                                     selectedLabelColor = Color(0xFFFFF4B0),
                                     unselectedLabelColor = Color(0xFF856600),
@@ -659,7 +659,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.HIGH_ACTIVITY,
-                                    label = if (language == AppLanguage.EN) "Active" else "Activas",
+                                    label = if (language.isEnglish()) "Active" else "Activas",
                                     selectedColor = Color(0xFF1E659B),
                                     selectedLabelColor = Color(0xFFD6F1FF),
                                     unselectedLabelColor = Color(0xFF1E659B),
@@ -669,7 +669,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = trustedAppsEnabled,
-                                    label = if (language == AppLanguage.EN) "Trusted ✓" else "Confianza ✓",
+                                    label = if (language.isEnglish()) "Trusted ✓" else "Confianza ✓",
                                     selectedColor = Color(0xFF2E8B57),
                                     selectedLabelColor = Color.White,
                                     unselectedLabelColor = Color(0xFF2E8B57),
@@ -729,7 +729,7 @@ fun FirewallScreen(
                                     CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
                                     Spacer(Modifier.height(10.dp))
                                     Text(
-                                        if (language == AppLanguage.EN) "Loading applications…" else "Cargando aplicaciones…",
+                                        if (language.isEnglish()) "Loading applications…" else "Cargando aplicaciones…",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -753,19 +753,19 @@ fun FirewallScreen(
                                             val mobileAfter = if (!explicitRule) (checked || effectiveMobile) else effectiveMobile
                                             if (!explicitRule) ruleStore.setMobileAllowed(app.uid, mobileAfter)
                                             ruleStore.setWifiAllowed(app.uid, checked); ruleVersion++; notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), checked, mobileAfter, true, trustedAutoAllowed, settingsStore.language == AppLanguage.EN), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), checked, mobileAfter, true, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         { checked ->
                                             val wifiAfter = if (!explicitRule) (checked || effectiveWifi) else effectiveWifi
                                             if (!explicitRule) ruleStore.setWifiAllowed(app.uid, wifiAfter)
                                             ruleStore.setMobileAllowed(app.uid, checked); ruleVersion++; notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), wifiAfter, checked, true, trustedAutoAllowed, settingsStore.language == AppLanguage.EN), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), wifiAfter, checked, true, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         {
                                             AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.NORMAL)
                                             ruleVersion++
                                             notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.NORMAL, effectiveWifi, effectiveMobile, explicitRule, trustedAutoAllowed, settingsStore.language == AppLanguage.EN), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.NORMAL, effectiveWifi, effectiveMobile, explicitRule, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         {
                                             // Selecting ESENCIAL here is an explicit user grant.
@@ -782,7 +782,7 @@ fun FirewallScreen(
                                             AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.ESSENTIAL)
                                             ruleVersion++
                                             notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.ESSENTIAL, targetWifi, targetMobile, true, false, settingsStore.language == AppLanguage.EN), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.ESSENTIAL, targetWifi, targetMobile, true, false, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         { favoritesStore.toggle(app.uid); ruleVersion++ },
                                         { selectedCustomApp = app },
@@ -797,7 +797,7 @@ fun FirewallScreen(
                                             val targetWifi = if (target == AppCompatibilityMode.NORMAL) rule.wifiAllowed else false
                                             val targetMobile = if (target == AppCompatibilityMode.NORMAL) rule.mobileAllowed else false
                                             val targetExplicit = if (target == AppCompatibilityMode.NORMAL) explicitRule else false
-                                            val targetSummary = describeAppPolicy(target, targetWifi, targetMobile, targetExplicit, false, settingsStore.language == AppLanguage.EN)
+                                            val targetSummary = describeAppPolicy(target, targetWifi, targetMobile, targetExplicit, false, settingsStore.language.isEnglish())
                                             android.widget.Toast.makeText(context, targetSummary, android.widget.Toast.LENGTH_SHORT).show()
                                         })
                                     HorizontalDivider()
@@ -805,7 +805,7 @@ fun FirewallScreen(
                             }
                                 if (rulesListState.canScrollForward) {
                                     Text(
-                                        if (language == AppLanguage.EN) "▼ more below" else "▼ hay más abajo",
+                                        if (language.isEnglish()) "▼ more below" else "▼ hay más abajo",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimary,
@@ -820,7 +820,7 @@ fun FirewallScreen(
                             else {
                                 DomainRulesPanel(
                                     context = context,
-                                    english = language == AppLanguage.EN,
+                                    english = language.isEnglish(),
                                     version = refreshTrigger + rulesSubTab,
                                     onChanged = {
                                         ruleVersion++
@@ -838,8 +838,8 @@ fun FirewallScreen(
                                 HydraChoiceButton(networkRuleSubTab == 1, "PUERTOS", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 1 }, modifier = Modifier.height(30.dp))
                             }
                             when (networkRuleSubTab) {
-                                0 -> IpRulesPanel(context, language == AppLanguage.EN, ipBlockStore, ipVersion, { ipVersion++; notifyRulesChanged(context) })
-                                else -> PortRulesPanel(context, language == AppLanguage.EN, apps, advancedRuleStore, advancedVersion, { advancedVersion++; notifyRulesChanged(context) })
+                                0 -> IpRulesPanel(context, language.isEnglish(), ipBlockStore, ipVersion, { ipVersion++; notifyRulesChanged(context) })
+                                else -> PortRulesPanel(context, language.isEnglish(), apps, advancedRuleStore, advancedVersion, { advancedVersion++; notifyRulesChanged(context) })
                             }
                         }
                     }
@@ -853,9 +853,9 @@ fun FirewallScreen(
                             Spacer(Modifier.height(4.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    HydraChoiceButton(groupedHistory, if (language == AppLanguage.EN) "Grouped" else "Agrupado", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = true }, modifier = Modifier.height(30.dp))
+                                    HydraChoiceButton(groupedHistory, if (language.isEnglish()) "Grouped" else "Agrupado", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = true }, modifier = Modifier.height(30.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    HydraChoiceButton(!groupedHistory, if (language == AppLanguage.EN) "Detail" else "Detalle", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = false }, modifier = Modifier.height(30.dp))
+                                    HydraChoiceButton(!groupedHistory, if (language.isEnglish()) "Detail" else "Detalle", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = false }, modifier = Modifier.height(30.dp))
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton({ ConnectionHistory.clear(); history = emptyList() }) { Text(tr(context,"clear")) }
@@ -893,18 +893,18 @@ fun FirewallScreen(
                                         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                                             Text(g.last.packageName ?: "UID ${g.last.uid}", style = MaterialTheme.typography.titleSmall)
                                             Text("${g.last.protocol} • ${g.last.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                                            Text("${g.count} eventos • ${if (language == AppLanguage.EN) "allowed" else "permitidos"}: ${g.allowed} • ${if (language == AppLanguage.EN) "blocked" else "bloqueados"}: ${g.blocked}", style = MaterialTheme.typography.bodySmall)
+                                            Text("${g.count} eventos • ${if (language.isEnglish()) "allowed" else "permitidos"}: ${g.allowed} • ${if (language.isEnglish()) "blocked" else "bloqueados"}: ${g.blocked}", style = MaterialTheme.typography.bodySmall)
                                             Text(g.last.time, style = MaterialTheme.typography.labelSmall)
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                                TextButton({ selectedHistoryDetail = g.last }) { Text(if (language == AppLanguage.EN) "Details" else "Detalles") }
+                                                TextButton({ selectedHistoryDetail = g.last }) { Text(if (language.isEnglish()) "Details" else "Detalles") }
                                                 val groupedIpBlocked = host.isNotBlank() && ipBlockStore.isBlocked(host)
                                                 val groupedIpException = host.isNotBlank() && ipBlockStore.isAllowedForUid(g.last.uid, host)
                                                 val groupedHasBlockedEvents = g.blocked > 0
                                                 val groupedAction = when {
-                                                    groupedIpBlocked -> if (language == AppLanguage.EN) "UNBLOCK IP" else "DESBLOQUEAR IP"
-                                                    groupedIpException -> if (language == AppLanguage.EN) "REMOVE IP ALLOW" else "QUITAR PERMISO IP"
-                                                    groupedHasBlockedEvents -> if (language == AppLanguage.EN) "ALLOW IP" else "PERMITIR IP"
-                                                    else -> if (language == AppLanguage.EN) "BLOCK IP" else "BLOQUEAR IP"
+                                                    groupedIpBlocked -> if (language.isEnglish()) "UNBLOCK IP" else "DESBLOQUEAR IP"
+                                                    groupedIpException -> if (language.isEnglish()) "REMOVE IP ALLOW" else "QUITAR PERMISO IP"
+                                                    groupedHasBlockedEvents -> if (language.isEnglish()) "ALLOW IP" else "PERMITIR IP"
+                                                    else -> if (language.isEnglish()) "BLOCK IP" else "BLOQUEAR IP"
                                                 }
                                                 Button(
                                                     onClick = {
@@ -955,19 +955,19 @@ fun FirewallScreen(
                                             Text("Dominio: ${domain ?: tr(context,"domain_unavailable")}", style = MaterialTheme.typography.bodySmall)
                                             if (item.repeatCount > 1) {
                                                 Text(
-                                                    if (language == AppLanguage.EN) "Repeated attempts: ${item.repeatCount}" else "Intentos repetidos: ${item.repeatCount}",
+                                                    if (language.isEnglish()) "Repeated attempts: ${item.repeatCount}" else "Intentos repetidos: ${item.repeatCount}",
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
                                             }
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                                TextButton({ selectedHistoryDetail = item }) { Text(if (language == AppLanguage.EN) "Details" else "Detalles") }
+                                                TextButton({ selectedHistoryDetail = item }) { Text(if (language.isEnglish()) "Details" else "Detalles") }
                                                 val ipException = host.isNotBlank() && ipBlockStore.isAllowedForUid(item.uid, host)
                                                 val hasBlockedEvent = !item.allowed
                                                 val ipAction = when {
-                                                    isBlocked -> if (language == AppLanguage.EN) "UNBLOCK IP" else "DESBLOQUEAR IP"
-                                                    ipException -> if (language == AppLanguage.EN) "REMOVE IP ALLOW" else "QUITAR PERMISO IP"
-                                                    hasBlockedEvent -> if (language == AppLanguage.EN) "ALLOW IP" else "PERMITIR IP"
-                                                    else -> if (language == AppLanguage.EN) "BLOCK IP" else "BLOQUEAR IP"
+                                                    isBlocked -> if (language.isEnglish()) "UNBLOCK IP" else "DESBLOQUEAR IP"
+                                                    ipException -> if (language.isEnglish()) "REMOVE IP ALLOW" else "QUITAR PERMISO IP"
+                                                    hasBlockedEvent -> if (language.isEnglish()) "ALLOW IP" else "PERMITIR IP"
+                                                    else -> if (language.isEnglish()) "BLOCK IP" else "BLOQUEAR IP"
                                                 }
                                                 Button(
                                                     onClick = {
@@ -1001,7 +1001,7 @@ fun FirewallScreen(
                                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                                 ) { Text(ipAction, fontSize = 10.sp) }
                                                 if (isBlocked) {
-                                                    TextButton({ ipBlockStore.remove(host); notifyRulesChanged(context); ipVersion++ }) { Text(if (language == AppLanguage.EN) "UNBLOCK" else "DESBLOQUEAR") }
+                                                    TextButton({ ipBlockStore.remove(host); notifyRulesChanged(context); ipVersion++ }) { Text(if (language.isEnglish()) "UNBLOCK" else "DESBLOQUEAR") }
                                                 }
                                             }
                                         }
@@ -1020,33 +1020,33 @@ fun FirewallScreen(
             titleContentColor = hydraDialogColors().second,
             textContentColor = hydraDialogColors().third,
                                 onDismissRequest = { selectedHistoryDetail = null },
-                                title = { Text(if (language == AppLanguage.EN) "Connection details" else "Detalles de conexión", color = hydraDialogColors().second) },
+                                title = { Text(if (language.isEnglish()) "Connection details" else "Detalles de conexión", color = hydraDialogColors().second) },
                                 text = {
                                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                         Text("${record.packageName ?: "UID ${record.uid}"}", style = MaterialTheme.typography.titleSmall)
                                         Text("${record.protocol} • ${record.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                                        Text("${if (record.allowed) (if (language == AppLanguage.EN) "Allowed" else "Permitido") else (if (language == AppLanguage.EN) "Blocked" else "Bloqueado")}", style = MaterialTheme.typography.bodySmall)
+                                        Text("${if (record.allowed) (if (language.isEnglish()) "Allowed" else "Permitido") else (if (language.isEnglish()) "Blocked" else "Bloqueado")}", style = MaterialTheme.typography.bodySmall)
                                         if (record.repeatCount > 1) {
                                             Text(
-                                                if (language == AppLanguage.EN) "Repeated attempts: ${record.repeatCount}" else "Intentos repetidos: ${record.repeatCount}",
+                                                if (language.isEnglish()) "Repeated attempts: ${record.repeatCount}" else "Intentos repetidos: ${record.repeatCount}",
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
                                         Text(
                                             if (record.allowed) {
-                                                if (language == AppLanguage.EN) "Reason: allowed by current policy" else "Motivo: permitido por la política actual"
+                                                if (language.isEnglish()) "Reason: allowed by current policy" else "Motivo: permitido por la política actual"
                                             } else {
-                                                if (isIpBlocked) "${if (language == AppLanguage.EN) "Reason: IP block" else "Motivo: bloqueo IP"}"
-                                                else if (matches.any { !it.allowed }) "${if (language == AppLanguage.EN) "Reason: port rule" else "Motivo: regla de puerto"}"
-                                                else if (ruleStore.getSchedule(record.uid).enabled && RuleEngine(ruleStore, context).isScheduleBlocked(record.uid)) "${if (language == AppLanguage.EN) "Reason: schedule" else "Motivo: horario"}"
-                                                else if (!ruleStore.allowLocalNetwork && host.isNotBlank()) "${if (language == AppLanguage.EN) "Reason: local-network policy" else "Motivo: política de red local"}"
-                                                else "${if (language == AppLanguage.EN) "Reason: application/network rule" else "Motivo: regla de aplicación/red"}"
+                                                if (isIpBlocked) "${if (language.isEnglish()) "Reason: IP block" else "Motivo: bloqueo IP"}"
+                                                else if (matches.any { !it.allowed }) "${if (language.isEnglish()) "Reason: port rule" else "Motivo: regla de puerto"}"
+                                                else if (ruleStore.getSchedule(record.uid).enabled && RuleEngine(ruleStore, context).isScheduleBlocked(record.uid)) "${if (language.isEnglish()) "Reason: schedule" else "Motivo: horario"}"
+                                                else if (!ruleStore.allowLocalNetwork && host.isNotBlank()) "${if (language.isEnglish()) "Reason: local-network policy" else "Motivo: política de red local"}"
+                                                else "${if (language.isEnglish()) "Reason: application/network rule" else "Motivo: regla de aplicación/red"}"
                                             },
                                             style = MaterialTheme.typography.bodySmall
                                         )
                                         val isIpException = host.isNotBlank() && ipBlockStore.isAllowedForUid(record.uid, host)
                                         Text(
-                                            if (language == AppLanguage.EN) {
+                                            if (language.isEnglish()) {
                                                 "IP rule: ${when { isIpBlocked -> "BLOCKED"; isIpException -> "ALLOWED FOR THIS UID"; else -> "not blocked" }}"
                                             } else {
                                                 "Regla IP: ${when { isIpBlocked -> "BLOQUEADA"; isIpException -> "PERMITIDA PARA ESTE UID"; else -> "no bloqueada" }}"
@@ -1060,30 +1060,30 @@ fun FirewallScreen(
                                                 allowed = record.allowed, firstConnection = record.event == "FIRST-SEEN", repeatCount = record.repeatCount
                                             )
                                         }
-                                        ConnectionWhyBlock(whyReasons, language == AppLanguage.EN)
+                                        ConnectionWhyBlock(whyReasons, language.isEnglish())
                                         Spacer(Modifier.height(5.dp))
-                                        Text(if (language == AppLanguage.EN) "Matching port rules" else "Reglas de puerto coincidentes", style = MaterialTheme.typography.titleSmall)
+                                        Text(if (language.isEnglish()) "Matching port rules" else "Reglas de puerto coincidentes", style = MaterialTheme.typography.titleSmall)
                                         if (matches.isEmpty()) {
-                                            Text(if (language == AppLanguage.EN) "No explicit port rule matches this connection." else "No hay una regla de puerto explícita que coincida con esta conexión.", style = MaterialTheme.typography.bodySmall)
+                                            Text(if (language.isEnglish()) "No explicit port rule matches this connection." else "No hay una regla de puerto explícita que coincida con esta conexión.", style = MaterialTheme.typography.bodySmall)
                                         } else {
                                             matches.forEach { rule ->
                                                 Card(Modifier.fillMaxWidth()) {
                                                     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                                         Column(Modifier.weight(1f)) {
                                                             Text("${rule.protocol} ${rule.startPort}${if (rule.endPort != rule.startPort) "-${rule.endPort}" else ""}", fontFamily = FontFamily.Monospace)
-                                                            Text(if (rule.allowed) (if (language == AppLanguage.EN) "ALLOW" else "PERMITIR") else (if (language == AppLanguage.EN) "BLOCK" else "BLOQUEAR"), style = MaterialTheme.typography.bodySmall)
+                                                            Text(if (rule.allowed) (if (language.isEnglish()) "ALLOW" else "PERMITIR") else (if (language.isEnglish()) "BLOCK" else "BLOQUEAR"), style = MaterialTheme.typography.bodySmall)
                                                         }
-                                                        TextButton({ advancedRuleStore.remove(rule); advancedVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language == AppLanguage.EN) "Delete" else "Eliminar") }
+                                                        TextButton({ advancedRuleStore.remove(rule); advancedVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Delete" else "Eliminar") }
                                                     }
                                                 }
                                             }
                                         }
                                         Spacer(Modifier.height(4.dp))
                                         when {
-                                            isIpBlocked -> TextButton({ ipBlockStore.remove(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language == AppLanguage.EN) "Unblock IP" else "Desbloquear IP") }
-                                            isIpException -> TextButton({ ipBlockStore.removeAllowedForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language == AppLanguage.EN) "Remove IP allow" else "Quitar permiso IP") }
-                                            !record.allowed -> TextButton({ ipBlockStore.allowForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language == AppLanguage.EN) "Allow this IP for this app" else "Permitir esta IP para esta app") }
-                                            else -> TextButton({ ipBlockStore.add(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language == AppLanguage.EN) "Block IP" else "Bloquear IP") }
+                                            isIpBlocked -> TextButton({ ipBlockStore.remove(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Unblock IP" else "Desbloquear IP") }
+                                            isIpException -> TextButton({ ipBlockStore.removeAllowedForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Remove IP allow" else "Quitar permiso IP") }
+                                            !record.allowed -> TextButton({ ipBlockStore.allowForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Allow this IP for this app" else "Permitir esta IP para esta app") }
+                                            else -> TextButton({ ipBlockStore.add(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Block IP" else "Bloquear IP") }
                                         }
                                     }
                                 },
@@ -1108,7 +1108,7 @@ fun FirewallScreen(
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
                                         Text(
-                                            if (language == AppLanguage.EN) "Ads / tracker blocks today" else "Bloqueos de anuncios / rastreadores hoy",
+                                            if (language.isEnglish()) "Ads / tracker blocks today" else "Bloqueos de anuncios / rastreadores hoy",
                                             style = MaterialTheme.typography.titleSmall
                                         )
                                         Text(
@@ -1117,7 +1117,7 @@ fun FirewallScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            if (language == AppLanguage.EN)
+                                            if (language.isEnglish())
                                                 "Blocklist matches intercepted by DNS and HTTPS/SNI. The list also includes malware domains."
                                             else
                                                 "Coincidencias de la blocklist interceptadas por DNS y HTTPS/SNI. La lista también incluye dominios de malware.",
@@ -1136,7 +1136,7 @@ fun FirewallScreen(
                                 TrafficUsageChart(stats)
                             }
                             item {
-                                AppUsageCard(language == AppLanguage.EN, stats)
+                                AppUsageCard(language.isEnglish(), stats)
                                 HorizontalDivider()
                             }
                             item {
@@ -1145,9 +1145,9 @@ fun FirewallScreen(
                                 val networkSummary = history.groupingBy { it.network.displayName }.eachCount()
                                 val ipv4Count = history.count { !extractHost(it.destination).contains(":") }
                                 val ipv6Count = history.count { extractHost(it.destination).contains(":") }
-                                Text(if (language == AppLanguage.EN) "Today" else "Hoy", style = MaterialTheme.typography.titleSmall)
+                                Text(if (language.isEnglish()) "Today" else "Hoy", style = MaterialTheme.typography.titleSmall)
                                 val today = daily.firstOrNull()
-                                Text(if (language == AppLanguage.EN) "Allowed ${formatBytes(today?.allowed ?: trafficTotals.allowedBytes)} · Blocked ${formatBytes(today?.blocked ?: trafficTotals.blockedBytes)}" else "Permitido ${formatBytes(today?.allowed ?: trafficTotals.allowedBytes)} · Bloqueado ${formatBytes(today?.blocked ?: trafficTotals.blockedBytes)}", style = MaterialTheme.typography.bodySmall)
+                                Text(if (language.isEnglish()) "Allowed ${formatBytes(today?.allowed ?: trafficTotals.allowedBytes)} · Blocked ${formatBytes(today?.blocked ?: trafficTotals.blockedBytes)}" else "Permitido ${formatBytes(today?.allowed ?: trafficTotals.allowedBytes)} · Bloqueado ${formatBytes(today?.blocked ?: trafficTotals.blockedBytes)}", style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.height(4.dp))
                                 HydraHorizontalRow(Modifier.fillMaxWidth().height(34.dp)) {
                                     AssistChip(onClick = {}, label = { Text("IPv4 $ipv4Count") }); Spacer(Modifier.width(5.dp))
@@ -1158,7 +1158,7 @@ fun FirewallScreen(
                             }
                             item {
                                 val daily = DailyTrafficStore.lastDays(7)
-                                Text(if (language == AppLanguage.EN) "Last 7 days" else "Últimos 7 días", style = MaterialTheme.typography.titleSmall)
+                                Text(if (language.isEnglish()) "Last 7 days" else "Últimos 7 días", style = MaterialTheme.typography.titleSmall)
                                 daily.forEach { day ->
                                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(day.key, style = MaterialTheme.typography.labelSmall)
@@ -1172,11 +1172,11 @@ fun FirewallScreen(
                                     .sortedByDescending { it.second }
                                     .take(8)
                                 if (learningMode && destinationSummary.isNotEmpty()) {
-                                    Text(if (language == AppLanguage.EN) "Learning suggestions" else "Sugerencias de aprendizaje", style = MaterialTheme.typography.titleSmall)
-                                    Text(if (language == AppLanguage.EN) "Review these frequent destinations before creating permanent IP or port rules." else "Revisá estos destinos frecuentes antes de crear reglas IP o de puertos permanentes.", style = MaterialTheme.typography.bodySmall)
+                                    Text(if (language.isEnglish()) "Learning suggestions" else "Sugerencias de aprendizaje", style = MaterialTheme.typography.titleSmall)
+                                    Text(if (language.isEnglish()) "Review these frequent destinations before creating permanent IP or port rules." else "Revisá estos destinos frecuentes antes de crear reglas IP o de puertos permanentes.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 if (destinationSummary.isNotEmpty()) {
-                                    Text(if (language == AppLanguage.EN) "Most active destinations" else "Destinos más activos", style = MaterialTheme.typography.titleSmall)
+                                    Text(if (language.isEnglish()) "Most active destinations" else "Destinos más activos", style = MaterialTheme.typography.titleSmall)
                                     destinationSummary.forEach { (destination, count) ->
                                         Row(Modifier.fillMaxWidth().heightIn(min = 70.dp).padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("${serviceLabel(destination)}  $destination", fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.weight(1f))
@@ -1188,7 +1188,7 @@ fun FirewallScreen(
                             item {
                                 val portSummary = history.groupBy { extractPort(it.destination) }.filterKeys { it >= 0 }.map { (port,count) -> port to count.size }.sortedByDescending { it.second }.take(8)
                                 if (portSummary.isNotEmpty()) {
-                                    Text(if (language == AppLanguage.EN) "Most used ports" else "Puertos más usados", style=MaterialTheme.typography.titleSmall)
+                                    Text(if (language.isEnglish()) "Most used ports" else "Puertos más usados", style=MaterialTheme.typography.titleSmall)
                                     portSummary.forEach { (port,count) -> Row(Modifier.fillMaxWidth().padding(vertical=2.dp), horizontalArrangement=Arrangement.SpaceBetween) { Text("${serviceLabelForPort(port)}  $port", fontFamily=FontFamily.Monospace, fontSize=11.sp); Text(count.toString(), style=MaterialTheme.typography.labelSmall) } }
                                 }
                             }
@@ -1212,13 +1212,13 @@ fun FirewallScreen(
                         val loadedProfileName = names.firstOrNull { profilesStore.load(it) == currentSnapshot }
                         val currentSummary = runCatching { profileSummary(currentSnapshot) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: "UID $uid" } }.getOrNull()
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-                            Text(if (language == AppLanguage.EN) "Profiles" else "Perfiles", style = MaterialTheme.typography.titleMedium)
-                            Text(if (language == AppLanguage.EN) "Save and restore the complete firewall configuration. Each profile shows what it will allow and block." else "Guardá y restaurá la configuración completa. Cada perfil muestra qué va a permitir y bloquear.", style = MaterialTheme.typography.bodySmall)
+                            Text(if (language.isEnglish()) "Profiles" else "Perfiles", style = MaterialTheme.typography.titleMedium)
+                            Text(if (language.isEnglish()) "Save and restore the complete firewall configuration. Each profile shows what it will allow and block." else "Guardá y restaurá la configuración completa. Cada perfil muestra qué va a permitir y bloquear.", style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(8.dp))
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(profileName, { profileName = it }, Modifier.weight(1f), singleLine = true, label = { Text(if (language == AppLanguage.EN) "Profile name" else "Nombre del perfil") })
+                                OutlinedTextField(profileName, { profileName = it }, Modifier.weight(1f), singleLine = true, label = { Text(if (language.isEnglish()) "Profile name" else "Nombre del perfil") })
                                 Spacer(Modifier.width(8.dp))
-                                Button({ val n=profileName.trim(); if(n.isNotEmpty()){ profilesStore.save(n, exportRuleSnapshot(ruleStore, advancedRuleStore)); profileName=""; profileVersion++ } }) { Text(if (language == AppLanguage.EN) "Save" else "Guardar") }
+                                Button({ val n=profileName.trim(); if(n.isNotEmpty()){ profilesStore.save(n, exportRuleSnapshot(ruleStore, advancedRuleStore)); profileName=""; profileVersion++ } }) { Text(if (language.isEnglish()) "Save" else "Guardar") }
                             }
                             Spacer(Modifier.height(10.dp))
                             Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -1228,16 +1228,16 @@ fun FirewallScreen(
                                         Spacer(Modifier.width(8.dp))
                                         Text(
                                             if (loadedProfileName != null) {
-                                                if (language == AppLanguage.EN) "Loaded profile: $loadedProfileName" else "Perfil cargado: $loadedProfileName"
+                                                if (language.isEnglish()) "Loaded profile: $loadedProfileName" else "Perfil cargado: $loadedProfileName"
                                             } else {
-                                                if (language == AppLanguage.EN) "Current configuration — not saved in a profile" else "Configuración actual — no guardada en un perfil"
+                                                if (language.isEnglish()) "Current configuration — not saved in a profile" else "Configuración actual — no guardada en un perfil"
                                             },
                                             style = MaterialTheme.typography.titleSmall
                                         )
                                     }
                                     if (currentSummary != null) {
                                         Text(
-                                            if (language == AppLanguage.EN) "Apps ${currentSummary.appRuleCount} • Wi-Fi blocked ${currentSummary.wifiBlockedCount} • Mobile blocked ${currentSummary.mobileBlockedCount} • Schedules ${currentSummary.scheduleCount} • Advanced ${currentSummary.advancedRuleCount}"
+                                            if (language.isEnglish()) "Apps ${currentSummary.appRuleCount} • Wi-Fi blocked ${currentSummary.wifiBlockedCount} • Mobile blocked ${currentSummary.mobileBlockedCount} • Schedules ${currentSummary.scheduleCount} • Advanced ${currentSummary.advancedRuleCount}"
                                             else "Apps ${currentSummary.appRuleCount} • Wi-Fi bloqueadas ${currentSummary.wifiBlockedCount} • Móvil bloqueadas ${currentSummary.mobileBlockedCount} • Horarios ${currentSummary.scheduleCount} • Avanzadas ${currentSummary.advancedRuleCount}",
                                             style = MaterialTheme.typography.bodySmall
                                         )
@@ -1249,13 +1249,13 @@ fun FirewallScreen(
                                             advancedVersion++
                                             profileVersion++
                                             notifyRulesChanged(context)
-                                        }) { Text(if (language == AppLanguage.EN) "Reset rules" else "Restablecer reglas") }
+                                        }) { Text(if (language.isEnglish()) "Reset rules" else "Restablecer reglas") }
                                     }
                                 }
                             }
                             Spacer(Modifier.height(8.dp))
                             if (names.isEmpty()) {
-                                Text(if (language == AppLanguage.EN) "No saved profiles yet." else "Todavía no hay perfiles guardados.", style=MaterialTheme.typography.bodySmall)
+                                Text(if (language.isEnglish()) "No saved profiles yet." else "Todavía no hay perfiles guardados.", style=MaterialTheme.typography.bodySmall)
                             } else {
                                 names.forEach { name ->
                                     val snapshot = profilesStore.load(name)
@@ -1269,17 +1269,17 @@ fun FirewallScreen(
                                                 Text(name, style = MaterialTheme.typography.titleSmall)
                                                 if (isLoaded) {
                                                     Spacer(Modifier.width(6.dp))
-                                                    Text(if(language==AppLanguage.EN) "LOADED" else "CARGADO", style=MaterialTheme.typography.labelSmall)
+                                                    Text(if(language.isEnglish()) "LOADED" else "CARGADO", style=MaterialTheme.typography.labelSmall)
                                                 }
                                             }
                                             if (summary != null) {
-                                                Text("${if(language==AppLanguage.EN) "Policy" else "Política"}: ${summary.policyMode}", style=MaterialTheme.typography.bodySmall)
-                                                Text(if(language==AppLanguage.EN) "Apps ${summary.appRuleCount} • Wi-Fi blocked ${summary.wifiBlockedCount} • Mobile blocked ${summary.mobileBlockedCount} • Schedules ${summary.scheduleCount}" else "Apps ${summary.appRuleCount} • Wi-Fi bloqueadas ${summary.wifiBlockedCount} • Móvil bloqueadas ${summary.mobileBlockedCount} • Horarios ${summary.scheduleCount}", style=MaterialTheme.typography.bodySmall)
-                                                Text(if(language==AppLanguage.EN) "Advanced ${summary.advancedRuleCount}: ${summary.advancedBlockCount} block / ${summary.advancedAllowCount} allow" else "Avanzadas ${summary.advancedRuleCount}: ${summary.advancedBlockCount} bloqueadas / ${summary.advancedAllowCount} permitidas", style=MaterialTheme.typography.bodySmall)
+                                                Text("${if(language.isEnglish()) "Policy" else "Política"}: ${summary.policyMode}", style=MaterialTheme.typography.bodySmall)
+                                                Text(if(language.isEnglish()) "Apps ${summary.appRuleCount} • Wi-Fi blocked ${summary.wifiBlockedCount} • Mobile blocked ${summary.mobileBlockedCount} • Schedules ${summary.scheduleCount}" else "Apps ${summary.appRuleCount} • Wi-Fi bloqueadas ${summary.wifiBlockedCount} • Móvil bloqueadas ${summary.mobileBlockedCount} • Horarios ${summary.scheduleCount}", style=MaterialTheme.typography.bodySmall)
+                                                Text(if(language.isEnglish()) "Advanced ${summary.advancedRuleCount}: ${summary.advancedBlockCount} block / ${summary.advancedAllowCount} allow" else "Avanzadas ${summary.advancedRuleCount}: ${summary.advancedBlockCount} bloqueadas / ${summary.advancedAllowCount} permitidas", style=MaterialTheme.typography.bodySmall)
                                             }
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.End) {
-                                                TextButton({ selectedProfileForDetails=name }) { Text(if(language==AppLanguage.EN) "Details" else "Detalles") }
-                                                TextButton({ snapshot?.let { runCatching { importRuleSnapshot(ruleStore, advancedRuleStore, it); ruleVersion++; advancedVersion++; notifyRulesChanged(context) } } }) { Text(if(language==AppLanguage.EN) "Apply" else "Aplicar") }
+                                                TextButton({ selectedProfileForDetails=name }) { Text(if(language.isEnglish()) "Details" else "Detalles") }
+                                                TextButton({ snapshot?.let { runCatching { importRuleSnapshot(ruleStore, advancedRuleStore, it); ruleVersion++; advancedVersion++; notifyRulesChanged(context) } } }) { Text(if(language.isEnglish()) "Apply" else "Aplicar") }
                                                 TextButton({ profilesStore.delete(name); profileVersion++ }) { Text(tr(context,"remove")) }
                                             }
                                         }
@@ -1287,7 +1287,7 @@ fun FirewallScreen(
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
-                            ConfigTransferCard(context, language == AppLanguage.EN) {
+                            ConfigTransferCard(context, language.isEnglish()) {
                                 ruleVersion++; advancedVersion++; profileVersion++; ipVersion++; refreshTrigger++
                             }
                         }
@@ -1299,15 +1299,15 @@ fun FirewallScreen(
                                 title={Text(name)},
                                 text={
                                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                                        Text("${if(language==AppLanguage.EN) "Policy" else "Política"}: ${summary.policyMode}")
-                                        Text(if(language==AppLanguage.EN) "Default Wi-Fi: ${if(summary.defaultWifiAllowed) "ALLOW" else "BLOCK"}" else "Wi-Fi predeterminado: ${if(summary.defaultWifiAllowed) "PERMITIR" else "BLOQUEAR"}")
-                                        Text(if(language==AppLanguage.EN) "Default mobile: ${if(summary.defaultMobileAllowed) "ALLOW" else "BLOCK"}" else "Móvil predeterminado: ${if(summary.defaultMobileAllowed) "PERMITIR" else "BLOQUEAR"}")
+                                        Text("${if(language.isEnglish()) "Policy" else "Política"}: ${summary.policyMode}")
+                                        Text(if(language.isEnglish()) "Default Wi-Fi: ${if(summary.defaultWifiAllowed) "ALLOW" else "BLOCK"}" else "Wi-Fi predeterminado: ${if(summary.defaultWifiAllowed) "PERMITIR" else "BLOQUEAR"}")
+                                        Text(if(language.isEnglish()) "Default mobile: ${if(summary.defaultMobileAllowed) "ALLOW" else "BLOCK"}" else "Móvil predeterminado: ${if(summary.defaultMobileAllowed) "PERMITIR" else "BLOQUEAR"}")
                                         Spacer(Modifier.height(8.dp))
-                                        Text(if(language==AppLanguage.EN) "Per-app rules" else "Reglas por aplicación", style=MaterialTheme.typography.titleSmall)
-                                        Text(if(language==AppLanguage.EN) "${summary.appRuleCount} app rules • ${summary.wifiBlockedCount} Wi-Fi blocked • ${summary.mobileBlockedCount} mobile blocked • ${summary.scheduleCount} schedules" else "${summary.appRuleCount} reglas de apps • ${summary.wifiBlockedCount} Wi-Fi bloqueadas • ${summary.mobileBlockedCount} móvil bloqueadas • ${summary.scheduleCount} horarios")
+                                        Text(if(language.isEnglish()) "Per-app rules" else "Reglas por aplicación", style=MaterialTheme.typography.titleSmall)
+                                        Text(if(language.isEnglish()) "${summary.appRuleCount} app rules • ${summary.wifiBlockedCount} Wi-Fi blocked • ${summary.mobileBlockedCount} mobile blocked • ${summary.scheduleCount} schedules" else "${summary.appRuleCount} reglas de apps • ${summary.wifiBlockedCount} Wi-Fi bloqueadas • ${summary.mobileBlockedCount} móvil bloqueadas • ${summary.scheduleCount} horarios")
                                         Spacer(Modifier.height(8.dp))
-                                        Text(if(language==AppLanguage.EN) "Advanced rules" else "Reglas avanzadas", style=MaterialTheme.typography.titleSmall)
-                                        if(summary.advancedRules.isEmpty()) Text(if(language==AppLanguage.EN) "None" else "Ninguna")
+                                        Text(if(language.isEnglish()) "Advanced rules" else "Reglas avanzadas", style=MaterialTheme.typography.titleSmall)
+                                        if(summary.advancedRules.isEmpty()) Text(if(language.isEnglish()) "None" else "Ninguna")
                                         else summary.advancedRules.forEach { (appName, protoPort, action) -> Text("• $appName • $protoPort • $action", fontFamily=FontFamily.Monospace, fontSize=11.sp) }
                                     }
                                 },
@@ -1331,14 +1331,14 @@ fun FirewallScreen(
                     MainTab.SETTINGS -> {
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp)) {
                             Text("Firewall", style = MaterialTheme.typography.titleSmall)
-                            Text(if (language == AppLanguage.EN) "Global mode" else "Modo global", style = MaterialTheme.typography.labelLarge)
+                            Text(if (language.isEnglish()) "Global mode" else "Modo global", style = MaterialTheme.typography.labelLarge)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 HydraChoiceButton(globalMode == GlobalMode.BLACKLIST, tr(context,"blacklist"), Color(0xFFF1D0D0), Color(0xFF5A1D22), onClick = { globalMode = GlobalMode.BLACKLIST; defaultWifi = false; defaultMobile = false; ruleStore.policyMode = GlobalMode.BLACKLIST.name; ruleStore.defaultWifiAllowed = false; ruleStore.defaultMobileAllowed = false; notifyRulesChanged(context) }, modifier = Modifier.height(30.dp))
                                 Spacer(Modifier.width(8.dp))
                                 HydraChoiceButton(globalMode == GlobalMode.WHITELIST, tr(context,"whitelist"), Color(0xFFD7E9F9), Color(0xFF173A5E), onClick = { globalMode = GlobalMode.WHITELIST; defaultWifi = true; defaultMobile = true; ruleStore.policyMode = GlobalMode.WHITELIST.name; ruleStore.defaultWifiAllowed = true; ruleStore.defaultMobileAllowed = true; notifyRulesChanged(context) }, modifier = Modifier.height(30.dp))
                             }
                             Text(if (globalMode == GlobalMode.BLACKLIST) tr(context,"blacklist_sub") else tr(context,"whitelist_sub"), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { Text(if (language == AppLanguage.EN) "← swipe for full text" else "← deslizá para leer completo", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { Text(if (language.isEnglish()) "← swipe for full text" else "← deslizá para leer completo", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             Spacer(Modifier.height(10.dp))
                             AllowBlockRow(
                                 tr(context,"default_wifi"),
@@ -1361,8 +1361,8 @@ fun FirewallScreen(
                             Spacer(Modifier.height(10.dp))
                             SettingSwitchRow(tr(context,"ask_first"), tr(context,"ask_first_sub"), askFirst) { askFirst=it; ruleStore.askOnFirstConnection=it; notifyRulesChanged(context) }
                             SettingSwitchRow(
-                                if (language == AppLanguage.EN) "Learning analysis" else "Análisis de aprendizaje",
-                                if (language == AppLanguage.EN) "Analysis only: builds traffic suggestions without changing firewall decisions." else "Solo análisis: genera sugerencias de tráfico sin cambiar las decisiones del firewall.",
+                                if (language.isEnglish()) "Learning analysis" else "Análisis de aprendizaje",
+                                if (language.isEnglish()) "Analysis only: builds traffic suggestions without changing firewall decisions." else "Solo análisis: genera sugerencias de tráfico sin cambiar las decisiones del firewall.",
                                 learningMode
                             ) { learningMode = it; ruleStore.learningMode = it }
                             SettingSwitchRow(tr(context,"allow_unknown"), tr(context,"allow_unknown_sub"), invalidAllowed) { invalidAllowed=it; ruleStore.invalidUidAllowed=it; notifyRulesChanged(context) }
@@ -1373,9 +1373,9 @@ fun FirewallScreen(
                             SettingSwitchRow(tr(context,"block_screen"), tr(context,"block_screen_sub"), blockScreenOff) { blockScreenOff=it; ruleStore.blockWhenScreenOff=it; notifyRulesChanged(context) }
 
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(if (language == AppLanguage.EN) "Secure DNS" else "DNS seguro", style = MaterialTheme.typography.titleMedium)
+                            Text(if (language.isEnglish()) "Secure DNS" else "DNS seguro", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                if (language == AppLanguage.EN)
+                                if (language.isEnglish())
                                     "Advanced encrypted DNS configuration. Secure DNS is applied through the Hydra VPN when enabled."
                                 else
                                     "Configuración avanzada de DNS cifrado. El DNS seguro se aplica mediante la VPN de Hydra cuando está habilitado.",
@@ -1393,7 +1393,7 @@ fun FirewallScreen(
                             if (secureDns) {
                                 DnsProviderSection(
                                     context = context,
-                                    english = language == AppLanguage.EN,
+                                    english = language.isEnglish(),
                                     transport = dnsTransport,
                                     onTransportChange = { transport ->
                                         dnsTransport = transport
@@ -1434,29 +1434,29 @@ fun FirewallScreen(
                             }
 
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(if (language == AppLanguage.EN) "Performance & battery" else "Rendimiento y batería", style = MaterialTheme.typography.titleMedium)
+                            Text(if (language.isEnglish()) "Performance & battery" else "Rendimiento y batería", style = MaterialTheme.typography.titleMedium)
                             SettingSwitchRow(
-                                if (language == AppLanguage.EN) "Low-power mode" else "Modo bajo consumo",
-                                if (language == AppLanguage.EN) "Slows non-essential UI updates and foreground status refreshes without changing filtering." else "Reduce las actualizaciones no esenciales de la interfaz y del estado sin cambiar el filtrado.",
+                                if (language.isEnglish()) "Low-power mode" else "Modo bajo consumo",
+                                if (language.isEnglish()) "Slows non-essential UI updates and foreground status refreshes without changing filtering." else "Reduce las actualizaciones no esenciales de la interfaz y del estado sin cambiar el filtrado.",
                                 lowPowerMode
                             ) { lowPowerMode = it; appSettings.lowPowerMode = it }
                             SettingSwitchRow(
-                                if (language == AppLanguage.EN) "Pause UI while screen is off" else "Pausar interfaz con pantalla apagada",
-                                if (language == AppLanguage.EN) "Stops visual refresh work while the display is off; the VPN and rules keep running." else "Detiene el trabajo visual mientras la pantalla está apagada; la VPN y las reglas siguen funcionando.",
+                                if (language.isEnglish()) "Pause UI while screen is off" else "Pausar interfaz con pantalla apagada",
+                                if (language.isEnglish()) "Stops visual refresh work while the display is off; the VPN and rules keep running." else "Detiene el trabajo visual mientras la pantalla está apagada; la VPN y las reglas siguen funcionando.",
                                 pauseUiScreenOff
                             ) { pauseUiScreenOff = it; appSettings.pauseUiWhenScreenOff = it }
-                            Text(if (language == AppLanguage.EN) "UI refresh" else "Actualización de interfaz", style = MaterialTheme.typography.bodyMedium)
+                            Text(if (language.isEnglish()) "UI refresh" else "Actualización de interfaz", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(1,2,3,5).forEach { sec ->
                                     HydraChoiceButton(uiRefreshSeconds == sec, "${sec}s", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { uiRefreshSeconds = sec; appSettings.uiRefreshSeconds = sec }, modifier = Modifier.height(30.dp)); Spacer(Modifier.width(6.dp))
                                 }
                             }
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(if (language == AppLanguage.EN) "Permissive applications" else "Aplicaciones permisivas", style = MaterialTheme.typography.titleMedium)
-                            Text(if (language == AppLanguage.EN) "Apps marked here are allowed when they have no explicit rule, helping prevent accidental loss of basic phone functions." else "Las apps marcadas aquí se permiten cuando no tienen una regla explícita, para evitar cortes accidentales de funciones básicas.", style = MaterialTheme.typography.bodySmall)
-                            Button({ showEssentialDialog = true }) { Text(if (language == AppLanguage.EN) "Choose permissive apps" else "Elegir apps permisivas") }
+                            Text(if (language.isEnglish()) "Permissive applications" else "Aplicaciones permisivas", style = MaterialTheme.typography.titleMedium)
+                            Text(if (language.isEnglish()) "Apps marked here are allowed when they have no explicit rule, helping prevent accidental loss of basic phone functions." else "Las apps marcadas aquí se permiten cuando no tienen una regla explícita, para evitar cortes accidentales de funciones básicas.", style = MaterialTheme.typography.bodySmall)
+                            Button({ showEssentialDialog = true }) { Text(if (language.isEnglish()) "Choose permissive apps" else "Elegir apps permisivas") }
                             if (essentialAppsStore.uids.isNotEmpty()) {
-                                Text(if (language == AppLanguage.EN) "Selected: ${essentialAppsStore.uids.size}" else "Seleccionadas: ${essentialAppsStore.uids.size}", style = MaterialTheme.typography.labelSmall)
+                                Text(if (language.isEnglish()) "Selected: ${essentialAppsStore.uids.size}" else "Seleccionadas: ${essentialAppsStore.uids.size}", style = MaterialTheme.typography.labelSmall)
                             }
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
                             Text(tr(context,"security"), style = MaterialTheme.typography.titleMedium)
@@ -1474,27 +1474,27 @@ fun FirewallScreen(
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
                             Text(tr(context,"appearance"), style = MaterialTheme.typography.titleMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
-                                listOf(ThemeMode.SYSTEM to tr(context,"system_language"), ThemeMode.LIGHT to if (language == AppLanguage.EN) "Light" else "Claro", ThemeMode.DARK to if (language == AppLanguage.EN) "Dark" else "Oscuro").forEach { (mode,label) ->
+                                listOf(ThemeMode.SYSTEM to tr(context,"system_language"), ThemeMode.LIGHT to if (language.isEnglish()) "Light" else "Claro", ThemeMode.DARK to if (language.isEnglish()) "Dark" else "Oscuro").forEach { (mode,label) ->
                                     HydraChoiceButton(themeMode == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick={ themeMode=mode; settingsStore.themeMode=mode }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(8.dp))
                                 }
                             }
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
                             Text(tr(context,"maintenance"), style = MaterialTheme.typography.titleMedium)
-                            Text(if (language == AppLanguage.EN) "Automatic history cleanup" else "Limpiar historial automáticamente", style = MaterialTheme.typography.bodyMedium)
+                            Text(if (language.isEnglish()) "Automatic history cleanup" else "Limpiar historial automáticamente", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
-                                listOf(12 to "12 h", 24 to if (language == AppLanguage.EN) "24 h" else "24 h", 24 * 7 to tr(context,"days7"), 24 * 30 to tr(context,"days30"), 0 to tr(context,"never")).forEach { (hours, label) ->
+                                listOf(12 to "12 h", 24 to if (language.isEnglish()) "24 h" else "24 h", 24 * 7 to tr(context,"days7"), 24 * 30 to tr(context,"days30"), 0 to tr(context,"never")).forEach { (hours, label) ->
                                     HydraChoiceButton(retentionHours == hours, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { retentionHours = hours; ConnectionHistory.setRetentionHours(context, hours); history = ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
                                     Spacer(Modifier.width(8.dp))
                                 }
                             }
-                            Text(if (language == AppLanguage.EN) "Maximum history records" else "Máximo de registros del historial", style = MaterialTheme.typography.bodyMedium)
+                            Text(if (language.isEnglish()) "Maximum history records" else "Máximo de registros del historial", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(250,500,1000).forEach { n ->
                                     HydraChoiceButton(historyMaxRecords == n, n.toString(), Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { historyMaxRecords=n; appSettings.historyMaxRecords=n; ConnectionHistory.setMaxRecords(context,n); history=ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
                                     Spacer(Modifier.width(6.dp))
                                 }
                             }
-                            Button({ onExportHistory() }) { Text(if (language == AppLanguage.EN) "Export history CSV" else "Exportar historial CSV") }
+                            Button({ onExportHistory() }) { Text(if (language.isEnglish()) "Export history CSV" else "Exportar historial CSV") }
                             Button({ ConnectionHistory.clear(); TrafficStatsStore.clear(); AppDailyUsageStore.clear(); DiagnosticLogger.clearBuffer(); TrafficAnalyzerStore.clear(); history = emptyList(); stats = emptyList() }) { Text(tr(context,"clear_all")) }
                             Spacer(Modifier.height(6.dp))
                             Button({ showResetDialog=true }) { Text(tr(context,"reset_rules")) }
@@ -1519,13 +1519,13 @@ fun FirewallScreen(
             titleContentColor = hydraDialogColors().second,
             textContentColor = hydraDialogColors().third,
             onDismissRequest = { showAlwaysOnPrompt = false },
-            title = { Text(if (language == AppLanguage.EN) "Keep protection on after a restart" else "Mantener la protección tras reiniciar") },
-            text = { Text(if (language == AppLanguage.EN)
+            title = { Text(if (language.isEnglish()) "Keep protection on after a restart" else "Mantener la protección tras reiniciar") },
+            text = { Text(if (language.isEnglish())
                 "Android asks you to re-approve the VPN every time the phone restarts. If you don't, Hydra Firewall stays OFF after a reboot even though it was ON before.\n\nTo fix this, activate \"Always-on VPN\" for Hydra Firewall in Android's VPN settings. With that on, Android starts Hydra automatically after every restart, without asking again.\n\nYou can do this now or later from Settings → Always-on VPN."
                 else
                 "Android pide volver a aprobar la VPN cada vez que el teléfono se reinicia. Si no lo hacés, Hydra Firewall queda APAGADO después de reiniciar, aunque estuviera encendido antes.\n\nPara solucionarlo, activá \"VPN siempre activa\" para Hydra Firewall en los ajustes de VPN de Android. Con eso activado, Android inicia Hydra automáticamente después de cada reinicio, sin volver a preguntar.\n\nPodés hacerlo ahora o más tarde desde Ajustes → VPN siempre activa.") },
-            confirmButton = { TextButton({ showAlwaysOnPrompt = false; startActivitySafe(context, Settings.ACTION_VPN_SETTINGS) }) { Text(if (language == AppLanguage.EN) "Open VPN settings" else "Abrir ajustes de VPN") } },
-            dismissButton = { TextButton({ showAlwaysOnPrompt = false }) { Text(if (language == AppLanguage.EN) "Later" else "Más tarde") } }
+            confirmButton = { TextButton({ showAlwaysOnPrompt = false; startActivitySafe(context, Settings.ACTION_VPN_SETTINGS) }) { Text(if (language.isEnglish()) "Open VPN settings" else "Abrir ajustes de VPN") } },
+            dismissButton = { TextButton({ showAlwaysOnPrompt = false }) { Text(if (language.isEnglish()) "Later" else "Más tarde") } }
         )
     }
 
@@ -1535,8 +1535,8 @@ fun FirewallScreen(
             titleContentColor = hydraDialogColors().second,
             textContentColor = hydraDialogColors().third,
             onDismissRequest = { systemAppsWarning = false },
-            title = { Text(if (language == AppLanguage.EN) "System applications" else "Aplicaciones del sistema") },
-            text = { Text(if (language == AppLanguage.EN)
+            title = { Text(if (language.isEnglish()) "System applications" else "Aplicaciones del sistema") },
+            text = { Text(if (language.isEnglish())
                 "These apps belong to Android or device software. Blocking some can break telephony, Wi‑Fi, settings, updates, notifications or Google services. HYDRA will flag known critical packages as HIGH RISK, but roles vary by Android version and manufacturer."
                 else
                 "Estas apps pertenecen a Android o al software del dispositivo. Bloquear algunas puede romper telefonía, Wi‑Fi, ajustes, actualizaciones, notificaciones o servicios de Google. HYDRA marcará paquetes críticos conocidos como ALTO RIESGO, pero las funciones varían según la versión de Android y el fabricante.") },
@@ -1550,7 +1550,7 @@ fun FirewallScreen(
             titleContentColor = hydraDialogColors().second,
             textContentColor = hydraDialogColors().third,
             onDismissRequest = { showEssentialDialog = false },
-            title = { Text(if (language == AppLanguage.EN) "Permissive applications" else "Aplicaciones permisivas") },
+            title = { Text(if (language.isEnglish()) "Permissive applications" else "Aplicaciones permisivas") },
             text = {
                 Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState())) {
                     apps.takeIf { it.isNotEmpty() }?.let {
@@ -1565,7 +1565,7 @@ fun FirewallScreen(
                                 Checkbox(checked=checked, onCheckedChange={ essentialAppsStore.toggle(app.uid) })
                             }
                         }
-                    } ?: Text(if (language == AppLanguage.EN) "No applications loaded yet." else "Todavía no se cargaron aplicaciones.")
+                    } ?: Text(if (language.isEnglish()) "No applications loaded yet." else "Todavía no se cargaron aplicaciones.")
                 }
             },
             confirmButton = { TextButton({ showEssentialDialog = false; ruleVersion++ }) { Text(tr(context,"close")) } }
@@ -1593,7 +1593,7 @@ fun FirewallScreen(
                         .padding(20.dp)
                 ) {
                     Text(
-                        if (language == AppLanguage.EN) "Schedule — ${app.label}" else "Horario — ${app.label}",
+                        if (language.isEnglish()) "Schedule — ${app.label}" else "Horario — ${app.label}",
                         color = dialogColors.second,
                         style = MaterialTheme.typography.titleLarge
                     )
@@ -1629,7 +1629,7 @@ fun FirewallScreen(
             app = app,
             store = customProtectionStore,
             ruleStore = ruleStore,
-            english = language == AppLanguage.EN,
+            english = language.isEnglish(),
             onDismiss = { selectedCustomApp = null },
             onApply = { profile ->
                 val existingRule = ruleStore.hasExplicitRule(app.uid)
@@ -1707,12 +1707,12 @@ fun FirewallScreen(
                     )
                     Text("UID ${app.uid}", color = dialogColors.third, style = MaterialTheme.typography.bodySmall)
                     Text(
-                        "${if (language == AppLanguage.EN) "Process" else "Proceso"}: ${app.processName}",
+                        "${if (language.isEnglish()) "Process" else "Proceso"}: ${app.processName}",
                         color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                     )
                     if (runningProcesses.isNotEmpty()) {
                         Text(
-                            if (language == AppLanguage.EN) "Running PID(s): ${runningProcesses.joinToString(", ") { it.pid.toString() }}"
+                            if (language.isEnglish()) "Running PID(s): ${runningProcesses.joinToString(", ") { it.pid.toString() }}"
                             else "PID en ejecución: ${runningProcesses.joinToString(", ") { it.pid.toString() }}",
                             color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                         )
@@ -1722,7 +1722,7 @@ fun FirewallScreen(
                     }
                     if (sharedPackages.size > 1) {
                         Text(
-                            if (language == AppLanguage.EN)
+                            if (language.isEnglish())
                                 "This UID is shared by ${sharedPackages.size} apps. Wi‑Fi/Mobile rules and schedules are applied to the shared UID."
                             else
                                 "Este UID es compartido por ${sharedPackages.size} apps. Las reglas Wi‑Fi/Móvil y los horarios se aplican al UID compartido.",
@@ -1732,106 +1732,106 @@ fun FirewallScreen(
                     }
                     if (compatibilityMode == AppCompatibilityMode.CUSTOM) {
                         Text(
-                            if (language == AppLanguage.EN) "CUSTOM · PROTECTIONS" else "PERSONALIZADO · PROTECCIONES",
+                            if (language.isEnglish()) "CUSTOM · PROTECTIONS" else "PERSONALIZADO · PROTECCIONES",
                             color = policyColor, style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                            if (language == AppLanguage.EN)
+                            if (language.isEnglish())
                                 "The app stays inside HYDRA. Only the protection switches selected below are applied; Wi‑Fi/Mobile permissions remain separate."
                             else
                                 "La app permanece dentro de HYDRA. Solo se aplican las protecciones seleccionadas abajo; los permisos Wi‑Fi/Móvil siguen siendo independientes.",
                             color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                         )
                         Text(
-                            customProtectionSummary(customProfile, language == AppLanguage.EN),
+                            customProtectionSummary(customProfile, language.isEnglish()),
                             color = policyColor, style = MaterialTheme.typography.bodySmall
                         )
                     }
                     if (compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT) {
                         Text(
-                            if (language == AppLanguage.EN) "PERMISSIVE-COMPAT · DIAGNOSTIC MODE" else "PERMISIVO-COMPAT · MODO DIAGNÓSTICO",
+                            if (language.isEnglish()) "PERMISSIVE-COMPAT · DIAGNOSTIC MODE" else "PERMISIVO-COMPAT · MODO DIAGNÓSTICO",
                             color = policyColor, style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                            if (language == AppLanguage.EN) "Diagnostic only: the app stays inside HYDRA, but the normal ad/tracker domain blocklist and QUIC domain filter are bypassed. Explicit user domain BLOCK rules and confirmed threat protections remain active."
+                            if (language.isEnglish()) "Diagnostic only: the app stays inside HYDRA, but the normal ad/tracker domain blocklist and QUIC domain filter are bypassed. Explicit user domain BLOCK rules and confirmed threat protections remain active."
                             else "Solo diagnóstico: la app sigue dentro de HYDRA, pero se saltean el bloqueo normal de dominios de ads/trackers y el filtro de dominios QUIC. Las reglas de dominio BLOQUEAR del usuario y las amenazas confirmadas siguen activas.",
                             color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                         )
                     }
                     if (userEssential && compatibilityMode != AppCompatibilityMode.ESSENTIAL_COMPAT) {
                         Text(
-                            if (language == AppLanguage.EN) "PERMISSIVE · FLEXIBLE FILTERS" else "PERMISIVO · FILTROS FLEXIBLES",
+                            if (language.isEnglish()) "PERMISSIVE · FLEXIBLE FILTERS" else "PERMISIVO · FILTROS FLEXIBLES",
                             color = policyColor, style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                            if (language == AppLanguage.EN) "The app stays inside HYDRA with more flexible compatibility rules. The selected Wi‑Fi/Mobile permissions remain active; strong threat/IP protections still apply."
+                            if (language.isEnglish()) "The app stays inside HYDRA with more flexible compatibility rules. The selected Wi‑Fi/Mobile permissions remain active; strong threat/IP protections still apply."
                             else "La app sigue dentro de HYDRA con reglas de compatibilidad más flexibles. Se respetan los permisos Wi‑Fi/Móvil elegidos; siguen aplicándose las protecciones fuertes de amenazas/IP.",
                             color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                         )
                     }
                     if (autoEssential && !explicitRule && !userEssential) {
                         Text(
-                            if (language == AppLanguage.EN) "SYSTEM ESSENTIAL · ALLOWED AUTOMATICALLY" else "ESENCIAL DEL SISTEMA · PERMITIDA AUTOMÁTICAMENTE",
+                            if (language.isEnglish()) "SYSTEM ESSENTIAL · ALLOWED AUTOMATICALLY" else "ESENCIAL DEL SISTEMA · PERMITIDA AUTOMÁTICAMENTE",
                             color = policyColor, style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                            if (language == AppLanguage.EN) "Only the normal app default is bypassed. Threat/IP/global lockdown rules still apply." else "Solo se evita el bloqueo predeterminado de la app. Siguen aplicándose amenazas, IP y bloqueo global.",
+                            if (language.isEnglish()) "Only the normal app default is bypassed. Threat/IP/global lockdown rules still apply." else "Solo se evita el bloqueo predeterminado de la app. Siguen aplicándose amenazas, IP y bloqueo global.",
                             color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                         )
                     }
                     if (noFirewall) {
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            if (language == AppLanguage.EN) "NO FIREWALL · APP OUTSIDE HYDRA" else "SIN FIREWALL · APP FUERA DE HYDRA",
+                            if (language.isEnglish()) "NO FIREWALL · APP OUTSIDE HYDRA" else "SIN FIREWALL · APP FUERA DE HYDRA",
                             color = policyColor, style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                            if (language == AppLanguage.EN) "For banking or special applications that do not allow use of a filtered network. Wi‑Fi/Mobile firewall switches do not apply while the app is outside the VPN."
+                            if (language.isEnglish()) "For banking or special applications that do not allow use of a filtered network. Wi‑Fi/Mobile firewall switches do not apply while the app is outside the VPN."
                             else "Para aplicaciones bancarias o especiales que no permiten usar una red filtrada. Los controles Wi‑Fi/Móvil del firewall no se aplican mientras la app está fuera de la VPN.",
                             color = dialogColors.third, style = MaterialTheme.typography.bodySmall
                         )
                     }
                     Spacer(Modifier.height(6.dp))
                     val ruleDetail = when {
-                        noFirewall -> if (language == AppLanguage.EN)
+                        noFirewall -> if (language.isEnglish())
                             "FULL CONNECTIVITY · no HYDRA filtering. The app is outside the VPN; HYDRA Wi‑Fi/Mobile switches do not apply."
                         else
                             "CONECTIVIDAD COMPLETA · sin filtrado de HYDRA. La app queda fuera de la VPN; los controles Wi‑Fi/Móvil de HYDRA no se aplican."
-                        compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT -> if (language == AppLanguage.EN)
+                        compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT -> if (language.isEnglish())
                             "PERMISSIVE-COMPAT · stays inside HYDRA. Optional domain/QUIC filtering is temporarily bypassed for diagnosis; Wi‑Fi/Mobile still follow the app rule and strong threat/IP protection remains active."
                         else
                             "PERMISIVO-COMPAT · permanece dentro de HYDRA. Se saltea temporalmente el filtrado opcional de dominios/QUIC para diagnóstico; Wi‑Fi/Móvil siguen la regla de la app y las protecciones fuertes contra amenazas/IP siguen activas."
-                        userEssential -> if (language == AppLanguage.EN)
+                        userEssential -> if (language.isEnglish())
                             "PERMISSIVE · remains inside HYDRA. Wi‑Fi/Mobile follow the switches below; compatibility layers are relaxed while strong threat/IP protection remains active."
                         else
                             "PERMISIVO · permanece dentro de HYDRA. Wi‑Fi/Móvil siguen los interruptores de abajo; se relajan capas de compatibilidad y se mantienen las protecciones fuertes contra amenazas/IP."
                         explicitRule -> when {
-                            effectiveWifi && effectiveMobile -> if (language == AppLanguage.EN)
+                            effectiveWifi && effectiveMobile -> if (language.isEnglish())
                                 "FULL CONNECTIVITY · Wi‑Fi and mobile are allowed through HYDRA; normal ads/trackers and security controls remain active."
                             else
                                 "CONECTIVIDAD COMPLETA · Wi‑Fi y datos móviles permitidos a través de HYDRA; siguen activos los bloqueos normales de ads/trackers y seguridad."
-                            effectiveWifi -> if (language == AppLanguage.EN)
+                            effectiveWifi -> if (language.isEnglish())
                                 "WI‑FI ONLY · mobile data is blocked for this app; HYDRA filtering and security controls remain active."
                             else
                                 "SOLO WI‑FI · los datos móviles quedan bloqueados para esta app; el filtrado y la seguridad de HYDRA siguen activos."
-                            effectiveMobile -> if (language == AppLanguage.EN)
+                            effectiveMobile -> if (language.isEnglish())
                                 "MOBILE ONLY · Wi‑Fi is blocked for this app; HYDRA filtering and security controls remain active."
                             else
                                 "SOLO DATOS MÓVILES · el Wi‑Fi queda bloqueado para esta app; el filtrado y la seguridad de HYDRA siguen activos."
-                            else -> if (language == AppLanguage.EN)
+                            else -> if (language.isEnglish())
                                 "BLOCKED · Wi‑Fi and mobile data are blocked for this app."
                             else
                                 "BLOQUEADA · Wi‑Fi y datos móviles quedan bloqueados para esta app."
                         }
-                        trustedAutoAllowed -> if (language == AppLanguage.EN)
+                        trustedAutoAllowed -> if (language.isEnglish())
                             "TRUSTED APP · automatically allowed because the Apps de confianza switch is enabled; security controls still remain authoritative."
                         else
                             "APP DE CONFIANZA · permitida automáticamente porque está activado Apps de confianza; las protecciones de seguridad siguen siendo autoritarias."
-                        autoEssential -> if (language == AppLanguage.EN)
+                        autoEssential -> if (language.isEnglish())
                             "SYSTEM ESSENTIAL · allowed by the conservative core-system policy; ordinary apps are not auto-allowed."
                         else
                             "ESENCIAL DEL SISTEMA · permitido solo para identidades centrales de Android; las apps normales no se autorizan automáticamente."
-                        else -> if (language == AppLanguage.EN)
+                        else -> if (language.isEnglish())
                             "DEFAULT BLOCK · the app has no explicit network rule and remains blocked until a rule is chosen."
                         else
                             "BLOQUEO POR DEFECTO · la app no tiene una regla de red explícita y permanece bloqueada hasta elegir una."
@@ -1845,16 +1845,16 @@ fun FirewallScreen(
                         val safety = systemAppSafety(app.packageName)
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            if (language == AppLanguage.EN) "Safety: ${safety.labelEn}" else "Seguridad: ${safety.labelEs}",
+                            if (language.isEnglish()) "Safety: ${safety.labelEn}" else "Seguridad: ${safety.labelEs}",
                             color = safety.color,
                             style = MaterialTheme.typography.labelMedium
                         )
-                        Text(if (language == AppLanguage.EN) safety.detailEn else safety.detailEs, color = dialogColors.third, style = MaterialTheme.typography.bodySmall)
+                        Text(if (language.isEnglish()) safety.detailEn else safety.detailEs, color = dialogColors.third, style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.height(10.dp))
                     if (noFirewall) {
                         Text(
-                            if (language == AppLanguage.EN) "Wi‑Fi/Mobile firewall switches: NOT APPLICABLE (app is outside HYDRA)"
+                            if (language.isEnglish()) "Wi‑Fi/Mobile firewall switches: NOT APPLICABLE (app is outside HYDRA)"
                             else "Controles Wi‑Fi/Móvil del firewall: NO APLICAN (la app está fuera de HYDRA)",
                             color = dialogColors.third
                         )
@@ -1863,10 +1863,10 @@ fun FirewallScreen(
                         Text("Móvil: ${if (effectiveMobile) tr(context,"allow") else tr(context,"block")}", color = dialogColors.third)
                     }
                     Text(
-                        if (explicitRule) (if (language == AppLanguage.EN) "Policy: EXPLICIT RULE" else "Política: REGLA EXPLÍCITA")
-                        else if (trustedAutoAllowed) (if (language == AppLanguage.EN) "Policy: TRUSTED APP AUTO-ALLOW" else "Política: APP DE CONFIANZA AUTO-PERMITIDA")
-                        else if (autoEssential) (if (language == AppLanguage.EN) "Policy: SYSTEM CORE" else "Política: SISTEMA CENTRAL")
-                        else (if (language == AppLanguage.EN) "Policy: DEFAULT BLOCK / PROMPT" else "Política: BLOQUEO / PREGUNTA")
+                        if (explicitRule) (if (language.isEnglish()) "Policy: EXPLICIT RULE" else "Política: REGLA EXPLÍCITA")
+                        else if (trustedAutoAllowed) (if (language.isEnglish()) "Policy: TRUSTED APP AUTO-ALLOW" else "Política: APP DE CONFIANZA AUTO-PERMITIDA")
+                        else if (autoEssential) (if (language.isEnglish()) "Policy: SYSTEM CORE" else "Política: SISTEMA CENTRAL")
+                        else (if (language.isEnglish()) "Policy: DEFAULT BLOCK / PROMPT" else "Política: BLOQUEO / PREGUNTA")
                         ,
                         color = policyColor,
                         style = MaterialTheme.typography.labelSmall
@@ -1877,14 +1877,14 @@ fun FirewallScreen(
                     Text("↑ ${formatBytes(s.txBytes)}  ↓ ${formatBytes(s.rxBytes)}", color = dialogColors.third)
                     if (runningProcesses.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text(if (language == AppLanguage.EN) "Processes (best effort; not thread IDs)" else "Procesos (mejor esfuerzo; no son IDs de hilo)", style = MaterialTheme.typography.titleSmall)
+                        Text(if (language.isEnglish()) "Processes (best effort; not thread IDs)" else "Procesos (mejor esfuerzo; no son IDs de hilo)", style = MaterialTheme.typography.titleSmall)
                         runningProcesses.forEach { proc ->
                             Text("• ${proc.processName} · PID ${proc.pid}", color = dialogColors.third, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     if (uidPermissionPackages.any { it.groups.isNotEmpty() }) {
                         Spacer(Modifier.height(8.dp))
-                        Text(if (language == AppLanguage.EN) "Permissions grouped by app / UID" else "Permisos agrupados por app / UID", style = MaterialTheme.typography.titleSmall)
+                        Text(if (language.isEnglish()) "Permissions grouped by app / UID" else "Permisos agrupados por app / UID", style = MaterialTheme.typography.titleSmall)
                         uidPermissionPackages.filter { it.groups.isNotEmpty() }.take(6).forEach { pkg ->
                             Text("${pkg.label} · ${pkg.packageName}", style = MaterialTheme.typography.labelMedium)
                             pkg.groups.take(6).forEach { group ->
@@ -1897,7 +1897,7 @@ fun FirewallScreen(
                     }
                     if (recentDecisions.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text(if (language == AppLanguage.EN) "Recent firewall decisions" else "Últimas decisiones del firewall", style = MaterialTheme.typography.titleSmall)
+                        Text(if (language.isEnglish()) "Recent firewall decisions" else "Últimas decisiones del firewall", style = MaterialTheme.typography.titleSmall)
                         recentDecisions.forEach { record ->
                             val status = if (record.allowed) "ALLOW" else "BLOCK"
                             Text(
@@ -1926,7 +1926,7 @@ fun FirewallScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                if (language == AppLanguage.EN)
+                                if (language.isEnglish())
                                     "Reset rule (ask again)"
                                 else
                                     "Restablecer regla (preguntar de nuevo)",
@@ -1942,7 +1942,7 @@ fun FirewallScreen(
                                 onClick = { selectedCustomApp = app },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (language == AppLanguage.EN) "Custom" else "Personalizado", maxLines = 1)
+                                Text(if (language.isEnglish()) "Custom" else "Personalizado", maxLines = 1)
                             }
                         }
                         if (userEssential) {
@@ -1954,7 +1954,7 @@ fun FirewallScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (language == AppLanguage.EN) "Remove permissive mode" else "Quitar modo permisivo")
+                                Text(if (language.isEnglish()) "Remove permissive mode" else "Quitar modo permisivo")
                             }
                         } else {
                             Button(
@@ -1971,7 +1971,7 @@ fun FirewallScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (language == AppLanguage.EN) "Permissive mode" else "Modo permisivo")
+                                Text(if (language.isEnglish()) "Permissive mode" else "Modo permisivo")
                             }
                         }
                     }
@@ -1998,9 +1998,9 @@ fun FirewallScreen(
                         ) {
                             Text(
                                 if (compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT)
-                                    if (language == AppLanguage.EN) "Back to PERMISSIVE" else "Volver a PERMISIVO"
+                                    if (language.isEnglish()) "Back to PERMISSIVE" else "Volver a PERMISIVO"
                                 else
-                                    if (language == AppLanguage.EN) "Test PERMISSIVE-COMPAT" else "Probar PERMISIVO-COMPAT"
+                                    if (language.isEnglish()) "Test PERMISSIVE-COMPAT" else "Probar PERMISIVO-COMPAT"
                             )
                         }
                     }
@@ -2073,12 +2073,12 @@ private fun LiveTrafficChart(history: List<Pair<Float, Float>>) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).background(allowedColor, shape = androidx.compose.foundation.shape.CircleShape))
-            Spacer(Modifier.width(4.dp)); Text(if (language == AppLanguage.EN) "Allowed" else "Permitido", style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.width(4.dp)); Text(if (language.isEnglish()) "Allowed" else "Permitido", style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.width(10.dp))
             Box(Modifier.size(8.dp).background(blockedColor, shape = androidx.compose.foundation.shape.CircleShape))
-            Spacer(Modifier.width(4.dp)); Text(if (language == AppLanguage.EN) "Blocked" else "Bloqueado", style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.width(4.dp)); Text(if (language.isEnglish()) "Blocked" else "Bloqueado", style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.width(10.dp))
-            Text(if (language == AppLanguage.EN) "MB per interval" else "MB por intervalo", style = MaterialTheme.typography.labelSmall)
+            Text(if (language.isEnglish()) "MB per interval" else "MB por intervalo", style = MaterialTheme.typography.labelSmall)
         }
         Spacer(Modifier.height(4.dp))
         Canvas(
@@ -2134,12 +2134,12 @@ private fun TrafficTotalsBarChart(allowedBytes: Long, blockedBytes: Long) {
     val blockedColor = Color(0xFFC62828)
     val max = maxOf(allowedBytes, blockedBytes, 1L).toDouble()
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(if (AppSettings(context).language == AppLanguage.EN) "Traffic volume" else "Volumen de tráfico", style = MaterialTheme.typography.titleSmall)
+        Text(if (AppSettings(context).language.isEnglish()) "Traffic volume" else "Volumen de tráfico", style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(8.dp).height(24.dp).background(allowedColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
             Spacer(Modifier.width(6.dp))
-            Text(if (AppSettings(context).language == AppLanguage.EN) "Allowed" else "Permitido", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
+            Text(if (AppSettings(context).language.isEnglish()) "Allowed" else "Permitido", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.weight(1f).height(24.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth((allowedBytes.toDouble() / max).toFloat()).background(allowedColor))
             }
@@ -2150,7 +2150,7 @@ private fun TrafficTotalsBarChart(allowedBytes: Long, blockedBytes: Long) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(8.dp).height(24.dp).background(blockedColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
             Spacer(Modifier.width(6.dp))
-            Text(if (AppSettings(context).language == AppLanguage.EN) "Blocked" else "Bloqueado", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
+            Text(if (AppSettings(context).language.isEnglish()) "Blocked" else "Bloqueado", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.weight(1f).height(24.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth((blockedBytes.toDouble() / max).toFloat()).background(blockedColor))
             }
@@ -2743,11 +2743,11 @@ private fun ProtectionTabContent(
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            if (language == AppLanguage.EN) "Core protection controls" else "Controles básicos de protección",
+            if (language.isEnglish()) "Core protection controls" else "Controles básicos de protección",
             style = MaterialTheme.typography.titleMedium
         )
         Text(
-            if (language == AppLanguage.EN)
+            if (language.isEnglish())
                 "The essential protection switches are managed here. Advanced configuration remains in Settings."
             else
                 "Los interruptores esenciales de protección se administran aquí. La configuración avanzada queda en Ajustes.",
@@ -2763,11 +2763,11 @@ private fun ProtectionTabContent(
             ) {
                 Column(Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
-                        if (language == AppLanguage.EN) "Mode: ${if (advancedMode) "ADVANCED" else "NORMAL"}" else "Modo: ${if (advancedMode) "AVANZADO" else "NORMAL"}",
+                        if (language.isEnglish()) "Mode: ${if (advancedMode) "ADVANCED" else "NORMAL"}" else "Modo: ${if (advancedMode) "AVANZADO" else "NORMAL"}",
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        if (language == AppLanguage.EN) "Advanced shows extra tabs (IP/Ports, Analyzer, Profiles, Test)." else "Avanzado muestra pestañas extra (IP/Puertos, Analizador, Perfiles, Prueba).",
+                        if (language.isEnglish()) "Advanced shows extra tabs (IP/Ports, Analyzer, Profiles, Test)." else "Avanzado muestra pestañas extra (IP/Puertos, Analizador, Perfiles, Prueba).",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -2785,11 +2785,11 @@ private fun ProtectionTabContent(
                 ) {
                     Column(Modifier.weight(1f).padding(end = 8.dp)) {
                         Text(
-                            if (language == AppLanguage.EN) "Firewall VPN" else "VPN del firewall",
+                            if (language.isEnglish()) "Firewall VPN" else "VPN del firewall",
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            if (language == AppLanguage.EN)
+                            if (language.isEnglish())
                                 "Routes device traffic through Hydra for filtering."
                             else
                                 "Envía el tráfico del equipo a través de Hydra para filtrarlo.",
@@ -2801,12 +2801,12 @@ private fun ProtectionTabContent(
                 Spacer(Modifier.height(5.dp))
                 Text(
                     if (isOn) {
-                        if (language == AppLanguage.EN)
+                        if (language.isEnglish())
                             "Running • ${network.displayName}${if (roaming) " • Roaming" else ""}"
                         else
                             "Activa • ${network.displayName}${if (roaming) " • Roaming" else ""}"
                     } else {
-                        if (language == AppLanguage.EN) "Stopped" else "Detenida"
+                        if (language.isEnglish()) "Stopped" else "Detenida"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isOn) Color(0xFF2E8B57) else MaterialTheme.colorScheme.error
@@ -2816,8 +2816,8 @@ private fun ProtectionTabContent(
 
         Spacer(Modifier.height(8.dp))
         SettingSwitchRow(
-            if (language == AppLanguage.EN) "Block all traffic" else "Bloquear todo el tráfico",
-            if (language == AppLanguage.EN)
+            if (language.isEnglish()) "Block all traffic" else "Bloquear todo el tráfico",
+            if (language.isEnglish())
                 "Stops normal traffic decisions globally while enabled."
             else
                 "Detiene globalmente las decisiones normales de tráfico mientras está activo.",
@@ -2827,8 +2827,8 @@ private fun ProtectionTabContent(
 
         Spacer(Modifier.height(4.dp))
         SettingSwitchRow(
-            if (language == AppLanguage.EN) "Threats + ads" else "Amenazas + publicidad",
-            if (language == AppLanguage.EN)
+            if (language.isEnglish()) "Threats + ads" else "Amenazas + publicidad",
+            if (language.isEnglish())
                 "Uses the local blocklist to block ads and trackers. Secure DNS is configured separately in Settings."
             else
                 "Usa la lista local para bloquear anuncios y rastreadores. El DNS seguro se configura por separado en Ajustes.",
@@ -2848,9 +2848,9 @@ private fun ProtectionTabContent(
         }
 
         Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(10.dp))
-        Text(if (language == AppLanguage.EN) "System kill switch" else "Kill switch del sistema", style = MaterialTheme.typography.titleMedium)
+        Text(if (language.isEnglish()) "System kill switch" else "Kill switch del sistema", style = MaterialTheme.typography.titleMedium)
         Text(
-            if (language == AppLanguage.EN)
+            if (language.isEnglish())
                 "This is controlled by Android VPN settings. Hydra cannot manufacture a stronger system lockdown when Android or the device firmware does not expose it."
             else
                 "Esto lo controla la configuración VPN de Android. Hydra no puede crear un bloqueo del sistema más fuerte cuando Android o el firmware del equipo no lo ofrecen.",
@@ -2860,21 +2860,21 @@ private fun ProtectionTabContent(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             Text(
                 if (FirewallVpnService.alwaysOnEnabled)
-                    (if (language == AppLanguage.EN) "Always-on VPN: ✓ enabled" else "VPN siempre activa: ✓ activada")
+                    (if (language.isEnglish()) "Always-on VPN: ✓ enabled" else "VPN siempre activa: ✓ activada")
                 else
-                    (if (language == AppLanguage.EN) "Always-on VPN: ✗ not enabled" else "VPN siempre activa: ✗ no activada"),
+                    (if (language.isEnglish()) "Always-on VPN: ✗ not enabled" else "VPN siempre activa: ✗ no activada"),
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
                 if (FirewallVpnService.lockdownEnabled)
-                    (if (language == AppLanguage.EN) "Block connections without VPN: ✓ enabled" else "Bloquear conexiones sin VPN: ✓ activado")
+                    (if (language.isEnglish()) "Block connections without VPN: ✓ enabled" else "Bloquear conexiones sin VPN: ✓ activado")
                 else
-                    (if (language == AppLanguage.EN) "Block connections without VPN: ✗ not enabled (check Android VPN settings)" else "Bloquear conexiones sin VPN: ✗ no activado (revisá Ajustes VPN de Android)"),
+                    (if (language.isEnglish()) "Block connections without VPN: ✗ not enabled (check Android VPN settings)" else "Bloquear conexiones sin VPN: ✗ no activado (revisá Ajustes VPN de Android)"),
                 style = MaterialTheme.typography.bodySmall
             )
         } else {
             Text(
-                if (language == AppLanguage.EN)
+                if (language.isEnglish())
                     "Always-on VPN: Android setting available; lockdown is not exposed to a normal VPN app on this Android generation."
                 else
                     "VPN siempre activa: Android ofrece el ajuste; el bloqueo sin VPN (Lockdown) no está expuesto a una app VPN normal en esta generación de Android.",
@@ -2882,7 +2882,7 @@ private fun ProtectionTabContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                if (language == AppLanguage.EN)
+                if (language.isEnglish())
                     "Hydra will not claim a system kill switch that the OS cannot provide."
                 else
                     "Hydra no va a marcar como activo un kill switch del sistema que el sistema operativo no puede proporcionar.",
@@ -2892,16 +2892,16 @@ private fun ProtectionTabContent(
         }
         Spacer(Modifier.height(4.dp))
         Button(onClick = onKillSwitch) {
-            Text(if (language == AppLanguage.EN) "OPEN VPN SETTINGS" else "ABRIR AJUSTES VPN")
+            Text(if (language.isEnglish()) "OPEN VPN SETTINGS" else "ABRIR AJUSTES VPN")
         }
 
         Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(10.dp))
-        Text(if (language == AppLanguage.EN) "Current protection status" else "Estado actual de protección", style = MaterialTheme.typography.titleMedium)
+        Text(if (language.isEnglish()) "Current protection status" else "Estado actual de protección", style = MaterialTheme.typography.titleMedium)
         Text(
             when (protection.level) {
-                ProtectionStatus.Level.ACTIVE -> if (language == AppLanguage.EN) "● PROTECTION ACTIVE" else "● PROTECCIÓN ACTIVA"
-                ProtectionStatus.Level.PARTIAL -> if (language == AppLanguage.EN) "● PROTECTION PARTIAL" else "● PROTECCIÓN PARCIAL"
-                ProtectionStatus.Level.OFF -> if (language == AppLanguage.EN) "○ PROTECTION OFF" else "○ PROTECCIÓN DESACTIVADA"
+                ProtectionStatus.Level.ACTIVE -> if (language.isEnglish()) "● PROTECTION ACTIVE" else "● PROTECCIÓN ACTIVA"
+                ProtectionStatus.Level.PARTIAL -> if (language.isEnglish()) "● PROTECTION PARTIAL" else "● PROTECCIÓN PARCIAL"
+                ProtectionStatus.Level.OFF -> if (language.isEnglish()) "○ PROTECTION OFF" else "○ PROTECCIÓN DESACTIVADA"
             },
             fontWeight = FontWeight.Bold,
             color = when (protection.level) {
@@ -2912,14 +2912,14 @@ private fun ProtectionTabContent(
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            if (language == AppLanguage.EN)
+            if (language.isEnglish())
                 "VPN: ${if (protection.vpn) "✓ active" else "✗ stopped"}"
             else
                 "VPN: ${if (protection.vpn) "✓ activa" else "✗ detenida"}",
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            if (language == AppLanguage.EN) {
+            if (language.isEnglish()) {
                 "Secure DNS: ${when { !protection.secureDnsEnabled -> "off (optional)"; protection.dns -> "✓ ready"; else -> "✗ requires VPN" }}"
             } else {
                 "DNS seguro: ${when { !protection.secureDnsEnabled -> "desactivado (opcional)"; protection.dns -> "✓ listo"; else -> "✗ requiere VPN" }}"
@@ -2927,7 +2927,7 @@ private fun ProtectionTabContent(
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            if (language == AppLanguage.EN) {
+            if (language.isEnglish()) {
                 if (protection.blocklistEnabled)
                     "Blocklist: ${if (protection.blocklist) "✓ applied" else "✗ not applied"} • ${protection.blocklistCount} domains • ${protection.blocklistSource}"
                 else
@@ -2943,7 +2943,7 @@ private fun ProtectionTabContent(
 
         val integrityResult = AppIntegrity.inspect(context)
         Text(
-            if (language == AppLanguage.EN) {
+            if (language.isEnglish()) {
                 "App integrity: ${when (integrityResult.detail) {
                     "debuggable_build" -> "debug build (informational only)"
                     "signer_unavailable" -> "signer unavailable"
@@ -2963,7 +2963,7 @@ private fun ProtectionTabContent(
         if (protection.missing.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
             Text(
-                if (language == AppLanguage.EN)
+                if (language.isEnglish())
                     "Still missing: ${protection.missing.joinToString(" • ") }"
                 else
                     "Todavía falta: ${protection.missing.joinToString(" • ") }",
@@ -2972,7 +2972,7 @@ private fun ProtectionTabContent(
             )
         } else {
             Text(
-                if (language == AppLanguage.EN) "All essential prerequisites are satisfied." else "Todos los requisitos esenciales están satisfechos.",
+                if (language.isEnglish()) "All essential prerequisites are satisfied." else "Todos los requisitos esenciales están satisfechos.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF2E8B57)
             )
@@ -3014,7 +3014,7 @@ private fun AllowBlockRow(
             ) {
                 HydraChoiceButton(
                     selected = allowed,
-                    label = if (allowed) "✓ Permitir por defecto" else "Permitir por defecto",
+                    label = (if (AppSettings(LocalContext.current).language.isEnglish()) "Allow by default" else "Permitir por defecto").let { if (allowed) "✓ $it" else it },
                     selectedColor = Color(0xFF00796B),
                     selectedLabelColor = Color.White,
                     onClick = { onChanged(true) },
@@ -3022,7 +3022,7 @@ private fun AllowBlockRow(
                 )
                 HydraChoiceButton(
                     selected = !allowed,
-                    label = if (!allowed) "✓ Bloquear por defecto" else "Bloquear por defecto",
+                    label = (if (AppSettings(LocalContext.current).language.isEnglish()) "Block by default" else "Bloquear por defecto").let { if (!allowed) "✓ $it" else it },
                     selectedColor = Color(0xFFC62828),
                     selectedLabelColor = Color.White,
                     onClick = { onChanged(false) },
@@ -3514,11 +3514,11 @@ private fun HydraChoiceButton(
 private fun describeAppPolicy(mode: AppCompatibilityMode, wifi: Boolean, mobile: Boolean, explicit: Boolean, trusted: Boolean, english: Boolean): String {
     return when (mode) {
         AppCompatibilityMode.CUSTOM -> if (english)
-            "PERSONALIZADO: the app stays inside HYDRA and uses only the protection switches selected for this app; Wi‑Fi/Mobile permissions remain separate."
+            "PERSONALIZED: the app stays inside HYDRA and uses only the protection switches selected for this app; Wi‑Fi/Mobile permissions remain separate."
         else
             "PERSONALIZADO: la app permanece dentro de HYDRA y usa solo las protecciones seleccionadas para esta app; los permisos Wi‑Fi/Móvil siguen siendo independientes."
         AppCompatibilityMode.EXCLUDED -> if (english)
-            "SIN FIREWALL: the app leaves HYDRA/VPN; HYDRA does not filter its traffic and Wi‑Fi/Mobile firewall switches do not apply."
+            "NO FIREWALL: the app leaves HYDRA/VPN; HYDRA does not filter its traffic and Wi‑Fi/Mobile firewall switches do not apply."
         else
             "SIN FIREWALL: la app sale de HYDRA/VPN; HYDRA no filtra su tráfico y los controles Wi‑Fi/Móvil del firewall no aplican."
         AppCompatibilityMode.ESSENTIAL -> if (english)
@@ -3603,16 +3603,16 @@ private fun AppRuleRow(
                 }
                 Text("${app.packageName} · UID ${app.uid}", style = MaterialTheme.typography.labelSmall, fontSize = 8.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val sharedCount = remember(app.uid) { runCatching { context.packageManager.getPackagesForUid(app.uid)?.size ?: 0 }.getOrDefault(0) }
-                if (sharedCount > 1) Text(if (AppSettings(context).language == AppLanguage.EN) "UID compartido" else "UID compartido", style = MaterialTheme.typography.labelSmall, fontSize = 7.5.sp, color = MaterialTheme.colorScheme.tertiary)
+                if (sharedCount > 1) Text(if (AppSettings(context).language.isEnglish()) "UID compartido" else "UID compartido", style = MaterialTheme.typography.labelSmall, fontSize = 7.5.sp, color = MaterialTheme.colorScheme.tertiary)
                 Text(
                     when {
-                        customized -> if (AppSettings(context).language == AppLanguage.EN) "CUSTOM · PROTECTIONS" else "PERSONALIZADO · PROTECCIONES"
-                        userEssential && AppCompatibilityPolicyStore.getMode(app.packageName) == AppCompatibilityMode.ESSENTIAL_COMPAT -> if (AppSettings(context).language == AppLanguage.EN) "ESSENTIAL-COMPAT · DIAGNOSTIC" else "ESENCIAL-COMPAT · DIAGNÓSTICO"
-                        userEssential -> if (AppSettings(context).language == AppLanguage.EN) "PERMISSIVE · FLEXIBLE FILTERS" else "PERMISIVO · FILTROS FLEXIBLES"
-                        explicitRule -> if (AppSettings(context).language == AppLanguage.EN) "EXPLICIT RULE" else "REGLA EXPLÍCITA"
-                        trustedAutoAllowed -> if (AppSettings(context).language == AppLanguage.EN) "TRUSTED APP · AUTO ALLOW" else "APP DE CONFIANZA · AUTO-PERMITIDA"
-                        autoEssential -> if (AppSettings(context).language == AppLanguage.EN) "SYSTEM CORE · AUTO ALLOW" else "SISTEMA CENTRAL · AUTO-PERMITIDO"
-                        else -> if (AppSettings(context).language == AppLanguage.EN) "NO RULE · DEFAULT BLOCK" else "SIN REGLA · BLOQUEADA POR DEFECTO"
+                        customized -> if (AppSettings(context).language.isEnglish()) "CUSTOM · PROTECTIONS" else "PERSONALIZADO · PROTECCIONES"
+                        userEssential && AppCompatibilityPolicyStore.getMode(app.packageName) == AppCompatibilityMode.ESSENTIAL_COMPAT -> if (AppSettings(context).language.isEnglish()) "ESSENTIAL-COMPAT · DIAGNOSTIC" else "ESENCIAL-COMPAT · DIAGNÓSTICO"
+                        userEssential -> if (AppSettings(context).language.isEnglish()) "PERMISSIVE · FLEXIBLE FILTERS" else "PERMISIVO · FILTROS FLEXIBLES"
+                        explicitRule -> if (AppSettings(context).language.isEnglish()) "EXPLICIT RULE" else "REGLA EXPLÍCITA"
+                        trustedAutoAllowed -> if (AppSettings(context).language.isEnglish()) "TRUSTED APP · AUTO ALLOW" else "APP DE CONFIANZA · AUTO-PERMITIDA"
+                        autoEssential -> if (AppSettings(context).language.isEnglish()) "SYSTEM CORE · AUTO ALLOW" else "SISTEMA CENTRAL · AUTO-PERMITIDO"
+                        else -> if (AppSettings(context).language.isEnglish()) "NO RULE · DEFAULT BLOCK" else "SIN REGLA · BLOQUEADA POR DEFECTO"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 7.5.sp,
@@ -3626,7 +3626,7 @@ private fun AppRuleRow(
                     userEssential -> AppCompatibilityMode.ESSENTIAL
                     else -> AppCompatibilityMode.NORMAL
                 }
-                val en = language == AppLanguage.EN
+                val en = language.isEnglish()
                 // Texto corto para la fila (la versión larga hacía 3 líneas y la lista mostraba solo dos apps).
                 val ruleDetail = if (ruleMode == AppCompatibilityMode.NORMAL) when {
                     trustedAutoAllowed && !explicitRule -> if (en) "TRUSTED APP · automatic allow" else "APP DE CONFIANZA · permiso automático"
@@ -3676,7 +3676,7 @@ private fun AppRuleRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    if (customized) "PERSONALIZADO ✓" else "PERSONALIZADO",
+                    if (AppSettings(context).language.isEnglish()) (if (customized) "PERSONALIZED ✓" else "PERSONALIZED") else (if (customized) "PERSONALIZADO ✓" else "PERSONALIZADO"),
                     fontSize = 8.5.sp,
                     color = if (customized) policyColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -3694,7 +3694,7 @@ private fun AppRuleRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    if (userEssential) "PERMISIVO ✓" else "PERMISIVO",
+                    if (AppSettings(context).language.isEnglish()) (if (userEssential) "PERMISSIVE ✓" else "PERMISSIVE") else (if (userEssential) "PERMISIVO ✓" else "PERMISIVO"),
                     fontSize = 9.sp,
                     color = if (userEssential) policyColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -3712,7 +3712,7 @@ private fun AppRuleRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    if (compatibilityExcluded) "SIN FIREWALL ✓" else "SIN FIREWALL",
+                    if (AppSettings(context).language.isEnglish()) (if (compatibilityExcluded) "NO FIREWALL ✓" else "NO FIREWALL") else (if (compatibilityExcluded) "SIN FIREWALL ✓" else "SIN FIREWALL"),
                     fontSize = 8.sp,
                     color = if (compatibilityExcluded) Color(0xFFEAF4FF) else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -3728,7 +3728,7 @@ private fun AppRuleRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    if (AppSettings(context).language == AppLanguage.EN) "Detalles" else "Detalles",
+                    if (AppSettings(context).language.isEnglish()) "Details" else "Detalles",
                     fontSize = 10.sp,
                     maxLines = 1,
                     softWrap = false
@@ -3760,7 +3760,7 @@ private const val CAFECITO_URL = "https://cafecito.app/hydraroot"
 
 @Composable
 private fun TrafficAnalyzerScreen(context: Context) {
-    val english = AppSettings(context).language == AppLanguage.EN
+    val english = AppSettings(context).language.isEnglish()
     var enabled by remember { mutableStateOf(TrafficAnalyzerStore.isEnabled()) }
     var events by remember { mutableStateOf(TrafficAnalyzerStore.snapshot()) }
     var filter by remember { mutableStateOf("ALL") }
@@ -4166,16 +4166,16 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
             titleContentColor = hydraDialogColors().second,
             textContentColor = hydraDialogColors().third,
             onDismissRequest = { showPinDialog = false },
-            title = { Text(if (AppSettings(context).language == AppLanguage.EN) "Create PIN" else "Crear PIN") },
+            title = { Text(if (AppSettings(context).language.isEnglish()) "Create PIN" else "Crear PIN") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(pin, { if (it.length <= 8 && it.all(Char::isDigit)) { pin = it; pinError = false } }, singleLine = true,
                         label = { Text("PIN (4-8)") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                     OutlinedTextField(pin2, { if (it.length <= 8 && it.all(Char::isDigit)) { pin2 = it; pinError = false } }, singleLine = true,
-                        label = { Text(if (AppSettings(context).language == AppLanguage.EN) "Repeat PIN" else "Repetir PIN") }, visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(if (AppSettings(context).language.isEnglish()) "Repeat PIN" else "Repetir PIN") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
-                    if (pinError) Text(if (AppSettings(context).language == AppLanguage.EN) "PINs do not match or are invalid." else "Los PIN no coinciden o no son válidos.", color = MaterialTheme.colorScheme.error)
+                    if (pinError) Text(if (AppSettings(context).language.isEnglish()) "PINs do not match or are invalid." else "Los PIN no coinciden o no son válidos.", color = MaterialTheme.colorScheme.error)
                 }
             },
             confirmButton = {
@@ -4194,7 +4194,7 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
                             }
                         }
                     } else pinError = true
-                }, enabled = !cryptoBusy) { Text(if (cryptoBusy) (if (AppSettings(context).language == AppLanguage.EN) "Saving..." else "Guardando...") else tr(context, "save")) }
+                }, enabled = !cryptoBusy) { Text(if (cryptoBusy) (if (AppSettings(context).language.isEnglish()) "Saving..." else "Guardando...") else tr(context, "save")) }
             },
             dismissButton = { TextButton(onClick = { showPinDialog = false }) { Text(tr(context, "cancel")) } }
         )
@@ -4210,15 +4210,15 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(currentPin, { if (it.length <= 8 && it.all(Char::isDigit)) { currentPin = it; pinError = false } }, singleLine = true,
-                        label = { Text(if (AppSettings(context).language == AppLanguage.EN) "Current PIN" else "PIN actual") }, visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(if (AppSettings(context).language.isEnglish()) "Current PIN" else "PIN actual") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                     OutlinedTextField(pin, { if (it.length <= 8 && it.all(Char::isDigit)) { pin = it; pinError = false } }, singleLine = true,
                         label = { Text("PIN (4-8)") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                     OutlinedTextField(pin2, { if (it.length <= 8 && it.all(Char::isDigit)) { pin2 = it; pinError = false } }, singleLine = true,
-                        label = { Text(if (AppSettings(context).language == AppLanguage.EN) "Repeat PIN" else "Repetir PIN") }, visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(if (AppSettings(context).language.isEnglish()) "Repeat PIN" else "Repetir PIN") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
-                    if (pinError) Text(if (AppSettings(context).language == AppLanguage.EN) "Current PIN invalid, new PINs do not match, or PIN is temporarily locked." else "PIN actual incorrecto, los nuevos PIN no coinciden o el PIN está temporalmente bloqueado.", color = MaterialTheme.colorScheme.error)
+                    if (pinError) Text(if (AppSettings(context).language.isEnglish()) "Current PIN invalid, new PINs do not match, or PIN is temporarily locked." else "PIN actual incorrecto, los nuevos PIN no coinciden o el PIN está temporalmente bloqueado.", color = MaterialTheme.colorScheme.error)
                 }
             },
             confirmButton = {
@@ -4241,7 +4241,7 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
                             }
                         }
                     } else pinError = true
-                }, enabled = !cryptoBusy && currentPin.length in 4..8 && pin.length in 4..8 && pin2.length in 4..8) { Text(if (cryptoBusy) (if (AppSettings(context).language == AppLanguage.EN) "Saving..." else "Guardando...") else tr(context, "save")) }
+                }, enabled = !cryptoBusy && currentPin.length in 4..8 && pin.length in 4..8 && pin2.length in 4..8) { Text(if (cryptoBusy) (if (AppSettings(context).language.isEnglish()) "Saving..." else "Guardando...") else tr(context, "save")) }
             },
             dismissButton = { TextButton(onClick = { showChangePinDialog = false }) { Text(tr(context, "cancel")) } }
         )
@@ -4251,7 +4251,7 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
 @Composable
 private fun ScheduleEditor(context: Context, initial: RuleStore.Schedule, onChanged: (RuleStore.Schedule) -> Unit) {
     var schedule by remember(initial) { mutableStateOf(initial) }
-    val english = AppSettings(context).language == AppLanguage.EN
+    val english = AppSettings(context).language.isEnglish()
     val dayLabels = if (english) listOf("M", "T", "W", "T", "F", "S", "S") else listOf("L", "M", "X", "J", "V", "S", "D")
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SettingSwitchRow(tr(context, "blocked_by_schedule"), tr(context, "schedule_sub"), schedule.enabled) {

@@ -68,15 +68,15 @@ fun LockScreen(lockStore: LockStore, onUnlocked: () -> Unit) {
                 biometricError = errString.toString()
             }
             override fun onAuthenticationFailed() {
-                biometricError = if (AppSettings(context).language == AppLanguage.EN) "Fingerprint not recognized." else "Huella no reconocida."
+                biometricError = if (AppSettings(context).language.isEnglish()) "Fingerprint not recognized." else "Huella no reconocida."
             }
         })
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Hydra Firewall")
                 .setSubtitle(tr(context, "lock_app"))
-                .setDescription(if (AppSettings(context).language == AppLanguage.EN) "Authenticate with your fingerprint to unlock Hydra Firewall." else "Autenticá con tu huella para desbloquear Hydra Firewall.")
-                .setNegativeButtonText(if (AppSettings(context).language == AppLanguage.EN) "Use PIN" else "Usar PIN")
+                .setDescription(if (AppSettings(context).language.isEnglish()) "Authenticate with your fingerprint to unlock Hydra Firewall." else "Autenticá con tu huella para desbloquear Hydra Firewall.")
+                .setNegativeButtonText(if (AppSettings(context).language.isEnglish()) "Use PIN" else "Usar PIN")
                 .build()
         )
     }
@@ -89,7 +89,7 @@ fun LockScreen(lockStore: LockStore, onUnlocked: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Hydra Firewall", style = MaterialTheme.typography.headlineSmall)
-        Text(if (AppSettings(context).language == AppLanguage.EN) "Authentication required" else "Se requiere autenticación")
+        Text(if (AppSettings(context).language.isEnglish()) "Authentication required" else "Se requiere autenticación")
         OutlinedTextField(
             value = pin,
             onValueChange = { if (it.length <= 8 && it.all(Char::isDigit)) { pin = it; error = false } },
@@ -101,15 +101,15 @@ fun LockScreen(lockStore: LockStore, onUnlocked: () -> Unit) {
         )
         if (remaining > 0L) {
             Text(
-                if (AppSettings(context).language == AppLanguage.EN) "Too many attempts. Try again in ${remaining}s." else "Demasiados intentos. Reintentá en ${remaining}s.",
+                if (AppSettings(context).language.isEnglish()) "Too many attempts. Try again in ${remaining}s." else "Demasiados intentos. Reintentá en ${remaining}s.",
                 color = MaterialTheme.colorScheme.error
             )
         } else if (error) {
-            Text(if (AppSettings(context).language == AppLanguage.EN) "Invalid PIN" else "PIN incorrecto", color = MaterialTheme.colorScheme.error)
+            Text(if (AppSettings(context).language.isEnglish()) "Invalid PIN" else "PIN incorrecto", color = MaterialTheme.colorScheme.error)
         }
         if (biometricAvailable && biometricAttempted) {
             androidx.compose.material3.TextButton(onClick = { biometricAttempted = false; biometricError = null }) {
-                Text(if (AppSettings(context).language == AppLanguage.EN) "Use fingerprint" else "Usar huella")
+                Text(if (AppSettings(context).language.isEnglish()) "Use fingerprint" else "Usar huella")
             }
         }
         biometricError?.let { msg ->
@@ -139,8 +139,8 @@ fun LockScreen(lockStore: LockStore, onUnlocked: () -> Unit) {
         ) {
             Text(
                 when {
-                    verifying -> if (AppSettings(context).language == AppLanguage.EN) "Verifying..." else "Verificando..."
-                    AppSettings(context).language == AppLanguage.EN -> "Unlock"
+                    verifying -> if (AppSettings(context).language.isEnglish()) "Verifying..." else "Verificando..."
+                    AppSettings(context).language.isEnglish() -> "Unlock"
                     else -> "Desbloquear"
                 }
             )

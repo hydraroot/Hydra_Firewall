@@ -20,7 +20,7 @@ import java.util.Locale
 
 @Composable
 fun SelfTestScreen(context: Context, language: AppLanguage) {
-    val en = language == AppLanguage.EN || (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+    val en = language.isEnglish() || (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
     var results by remember { mutableStateOf<List<HydraSelfTest.CheckResult>>(emptyList()) }
     var running by remember { mutableStateOf(false) }
     var ranOnce by remember { mutableStateOf(false) }

@@ -37,7 +37,7 @@ import java.util.Locale
  */
 @Composable
 fun SecurityCenterTab(context: Context, language: AppLanguage) {
-    val english = language == AppLanguage.EN ||
+    val english = language.isEnglish() ||
         (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
     var refreshTrigger by remember { mutableStateOf(0) }
     val ipBlockStore = remember { IpBlockStore(context) }

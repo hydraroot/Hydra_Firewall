@@ -13,6 +13,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.hydra.firewall.AppLanguage
 import com.hydra.firewall.AppSettings
+import com.hydra.firewall.isEnglish
 import com.hydra.firewall.MainActivity
 import com.hydra.firewall.security.Severity
 import java.util.Locale
@@ -56,7 +57,7 @@ object NotificationHelper {
                     "Hydra access requests",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Solicitudes pendientes de acceso a Internet por aplicación"
+                    description = if (AppSettings(context).language.isEnglish()) "Pending per-app Internet access requests" else "Solicitudes pendientes de acceso a Internet por aplicación"
                     setShowBadge(true)
                 }
             )
@@ -104,7 +105,7 @@ object NotificationHelper {
     }
 
     private fun buildStatusNotification(context: Context, pendingIntent: PendingIntent): Notification {
-        val english = AppSettings(context).language == AppLanguage.EN ||
+        val english = AppSettings(context).language.isEnglish() ||
             (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
         val totals = TrafficStatsStore.totals()
         val active = FirewallVpnService.activeTcpSessions + FirewallVpnService.activeUdpSessions
@@ -146,7 +147,7 @@ object NotificationHelper {
                 "Hydra Security Center",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Cuarentena de apps nuevas, manipulación del servicio y otras alertas de seguridad"
+                description = if (AppSettings(context).language.isEnglish()) "New-app quarantine, service tampering and other security alerts" else "Cuarentena de apps nuevas, manipulación del servicio y otras alertas de seguridad"
             }
         )
     }
@@ -155,7 +156,7 @@ object NotificationHelper {
      * Every unresolved request has its own notification and PendingIntent. */
     fun notifyAccessRequest(context: Context, token: String, packageName: String?, uid: Int, network: NetworkKind, pendingCount: Int, attemptCount: Int = 1) {
         ensureAccessRequestChannel(context)
-        val english = AppSettings(context).language == AppLanguage.EN ||
+        val english = AppSettings(context).language.isEnglish() ||
             (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
         val appInfo = packageName?.let { pkg ->
             runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.getOrNull()
@@ -258,7 +259,7 @@ object NotificationHelper {
                 "Hydra access requests",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Solicitudes pendientes de acceso a Internet por aplicación"
+                description = if (AppSettings(context).language.isEnglish()) "Pending per-app Internet access requests" else "Solicitudes pendientes de acceso a Internet por aplicación"
                 setShowBadge(true)
             }
         )
@@ -268,7 +269,7 @@ object NotificationHelper {
      *  blocked, this just tells the person there's something waiting for review. */
     fun notifyQuarantine(context: Context, packageName: String) {
         ensureSecurityChannel(context)
-        val english = AppSettings(context).language == AppLanguage.EN ||
+        val english = AppSettings(context).language.isEnglish() ||
             (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
         val label = runCatching {
             context.packageManager.getApplicationInfo(packageName, 0).loadLabel(context.packageManager).toString()
@@ -296,7 +297,7 @@ object NotificationHelper {
     /** The VPN service stopped without a matching intentional-stop marker. */
     fun notifyTamper(context: Context) {
         ensureSecurityChannel(context)
-        val english = AppSettings(context).language == AppLanguage.EN ||
+        val english = AppSettings(context).language.isEnglish() ||
             (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
         val pendingIntent = PendingIntent.getActivity(
             context, 2,
@@ -336,7 +337,7 @@ object NotificationHelper {
         threatNotifyTimes[key] = now
         ensureSecurityChannel(context)
 
-        val english = AppSettings(context).language == AppLanguage.EN ||
+        val english = AppSettings(context).language.isEnglish() ||
             (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
         val label = packageName?.let { pkg ->
             runCatching {

@@ -37,13 +37,14 @@ class AppSettings(context: Context) {
     var alwaysOnPromptShown: Boolean get() = prefs.getBoolean("always_on_prompt_shown", false); set(value) = prefs.edit().putBoolean("always_on_prompt_shown", value).apply()
 }
 
-private fun currentEnglish(context: Context): Boolean {
-    return when (AppSettings(context).language) {
-        AppLanguage.EN -> true
-        AppLanguage.ES -> false
-        AppLanguage.SYSTEM -> Locale.getDefault().language.equals("en", ignoreCase = true)
-    }
+/** true si la UI debe mostrarse en inglés (EN, o SISTEMA con el sistema en inglés). */
+fun AppLanguage.isEnglish(): Boolean = when (this) {
+    AppLanguage.EN -> true
+    AppLanguage.ES -> false
+    AppLanguage.SYSTEM -> Locale.getDefault().language.equals("en", ignoreCase = true)
 }
+
+private fun currentEnglish(context: Context): Boolean = AppSettings(context).language.isEnglish()
 
 fun tr(context: Context, key: String): String {
     val en = currentEnglish(context)

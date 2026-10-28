@@ -110,5 +110,6 @@ dependencies {
 
 
     testImplementation("junit:junit:4.13.2")
+    // org.json real para tests JVM (el de android.jar es un stub que devuelve null/0).
     testImplementation("org.json:json:20240303")
 }

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.hydra.firewall.ui.theme.FirewallLocalTheme
 import com.hydra.firewall.vpn.ConnectionContext
@@ -69,7 +70,7 @@ class AppAccessRequestActivity : ComponentActivity() {
             token?.let { com.hydra.firewall.vpn.NotificationHelper.clearAccessRequestNotification(applicationContext, it) }
             android.widget.Toast.makeText(
                 this,
-                if (AppSettings(applicationContext).language == AppLanguage.EN) "This request was already resolved." else "Esta solicitud ya fue resuelta.",
+                if (AppSettings(applicationContext).language.isEnglish()) "This request was already resolved." else "Esta solicitud ya fue resuelta.",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
             finish()
@@ -96,7 +97,7 @@ class AppAccessRequestActivity : ComponentActivity() {
             }
             FirewallLocalTheme(darkTheme = darkTheme) {
                 AppAccessRequestScreen(
-                    packageName = request.packageName ?: if (AppSettings(applicationContext).language == AppLanguage.EN) "Unknown application" else "Aplicación desconocida",
+                    packageName = request.packageName ?: if (AppSettings(applicationContext).language.isEnglish()) "Unknown application" else "Aplicación desconocida",
                     uid = request.uid,
                     protocolLabel = request.protocolLabel,
                     destination = formatEndpoint(request.key.dstAddr, request.key.dstPort),
@@ -168,7 +169,7 @@ private fun AppAccessRequestScreen(
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
-    val english = remember { AppSettings(context).language == AppLanguage.EN }
+    val english = remember { AppSettings(context).language.isEnglish() }
 
     // For a first prompt with no saved rule, enable the network that actually
     // triggered the request. The user can then enable/disable the other one.
@@ -538,11 +539,22 @@ private fun PromptAction(
     onClick: () -> Unit
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Una sola línea: la fuente baja hasta que el texto cabe (evita "PERMISSIV/E").
+        var fontSizeSp by remember(buttonText) { mutableStateOf(14f) }
         Button(
             onClick = onClick,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp)
         ) {
-            Text(buttonText, maxLines = 2, softWrap = true, style = MaterialTheme.typography.labelLarge)
+            Text(
+                buttonText,
+                maxLines = 1,
+                softWrap = false,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                fontSize = fontSizeSp.sp,
+                style = MaterialTheme.typography.labelLarge,
+                onTextLayout = { if (it.didOverflowWidth && fontSizeSp > 8f) fontSizeSp -= 1f }
+            )
         }
         Text(
             description,
