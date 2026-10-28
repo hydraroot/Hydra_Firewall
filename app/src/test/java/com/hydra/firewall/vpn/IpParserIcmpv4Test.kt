@@ -23,8 +23,8 @@ class IpParserIcmpv4Test {
         assertEquals(28, reply.size)
         assertEquals(4, (reply[0].toInt() ushr 4) and 0xF)
         assertEquals(0, reply[20].toInt() and 0xFF)
-        assertEquals(0, InternetChecksum.compute(reply, 0, 20))
-        assertEquals(0, InternetChecksum.compute(reply, 20, 8))
+        assertEquals(0, InternetChecksum.checksum(reply, 0, 20))
+        assertEquals(0, InternetChecksum.checksum(reply, 20, 8))
     }
 
     private fun buildEchoRequest(src: String, dst: String): ByteArray {
