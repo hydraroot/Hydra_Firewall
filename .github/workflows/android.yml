@@ -40,14 +40,14 @@ jobs:
 
       - name: Guardar reporte de tests
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: app/build/reports/tests/
           if-no-files-found: ignore
 
       - name: Guardar APK debug
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hydra-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -70,7 +70,7 @@ jobs:
 
       - name: Guardar APK release
         if: startsWith(github.ref, 'refs/tags/v') && env.HAS_KEYSTORE == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hydra-release-apk
           path: app/build/outputs/apk/release/*.apk
