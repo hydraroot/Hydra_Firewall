@@ -16,9 +16,9 @@ fun cfg(name: String, default: String = ""): String =
     (System.getenv(name) ?: localProps.getProperty(name) ?: default).trim()
 
 // Feed de firmas de amenazas (HTTPS). Vacío = actualización desactivada por defecto.
-val threatFeedUrl = cfg("HYDRA_THREAT_FEED_URL")
+val threatFeedUrl = cfg("HYDRA_THREAT_FEED_URL", "https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json")
 // Clave pública P-256 (X.509 DER en Base64) que verifica el pack. Vacío = clave original del proyecto.
-val threatPublicKey = cfg("HYDRA_THREAT_PUBLIC_KEY")
+val threatPublicKey = cfg("HYDRA_THREAT_PUBLIC_KEY", "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENTRk3PVkMi+VV6Wx3K/Q1bskCvterMtBMY8kPTAuN1ME6p2HIdn/hv4fii7xFOpL9Ha5pqenDnT4u8UDWRb0Bg==")
 
 android {
     namespace = "com.hydra.firewall"
