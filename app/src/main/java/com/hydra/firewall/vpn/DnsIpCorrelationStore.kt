@@ -128,27 +128,40 @@ object DnsWireParser {
 
     private data class Name(val value: String, val bytes: Int)
 
+    private const val MAX_NAME_LEN = 255
+    private const val MAX_POINTER_JUMPS = 16
+
+    /** Iterativo: sin recursión; límites de saltos, pasos y longitud; solo punteros hacia atrás. */
     private fun readName(data: ByteArray, start: Int): Name? {
         var off = start
         var consumed = 0
+        var jumped = false
+        var jumps = 0
         var steps = 0
         val sb = StringBuilder()
-        while (off < data.size && steps++ < 128) {
+        while (off in data.indices && steps++ < 256) {
             val len = data[off].toInt() and 0xFF
-            if (len == 0) return Name(sb.toString(), consumed + 1)
+            if (len == 0) {
+                if (!jumped) consumed += 1
+                return Name(sb.toString(), consumed)
+            }
             if ((len and 0xC0) == 0xC0) {
                 if (off + 1 >= data.size) return null
                 val ptr = ((len and 0x3F) shl 8) or (data[off + 1].toInt() and 0xFF)
-                val pointed = readName(data, ptr) ?: return null
-                if (sb.isNotEmpty()) sb.append('.')
-                sb.append(pointed.value)
-                return Name(sb.toString(), consumed + 2)
+                if (!jumped) consumed += 2
+                // Solo hacia atrás (estricto) elimina ciclos; además se limita el número de saltos.
+                if (ptr >= off || ++jumps > MAX_POINTER_JUMPS) return null
+                jumped = true
+                off = ptr
+                continue
             }
+            if ((len and 0xC0) != 0) return null
             if (len > 63 || off + 1 + len > data.size) return null
+            if (sb.length + len + 1 > MAX_NAME_LEN) return null
             if (sb.isNotEmpty()) sb.append('.')
-            repeat(len) { i -> sb.append(data[off + 1 + i].toInt().toChar()) }
+            repeat(len) { i -> sb.append((data[off + 1 + i].toInt() and 0xFF).toChar()) }
             off += 1 + len
-            consumed += 1 + len
+            if (!jumped) consumed += 1 + len
         }
         return null
     }

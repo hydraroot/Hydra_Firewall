@@ -1,4 +1,52 @@
-# Avisos de terceros (dominios bloqueados)
+# Third-party notices
+
+Hydra is free software under GPL-3.0-or-later (see `LICENSE`). This file lists third-party
+material it uses. Sections A–D are in English; the detailed per-blocklist breakdown (sections 1–2)
+below is kept in Spanish.
+
+## A. Libraries linked into the APK
+
+| Component | Version | License | Source |
+|---|---|---|---|
+| Kotlin (stdlib, Compose compiler plugin) | Gradle plugin version | Apache-2.0 | https://github.com/JetBrains/kotlin |
+| androidx.core:core-ktx | 1.13.1 | Apache-2.0 | https://developer.android.com/jetpack/androidx |
+| androidx.activity:activity-compose | 1.9.3 | Apache-2.0 | same |
+| androidx.lifecycle:lifecycle-runtime-ktx | 2.8.7 | Apache-2.0 | same |
+| androidx.fragment:fragment-ktx | 1.8.5 | Apache-2.0 | same |
+| androidx.appcompat:appcompat | 1.7.0 | Apache-2.0 | same |
+| androidx.biometric:biometric | 1.1.0 | Apache-2.0 | same |
+| Jetpack Compose (BOM; ui, ui-graphics, material3, foundation) | see `app/build.gradle.kts` | Apache-2.0 | https://developer.android.com/jetpack/compose |
+| org.jetbrains.kotlinx:kotlinx-coroutines-android | 1.9.0 | Apache-2.0 | https://github.com/Kotlin/kotlinx.coroutines |
+| junit:junit (tests only, not shipped) | 4.13.2 | EPL-1.0 | https://junit.org/junit4/ |
+
+Apache-2.0 text: `third_party/licenses/Apache-2.0`. Transitive dependencies of the above are
+covered by their own (Apache-2.0 / compatible) licenses; run `./gradlew :app:dependencies` for the
+full list.
+
+## B. Machine-learning data
+
+- **MH-100K Android Malware Dataset** (https://huggingface.co/datasets/hendriow/mh100k) — CC BY 4.0.
+  The dataset is **not** bundled. The compact model `hydra_apk_ai_mh100k_v2.*` was trained from it
+  with `tools/train_hydra_apk_ai_mh100k.py`. Attribution: see `docs/reference/MH100K-ATTRIBUTION.md`.
+- `hydra_ai_model_v1/v2/v3.json` and `hydra_ai_privacy_v1.json` are Hydra's own models trained on
+  synthetic data (see `docs/reference/HYDRA-AI-LITE-TRAINING-REPORT.md`).
+- Python training tools use numpy, pandas and scikit-learn (BSD-3-Clause; development only, not shipped).
+
+## C. Certificates
+
+`app/src/main/res/raw/hydra_extra_roots.pem` contains four public root CA certificates
+(DigiCert Global Root CA, DigiCert Global Root G2, ISRG Root X1, ISRG Root YR). They are public
+certificates used only as an additive fallback for HTTPS update downloads on old Android versions.
+
+## D. Services contacted by the app
+
+Cloudflare (`cloudflare-dns.com`, `security.cloudflare-dns.com`), Google (`dns.google`) and Quad9
+(`dns.quad9.net`) for encrypted DNS; `raw.githubusercontent.com` for blocklists and the signed threat
+pack; `big.oisd.nl` only if OISD is enabled. These are third-party services under their own terms.
+
+---
+
+# Detalle de listas de dominios (español)
 
 Hydra es software libre bajo GPL-3.0 (ver LICENSE). Este archivo lista las listas de
 dominios de terceros que usa la app, separadas según si van **empaquetadas dentro
@@ -65,7 +113,7 @@ usuario final.
 
 - HaGeZi Multi PRO mini — GPL-3.0. https://github.com/hagezi/dns-blocklists
 - HaGeZi Threat Intelligence mini — GPL-3.0. https://github.com/hagezi/dns-blocklists
-- 1Hosts Lite — https://github.com/badmojr/1Hosts
+- 1Hosts Lite — MPL-2.0 (según los metadatos del repositorio). https://github.com/badmojr/1Hosts
 - URLhaus, Feodo Tracker, ThreatFox (abuse.ch) — CC0. El pack de amenazas firmado
   que arma `tools/build_hydra_threat_pack.py` sí se publica en el repositorio de
   Hydra, es decir, sí se redistribuye; como las fuentes de abuse.ch son CC0 esto

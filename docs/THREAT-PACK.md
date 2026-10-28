@@ -4,10 +4,14 @@ La app puede recibir IPs, dominios y reglas YARA‑Lite de un **pack firmado** (
 Solo se instala si la firma verifica con la clave pública compilada en la app; un pack manipulado se descarta.
 
 ## Estado por defecto
-- El pack incluido en la app (`assets/hydra_threat_pack_v1.json`) trae **solo reglas YARA‑Lite** y está firmado con la clave original del proyecto (la que trae `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`).
+- El pack incluido en la app (`assets/hydra_threat_pack_v1.json`) trae **solo reglas YARA‑Lite** y está firmado con la clave original del proyecto (la misma clave pública que está en `app/build.gradle.kts` y en `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`; ambas deben coincidir — lo comprueba `ThreatKeyConsistencyTest`).
+- Una variable `HYDRA_THREAT_PUBLIC_KEY` vacía se trata como no definida (usa la clave por defecto).
 - **Build sin configurar nada** (sin `HYDRA_THREAT_PUBLIC_KEY` en `local.properties` ni como variable de CI): la app usa esa clave por defecto, y el pack incluido verifica correctamente contra ella — el feed de reglas YARA‑Lite arranca con contenido, no vacío. Esto es lo que pasa en un build público normal.
 - La actualización automática está **desactivada** hasta que compiles la app con `HYDRA_THREAT_FEED_URL`.
 - **Atención si seteás `HYDRA_THREAT_PUBLIC_KEY` con tu propia clave** (ver sección siguiente): a partir de ahí la app deja de aceptar la clave por defecto, así que el pack incluido en `assets/` queda rechazado hasta que lo vuelvas a firmar con tu clave privada corriendo `tools/rebuild_bundled_pack.sh`. Si configurás `HYDRA_THREAT_PUBLIC_KEY` en GitHub (Settings → Variables) para el workflow de CI pero no re‑firmás el pack bundleado del repo, el build público que arma esa Action sí te va a quedar con el feed incluido vacío/rechazado.
+
+## Verificar un pack
+`pip install cryptography` y luego `python tools/verify_threat_pack.py <archivo o URL del pack>` (usa la clave de `app/build.gradle.kts`; `--key` para otra).
 
 ## Activarlo con tu propia clave (recomendado)
 1. `tools/generate_signing_key.sh` → crea `secrets/hydra_threat_signing_key.pem` (privada, backup, nunca al repo) y la pública en Base64.

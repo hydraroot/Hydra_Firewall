@@ -345,6 +345,9 @@ class FirewallVpnService : VpnService() {
             builder.addAddress(VPN_IPV6_ADDRESS, VPN_IPV6_PREFIX_LENGTH)
             builder.addRoute("2000::", 3)
             builder.addRoute("fc00::", 7)
+            // NAT64 (RFC 6052 / RFC 8215): evita fuga en redes DNS64/464XLAT.
+            builder.addRoute("64:ff9b::", 96)
+            builder.addRoute("64:ff9b:1::", 48)
             DiagnosticLogger.logServiceEvent("VPN IPv6 ENABLED physical_ipv6=true")
         } else {
             DiagnosticLogger.logServiceEvent("VPN IPv6 DISABLED physical_ipv6=false reason=NO_GLOBAL_PHYSICAL_IPV6")

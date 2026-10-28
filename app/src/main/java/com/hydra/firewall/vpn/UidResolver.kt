@@ -119,30 +119,8 @@ class UidResolver(context: Context) {
             )
         }
 
-        // Second recovery path: a DNS answer recently associated this
-        // destination IP with exactly one explicitly allowed UID. This lets a
-        // new source port continue an app's connection set without guessing
-        // across multiple apps that share a CDN address.
-        val dnsCandidates = DnsIpCorrelationStore.candidateUids(key.dstAddr)
-            .filter { isAffinityAllowed(it, network) }
-            .distinct()
-        if (dnsCandidates.size == 1) {
-            val affinityUid = dnsCandidates.first()
-            val pkg = packageNameFor(affinityUid)
-            affinityStore.remember(key.protocol, key.srcAddr, key.srcPort, affinityUid, pkg, elapsedNow)
-            Log.i(TAG, "UID affinity hit uid=$affinityUid pkg=${pkg ?: "unknown"} dst=${key.dstAddr.hostAddress}:${key.dstPort} via=dns-ip")
-            DiagnosticLogger.logServiceEvent(
-                "UID_AFFINITY_HIT uid=$affinityUid pkg=${pkg ?: "unknown"} dst=${key.dstAddr.hostAddress}:${key.dstPort} via=dns-ip"
-            )
-            return Resolution(
-                affinityUid,
-                pkg,
-                fromCache = false,
-                resolvedVia = "dns-ip-affinity",
-                fromAffinity = true
-            )
-        }
-
+        // La IP de destino NO es prueba de identidad (CDN/IP compartida entre apps):
+        // no se usa para atribuir ni autorizar tráfico. Si no hay UID, fail-closed.
         UnresolvedUidPromptRecovery.schedule(appContext, key, network, this)
         return Resolution(Process.INVALID_UID, null, fromCache = false, resolvedVia = via)
     }
@@ -172,8 +150,9 @@ class UidResolver(context: Context) {
         // On Android 7/8/9 the socket can appear in /proc/net a little after the
         // first TUN SYN/UDP packet is observed. A short bounded retry window is
         // preferable to immediately turning a real app into INVALID_UID -> BLOCK.
-        // Total wait is 110 ms and only happens for new/unresolved flows.
-        val delays = longArrayOf(0L, 10L, 25L, 50L, 100L, 150L, 200L)
+        // Espera total acotada a 85 ms (0+10+25+50) en el hilo del motor. Los reintentos largos
+        // los hace UnresolvedUidPromptRecovery en segundo plano.
+        val delays = longArrayOf(0L, 10L, 25L, 50L)
         for (index in delays.indices) {
             if (delays[index] > 0L) {
                 try { Thread.sleep(delays[index]) } catch (_: InterruptedException) { Thread.currentThread().interrupt(); break }

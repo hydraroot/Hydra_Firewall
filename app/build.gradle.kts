@@ -13,7 +13,9 @@ val localProps = Properties().apply {
     if (f.isFile) f.inputStream().use { load(it) }
 }
 fun cfg(name: String, default: String = ""): String =
-    (System.getenv(name) ?: localProps.getProperty(name) ?: default).trim()
+    listOf(System.getenv(name), localProps.getProperty(name))
+        .map { it?.trim().orEmpty() }
+        .firstOrNull { it.isNotEmpty() } ?: default.trim()
 
 // Feed de firmas de amenazas (HTTPS). Vacío = actualización desactivada por defecto.
 val threatFeedUrl = cfg("HYDRA_THREAT_FEED_URL", "https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json")
@@ -34,8 +36,8 @@ android {
         // tiempo de ejecución según Build.VERSION.SDK_INT (ver UidResolver.kt).
         minSdk = 24
         targetSdk = 35
-        versionCode = 161
-        versionName = "1.5-beta6-final-r13-fix172"
+        versionCode = 162
+        versionName = "1.5-beta6-final-r13-fix173"
         buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V1.5-beta6-final-r13\"")
         buildConfigField("String", "THREAT_FEED_URL", "\"${threatFeedUrl.replace("\"", "")}\"")
         buildConfigField("String", "THREAT_PUBLIC_KEY", "\"${threatPublicKey.replace("\"", "")}\"")

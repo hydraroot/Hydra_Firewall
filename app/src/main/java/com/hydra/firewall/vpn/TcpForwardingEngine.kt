@@ -43,11 +43,17 @@ class TcpForwardingEngine(
         private const val IDLE_TIMEOUT_MS = 5 * 60_000L
         private const val READ_CHUNK = 16 * 1024
         private const val MAX_SESSIONS = 128
+        private const val MAX_QUEUED_PACKETS = 2048
+        private const val MAX_QUEUED_BYTES = 4 * 1024 * 1024
+        private const val MAX_DRAIN_PER_LOOP = 256
         private val random = SecureRandom()
     }
 
     private val running = AtomicBoolean(false)
     private val packetQueue = ConcurrentLinkedQueue<PendingTunPacket>()
+    private val queuedPackets = AtomicInteger(0)
+    private val queuedBytes = AtomicInteger(0)
+    private val queueDrops = java.util.concurrent.atomic.AtomicLong(0)
     private val sessions = ConcurrentHashMap<SessionKey, TcpSession>()
     private val sessionCounter = AtomicInteger(0)
     private val pendingNetwork = AtomicReference(initialNetwork)
@@ -66,6 +72,14 @@ class TcpForwardingEngine(
 
     fun submitTunPacket(packet: ByteArray, ip: IPv4Header) {
         if (!running.get()) return
+        if (queuedPackets.get() >= MAX_QUEUED_PACKETS || queuedBytes.get() + packet.size > MAX_QUEUED_BYTES) {
+            // Backpressure: se descarta; TCP retransmite. Evita crecimiento ilimitado de memoria.
+            val n = queueDrops.incrementAndGet()
+            if (n == 1L || n % 500L == 0L) DiagnosticLogger.logServiceEvent("TCP QUEUE FULL drops=$n")
+            return
+        }
+        queuedPackets.incrementAndGet()
+        queuedBytes.addAndGet(packet.size)
         packetQueue.add(PendingTunPacket(packet, ip))
         selector.wakeup()
     }
@@ -101,7 +115,7 @@ class TcpForwardingEngine(
                 drainTunQueue()
                 processTimers(System.currentTimeMillis())
 
-                selector.select(SELECT_TIMEOUT_MS)
+                if (packetQueue.isEmpty()) selector.select(SELECT_TIMEOUT_MS) else selector.selectNow()
                 val iterator = selector.selectedKeys().iterator()
                 while (iterator.hasNext()) {
                     val key = iterator.next()
@@ -128,14 +142,17 @@ class TcpForwardingEngine(
     }
 
     private fun drainTunQueue() {
-        var pending = packetQueue.poll()
-        while (pending != null) {
+        var processed = 0
+        while (processed < MAX_DRAIN_PER_LOOP) {
+            val pending = packetQueue.poll() ?: return
+            queuedPackets.decrementAndGet()
+            queuedBytes.addAndGet(-pending.packet.size)
+            processed++
             try {
                 handleTcpFromTun(pending.packet, pending.ip)
             } catch (e: Exception) {
                 Log.w(TAG, "TUN packet processing failed", e)
             }
-            pending = packetQueue.poll()
         }
     }
 

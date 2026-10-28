@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets
 object ThreatSignatureVerifier {
     private const val ALGORITHM = "SHA256withECDSA"
     // P-256 public key. Private key is NOT shipped in Hydra.
-    private const val DEFAULT_PUBLIC_KEY_B64 = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDI8JX6RKszA092bHszzusFF+6e7SnfRQlfnzexCdmgZxVfh4IndexfraFyNEmInmSGzJ3lk2dMY6+0e1zwLiBQ=="
+    private const val DEFAULT_PUBLIC_KEY_B64 = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENTRk3PVkMi+VV6Wx3K/Q1bskCvterMtBMY8kPTAuN1ME6p2HIdn/hv4fii7xFOpL9Ha5pqenDnT4u8UDWRb0Bg=="
 
     /** Clave de build (HYDRA_THREAT_PUBLIC_KEY) si existe; si no, la clave original del proyecto. */
     private val PUBLIC_KEY_B64: String
