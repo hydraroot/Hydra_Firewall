@@ -12,8 +12,12 @@ trackers and known-malicious domains/IPs. Everything runs on-device; there are n
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do)
 > and [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before relying on it.
 
-<!-- Screenshots: put 2–4 images in docs/img/ and link them here, e.g.
-![Per-app rules](docs/img/rules.png) -->
+<p align="center">
+  <img src="docs/img/rules.png" width="200" alt="Per-app rules">
+  <img src="docs/img/prompt.png" width="200" alt="First-connection prompt">
+  <img src="docs/img/security-center.png" width="200" alt="Security Center">
+  <img src="docs/img/why.png" width="200" alt="Why is it connecting?">
+</p>
 
 ---
 
