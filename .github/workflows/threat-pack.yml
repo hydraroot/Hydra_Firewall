@@ -1,0 +1,49 @@
+name: Threat pack (firmado, diario)
+
+# Genera app-compatible hydra_threat_pack.json firmado y lo publica en la rama `threat-pack`.
+# URL para la app (HYDRA_THREAT_FEED_URL):
+#   https://raw.githubusercontent.com/Hydraroot/HYDRA_FIREWALL/threat-pack/hydra_threat_pack.json
+#
+# Secrets necesarios (Settings > Secrets and variables > Actions):
+#   HYDRA_THREAT_SIGNING_KEY  -> contenido del PEM privado (tools/generate_signing_key.sh)
+#   ABUSECH_AUTH_KEY          -> opcional pero recomendado: clave gratis de https://auth.abuse.ch/ (URLhaus/ThreatFox)
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generar y firmar el pack
+        env:
+          SIGNING_KEY: ${{ secrets.HYDRA_THREAT_SIGNING_KEY }}
+          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+        run: |
+          test -n "$SIGNING_KEY" || { echo "Falta el secret HYDRA_THREAT_SIGNING_KEY"; exit 1; }
+          umask 077
+          printf '%s\n' "$SIGNING_KEY" > "$RUNNER_TEMP/sign.pem"
+          ARGS="--feodo --yara app/src/main/assets/hydra_threat_seed.yar --min-indicators 200 --expires-days 14"
+          if [ -n "$ABUSECH_AUTH_KEY" ]; then ARGS="$ARGS --urlhaus-api --threatfox-api"; fi
+          python3 tools/build_hydra_threat_pack.py --output out/hydra_threat_pack.json --private-key "$RUNNER_TEMP/sign.pem" $ARGS
+          rm -f "$RUNNER_TEMP/sign.pem"
+
+      - name: Publicar en la rama threat-pack
+        run: |
+          git config user.name  "hydra-threat-bot"
+          git config user.email "hydra-threat-bot@users.noreply.github.com"
+          git checkout --orphan threat-pack-new
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name out ! -name .git -exec rm -rf {} +
+          mv out/hydra_threat_pack.json ./hydra_threat_pack.json
+          rmdir out
+          git add hydra_threat_pack.json
+          git commit -m "threat pack $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push --force origin threat-pack-new:threat-pack

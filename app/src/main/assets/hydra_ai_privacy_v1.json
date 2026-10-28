@@ -1,0 +1,57 @@
+{
+  "model_version": "hydra-ai-privacy-v1",
+  "model_type": "standardized_logistic_regression",
+  "purpose": "privacy_tracking_signal_only",
+  "decision_authority": "none",
+  "feature_names": [
+    "log_connections",
+    "log_unique_destinations",
+    "log_dns_queries",
+    "dns_blocks",
+    "log_recent_connections",
+    "new_destinations",
+    "sni_blocks",
+    "dns_block_ratio",
+    "sni_block_ratio"
+  ],
+  "means": [
+    5.05415685,
+    3.67513768,
+    5.03704247,
+    9.64411111,
+    4.42154961,
+    15.33377778,
+    9.46733333,
+    0.04970544,
+    0.04007253
+  ],
+  "scales": [
+    1.23278663,
+    1.07642561,
+    1.32801958,
+    7.89502718,
+    1.36335328,
+    10.97612222,
+    8.00792938,
+    0.06621819,
+    0.04614686
+  ],
+  "weights": [
+    1.68127163,
+    1.54292013,
+    0.94574452,
+    5.90793524,
+    0.38899026,
+    2.1694192,
+    5.81252823,
+    0.14665278,
+    0.8457419
+  ],
+  "bias": 4.1341640646205295,
+  "training_metrics": {
+    "source": "synthetic_privacy_calibration",
+    "accuracy": 0.9956666666666667,
+    "auc": 0.9998829353133989,
+    "samples": 12000
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "source": "Hydra license-compatible bundle (StevenBlack ad-hoc + AdAway + FadeMind hosts.extras + Badd-Boyz-Hosts + hostsVN + minecraft-hosts trackers + Tiuxo ads + UncheckyAds)",
+  "sourceUrl": "https://github.com/StevenBlack/hosts",
+  "license": "Mixed: MIT, CC0-1.0, CC BY 3.0, CC BY 4.0 (see THIRD_PARTY_NOTICES.md section 1)",
+  "listDate": "2026-10-27",
+  "domainCount": 18094,
+  "note": "Regenerated to drop StevenBlack's unified list and exclude MVPS (CC BY-NC-SA, non-commercial), Dan Pollock/someonewhocares (non-commercial with attribution), KADhosts (CC BY-SA 4.0, share-alike) and pgl.yoyo.org (no declared license), none of which are redistributable inside a GPL-3.0 APK. HaGeZi and 1Hosts are still fetched at runtime by BlocklistUpdater, not bundled."
+}

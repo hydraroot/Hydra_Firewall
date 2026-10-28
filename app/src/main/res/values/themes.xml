@@ -1,0 +1,16 @@
+<resources>
+    <style name="Theme.FirewallLocal" parent="Theme.AppCompat.Light.NoActionBar" />
+
+    <!-- Used only by AppAccessRequestActivity. This prompt should look like a
+         floating permission dialog on top of whatever app the user was using,
+         not a full-screen switch that looks like "opening the firewall app". -->
+    <style name="Theme.FirewallLocal.Prompt" parent="Theme.AppCompat.Light.Dialog">
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+    </style>
+</resources>

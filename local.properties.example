@@ -1,0 +1,26 @@
+# Copiá este archivo como local.properties (NO lo subas al repositorio).
+
+# Ruta del Android SDK
+#   Windows: sdk.dir=C:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk
+#   Linux:   sdk.dir=/home/TU_USUARIO/Android/Sdk
+#   macOS:   sdk.dir=/Users/TU_USUARIO/Library/Android/sdk
+sdk.dir=/ruta/al/Android/Sdk
+
+# --- Firma de release (opcional; sin esto usá assembleDebug) ---
+# Crear la keystore una sola vez:
+#   keytool -genkeypair -v -keystore hydra-release.jks -alias hydra -keyalg RSA -keysize 4096 -validity 10000
+# GUARDÁ la keystore y las claves: sin ellas no podrás actualizar la app instalada.
+#HYDRA_KEYSTORE_FILE=hydra-release.jks
+#HYDRA_KEYSTORE_PASSWORD=cambiar
+#HYDRA_KEY_ALIAS=hydra
+#HYDRA_KEY_PASSWORD=cambiar
+
+# --- Actualización de firmas de amenazas (opcional) ---
+# URL HTTPS del pack firmado (ver .github/workflows/threat-pack.yml y docs/THREAT-PACK.md)
+#HYDRA_THREAT_FEED_URL=https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/threat-pack/hydra_threat_pack.json
+# Clave pública (Base64 DER) del par con el que firmás el pack. Si la dejás vacía se usa la clave original.
+#HYDRA_THREAT_PUBLIC_KEY=
+
+# --- ID de la app (opcional) ---
+# Por defecto: com.hydraroot.firewall. Si lo cambiás, Android la trata como otra app distinta.
+#HYDRA_APPLICATION_ID=com.hydraroot.firewall

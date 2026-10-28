@@ -1,0 +1,19 @@
+{
+  "model_version": "hydra-apk-ai-mh100k-v2",
+  "model_type": "static_apk_security_signal_logistic_regression",
+  "runtime_authority": "secondary_signal_only",
+  "feature_count": 2048,
+  "hash": "FNV-1a-64",
+  "encoding": {
+    "presence": 0,
+    "absence": 1
+  },
+  "intercept": -0.003670556005090475,
+  "training_rows": 101934,
+  "training_positive": 9800,
+  "training_negative": 92134,
+  "feature_total": 24833,
+  "selection": "train-only chi-square top 2048; production retrain on all rows after model selection",
+  "held_out_evaluation_model": "hydra_mh100_model_2048.npz",
+  "notes": "Production coefficients were fit on all MH-100K rows. Do not use production-fit metrics as unbiased test metrics."
+}

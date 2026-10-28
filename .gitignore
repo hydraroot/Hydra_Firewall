@@ -1,0 +1,14 @@
+local.properties
+*.jks
+*.keystore
+*.pem
+!app/src/main/res/raw/*.pem
+.gradle/
+build/
+app/build/
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+secrets/
