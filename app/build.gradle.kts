@@ -36,8 +36,8 @@ android {
         // tiempo de ejecución según Build.VERSION.SDK_INT (ver UidResolver.kt).
         minSdk = 24
         targetSdk = 35
-        versionCode = 162
-        versionName = "1.5-beta6-final-r13-fix173"
+        versionCode = 163
+        versionName = "1.5-beta6-final-r13-fix174"
         buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V1.5-beta6-final-r13\"")
         buildConfigField("String", "THREAT_FEED_URL", "\"${threatFeedUrl.replace("\"", "")}\"")
         buildConfigField("String", "THREAT_PUBLIC_KEY", "\"${threatPublicKey.replace("\"", "")}\"")

@@ -6,7 +6,7 @@ Firewall por app para Android (7.0+), sin root. Funciona como una **VPN local**:
 teléfono pasa por la app, que decide qué apps pueden salir a internet, por Wi‑Fi o datos móviles,
 y filtra anuncios, rastreadores y dominios maliciosos. Nada se envía a servidores de Hydra.
 
-> Estado: **beta** (`1.5-beta6-final-r13-fix173`). Probala primero con apps no críticas.
+> Estado: **beta** (`1.5-beta6-final-r13-fix174`). Probala primero con apps no críticas.
 > Leé [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) antes de confiar en ella para protegerte de malware.
 
 <!--

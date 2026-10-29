@@ -8,7 +8,7 @@ trackers and known-malicious domains/IPs. Everything runs on-device; there are n
 
 🇪🇸 [Versión en español](README.es.md)
 
-> **Status: beta** (`1.5-beta6-final-r13-fix173`). Try it first with non-critical apps.
+> **Status: beta** (`1.5-beta6-final-r13-fix174`). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do)
 > and [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before relying on it.
 

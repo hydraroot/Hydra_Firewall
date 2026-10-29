@@ -1,4 +1,4 @@
-## 1.5-beta6-final-r13 — FIX173 (versionCode 162)
+## 1.5-beta6-final-r13 — FIX174 (versionCode 163)
 - Seguridad: el analizador DNS (`DnsWireParser`) era recursivo y un puntero de compresión circular provocaba `StackOverflowError`; ahora es iterativo con límites. Tests: DnsWireParserTest.
 - Seguridad: se quitó la atribución de UID por IP de destino compartida (CDN); sin UID la conexión se bloquea.
 - Pack de amenazas: una sola clave pública por defecto (la que verifica el pack incluido); variables de entorno vacías se tratan como ausentes. Test: ThreatKeyConsistencyTest.
