@@ -12,3 +12,25 @@ captures/
 .externalNativeBuild/
 .cxx/
 secrets/
+
+# agregado por limpiar-repo.ps1
+*.p12
+*.pfx
+*.pk8
+*.key
+keystore.properties
+.env
+.env.*
+*.apk
+*.aab
+*.ap_
+*.hprof
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.kotlin/
+*.log
+.DS_Store
+Thumbs.db
