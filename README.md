@@ -8,7 +8,7 @@
 
 🇪🇸 [Versión en español](README.es.md)
 
-> **Status: beta** (`1.5-beta6-final-r13-fix174`). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (`1.0.0`, versionCode `164`). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -181,8 +181,7 @@ Check the SHA‑256 shown in the release notes.
 
 Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) builds and tests every push.
 
-> The application ID is `com.hydraroot.firewall` (formerly `com.example.firewall`); Android treats it
-> as a different app. **Export your settings from the old version first.**
+> The Google Play application ID for this release is `com.hydra.firewall`, matching the app created in Play Console. Keep it unchanged for future updates. Older local builds using `com.hydraroot.firewall` or `com.example.firewall` are treated as different apps; export your settings from an older build before switching and import them into this release.
 >
 > Debug APKs built by GitHub Actions are signed with a temporary key that changes every run. To update
 > over an existing install you must uninstall first (export your configuration beforehand) — or use a release keystore, see `docs/BUILD.md`.

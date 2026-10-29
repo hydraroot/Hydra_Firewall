@@ -1,3 +1,11 @@
+## 1.0.0 — primera versión para prueba cerrada (versionCode 163)
+- Corregido el `applicationId` para que el AAB coincida con el paquete creado en Google Play Console: `com.hydra.firewall`.
+- Preparación del paquete de lanzamiento para la prueba cerrada de Google Play.
+- El historial que sigue documenta builds locales de desarrollo; esta es la primera candidata que se enviará a Play Console.
+- Configuración de compilación y destino actualizada a Android 16 (API 36).
+- Etiqueta y nombre de versión sincronizados a `Hydra Firewall - V1.0.0` / `1.0.0`.
+- Herramientas de compilación actualizadas a Android Gradle Plugin 8.10.1, Kotlin 2.2.21 y Gradle 8.11.1 para compatibilidad con API 36.
+
 ## 1.5-beta6-final-r13 — FIX174 (versionCode 163)
 - Seguridad: el analizador DNS (`DnsWireParser`) era recursivo y un puntero de compresión circular provocaba `StackOverflowError`; ahora es iterativo con límites. Tests: DnsWireParserTest.
 - Seguridad: se quitó la atribución de UID por IP de destino compartida (CDN); sin UID la conexión se bloquea.

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -85,7 +86,9 @@ fun LockScreen(lockStore: LockStore, onUnlocked: () -> Unit) {
     val remaining = if (nowMs >= 0L) lockStore.lockoutRemainingSeconds().coerceAtLeast(0L) else 0L
 
     Column(
-        modifier = Modifier.padding(24.dp).fillMaxWidth(),
+        // This screen has no Scaffold; apply safe insets explicitly so the PIN
+        // and unlock button are not covered by status/navigation bars on API 35+.
+        modifier = Modifier.safeDrawingPadding().padding(24.dp).fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Hydra Firewall", style = MaterialTheme.typography.headlineSmall)

@@ -47,8 +47,8 @@ Neither should live only on the machine where you build:
 Push the project to a repository. `.github/workflows/android.yml` runs the tests and publishes the debug APK as an artifact (*Actions* tab).
 For a signed release when you create a `vX.Y.Z` tag, add these *secrets*: `HYDRA_KEYSTORE_BASE64` (`base64 -w0 hydra-release.jks`), `HYDRA_KEYSTORE_PASSWORD`, `HYDRA_KEY_ALIAS`, `HYDRA_KEY_PASSWORD`.
 
-## Migrating from the `com.example.firewall` ID
-The installable ID changed to `com.hydraroot.firewall` (override with `HYDRA_APPLICATION_ID`). The code used to live in the `com.example.firewall` package; the namespace is now `com.hydra.firewall`. Android treats the old and new IDs as different apps, so it **does not update** the old one:
+## Google Play application ID and migration from local builds
+This release uses application ID `com.hydra.firewall` to match the app registered in Google Play Console. Older local builds of this repository may use `com.hydraroot.firewall` or `com.example.firewall`; Android treats each ID as a different app, so this release will not update those installs in place. Export settings from the old build and import them after installing this release:
 1. In the **old** version: *Profiles* tab → **Export** (saves a `.json`; it does not include the PIN, history or statistics).
 2. Install the new version (the two can coexist for a while, but **do not enable both VPNs at once**).
 3. In the new one: install/open your apps, *Profiles* → **Import**. Rules are applied by app name; apps not installed are skipped and reported. An automatic copy is saved and there is an **Undo** button.

@@ -24,21 +24,21 @@ val threatPublicKey = cfg("HYDRA_THREAT_PUBLIC_KEY", "MFkwEwYHKoZIzj0CAQYIKoZIzj
 
 android {
     namespace = "com.hydra.firewall"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        // ID de la app instalada. OJO: cambiarlo hace que Android la vea como OTRA app (no actualiza la anterior).
-        // El código sigue en el paquete com.hydra.firewall (namespace); solo cambia el ID instalable.
-        applicationId = cfg("HYDRA_APPLICATION_ID", "com.hydraroot.firewall")
+        // Debe coincidir exactamente con el identificador creado en Google Play Console.
+        // No cambiarlo en actualizaciones publicadas; Android/Play lo tratarían como otra app.
+        applicationId = "com.hydra.firewall"
         // minSdk 24 (Android 7.0 Nougat): V1.1-legacy soporta API 24-28 mediante
         // el fallback /proc/net/* (ProcNetUidResolver) y API 29+ mediante
         // ConnectivityManager.getConnectionOwnerUid(). El despacho ocurre en
         // tiempo de ejecución según Build.VERSION.SDK_INT (ver UidResolver.kt).
         minSdk = 24
-        targetSdk = 35
-        versionCode = 163
-        versionName = "1.5-beta6-final-r13-fix174"
-        buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V1.5-beta6-final-r13\"")
+        targetSdk = 36
+        versionCode = 164
+        versionName = "1.0.0"
+        buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V1.0.0\"")
         buildConfigField("String", "THREAT_FEED_URL", "\"${threatFeedUrl.replace("\"", "")}\"")
         buildConfigField("String", "THREAT_PUBLIC_KEY", "\"${threatPublicKey.replace("\"", "")}\"")
     }

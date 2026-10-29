@@ -18,6 +18,7 @@ import android.os.Process
 import android.os.Handler
 import android.os.Looper
 import android.widget.ImageView
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -102,6 +103,9 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Match Android 15/16 edge-to-edge behavior on older releases too.
+        // Material 3 Scaffold below applies safe system-bar insets to its content.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         ConnectionHistory.init(this)
         TrafficAnalyzerStore.init(this)
@@ -372,7 +376,7 @@ fun FirewallScreen(
     }
 
     FirewallLocalTheme(darkTheme = darkTheme) {
-        Scaffold { padding ->
+        Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
             Column(modifier = modifier.fillMaxSize().padding(padding)) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),

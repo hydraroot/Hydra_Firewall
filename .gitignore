@@ -13,7 +13,7 @@ captures/
 .cxx/
 secrets/
 
-# agregado por limpiar-repo.ps1
+# Claves y credenciales (nunca subir)
 *.p12
 *.pfx
 *.pk8
@@ -21,14 +21,20 @@ secrets/
 keystore.properties
 .env
 .env.*
+
+# Compilados
 *.apk
 *.aab
 *.ap_
 *.hprof
+
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+
+# IDE / sistema / logs
 .vscode/
 .kotlin/
 *.log

@@ -764,7 +764,7 @@ class FirewallVpnService : VpnService() {
             startForeground(
                 NOTIFICATION_ID,
                 liveNotification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
             )
         } else {
             startForeground(NOTIFICATION_ID, liveNotification)

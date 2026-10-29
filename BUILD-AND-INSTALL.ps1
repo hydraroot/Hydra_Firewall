@@ -38,10 +38,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "[4/4] Abriendo Hydra Firewall..." -ForegroundColor Yellow
-$appId = if ($env:HYDRA_APPLICATION_ID) { $env:HYDRA_APPLICATION_ID } else {
-    $m = Select-String -Path "app\build.gradle.kts" -Pattern 'cfg\("HYDRA_APPLICATION_ID",\s*"([^"]+)"' | Select-Object -First 1
-    if ($m) { $m.Matches[0].Groups[1].Value } else { "com.hydraroot.firewall" }
-}
+$appId = "com.hydra.firewall"
 & $adb shell monkey -p $appId 1 | Out-Host
 
 Write-Host "Listo. APK: $apk" -ForegroundColor Green

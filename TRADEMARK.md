@@ -39,7 +39,7 @@ maintainer may register them in the future.
 ## If you make a fork
 
 1. Choose a **different name** and a **different logo and icon**.
-2. Change the `applicationId` (for example with `HYDRA_APPLICATION_ID`) so your app does not replace or conflict with the official one.
+2. Change `applicationId` in `app/build.gradle.kts` to your own unique identifier so your fork does not replace or conflict with another app.
 3. Keep the copyright and license notices required by the GPL‑3.0, and say clearly that your project is derived from Hydra Firewall.
 4. Publish your source code under the GPL‑3.0‑or‑later.
 

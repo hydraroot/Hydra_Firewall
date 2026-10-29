@@ -222,7 +222,7 @@ object DiagnosticLogger {
     }
 
     // ---- FIX119: log en archivo para leer por ADB (sin UI) ----
-    // adb pull /sdcard/Android/data/com.hydraroot.firewall/files/hydra-diagnostic.log
+    // adb pull /sdcard/Android/data/com.hydra.firewall/files/hydra-diagnostic.log
     private const val LOG_FILE_NAME = "hydra-diagnostic.log"
     private const val MAX_LOG_FILE_BYTES = 3L * 1024 * 1024
     private val fileQueue = java.util.concurrent.LinkedBlockingQueue<String>(20_000)

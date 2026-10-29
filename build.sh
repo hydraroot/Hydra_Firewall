@@ -37,7 +37,7 @@ if [ "$MODE" = "install" ]; then
   command -v adb >/dev/null || { echo "ERROR: adb no está en el PATH" >&2; exit 1; }
   adb devices
   adb install -r "$APK"
-  APPID="${HYDRA_APPLICATION_ID:-$(grep -oE 'cfg\("HYDRA_APPLICATION_ID", *"[^"]+"' app/build.gradle.kts | grep -oE '"[^"]+"$' | tr -d '"')}"
-  adb shell monkey -p "${APPID:-com.hydraroot.firewall}" 1 >/dev/null 2>&1 || true
+  APPID="com.hydra.firewall"
+  adb shell monkey -p "$APPID" 1 >/dev/null 2>&1 || true
   echo "Instalado."
 fi

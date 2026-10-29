@@ -6,7 +6,7 @@ Firewall por app para Android (7.0+), sin root. Funciona como una **VPN local**:
 teléfono pasa por la app, que decide qué apps pueden salir a internet, por Wi‑Fi o datos móviles,
 y filtra anuncios, rastreadores y dominios maliciosos. Nada se envía a servidores de Hydra.
 
-> Estado: **beta** (`1.5-beta6-final-r13-fix174`). Probala primero con apps no críticas.
+> Estado: **candidata para prueba cerrada** (`1.0.0`, versionCode `164`). Probala primero con apps no críticas.
 > Leé [`docs/LIMITATIONS.md`](docs/es/LIMITATIONS.md) antes de confiar en ella para protegerte de malware.
 
 <!--GALLERY-->
@@ -66,7 +66,7 @@ count from recorded traffic each time it opens.
 
 Necesitás JDK 17 y el Android SDK (o Android Studio). Guía completa: [`docs/BUILD.md`](docs/es/BUILD.md).
 
-> El ID de la app ahora es `com.hydraroot.firewall` (antes `com.example.firewall`). Android la ve como **otra app**: **exportá tu configuración desde la versión vieja** antes de instalarla (ver `docs/BUILD.md`).
+> El ID de aplicación de esta versión para Google Play es `com.hydra.firewall`, igual al registrado en Play Console. Mantenelo sin cambios en futuras actualizaciones. Las compilaciones locales anteriores con `com.hydraroot.firewall` o `com.example.firewall` son apps distintas: exportá la configuración de la versión anterior e importala en esta versión.
 
 ```bash
 ./build.sh install      # tests + APK debug + instalación por adb
