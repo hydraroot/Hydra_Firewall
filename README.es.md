@@ -9,12 +9,7 @@ y filtra anuncios, rastreadores y dominios maliciosos. Nada se envía a servidor
 > Estado: **beta** (`1.5-beta6-final-r13-fix174`). Probala primero con apps no críticas.
 > Leé [`docs/LIMITATIONS.md`](docs/es/LIMITATIONS.md) antes de confiar en ella para protegerte de malware.
 
-<p align="center">
-  <img src="docs/img/1-rules.png" width="200" alt="1 rules">
-  <img src="docs/img/2-prompt.png" width="200" alt="2 prompt">
-  <img src="docs/img/3-protection.png" width="200" alt="3 protection">
-  <img src="docs/img/4-connections.png" width="200" alt="4 connections">
-</p>
+<!--GALLERY-->
 
 ## English
 
@@ -89,6 +84,13 @@ app/                      Código de la app (Kotlin + Jetpack Compose)
 tools/                    Entrenamiento de modelos y generador de packs firmados
 docs/                     Guías (BUILD, THREAT-PACK, LIMITATIONS), referencia e historial
 ```
+
+## Marca
+
+El código es software libre (GPL‑3.0‑or‑later) y cualquiera puede hacer un fork. Los **nombres
+«Hydra Firewall» y «Hydraroot» y el logo no se licencian junto con el código**. Si publicas una
+versión modificada, usa otro nombre, otro logo y otro `applicationId`, y no la presentes como la app
+oficial. Ver [`TRADEMARK.es.md`](TRADEMARK.es.md).
 
 ## Licencia
 

@@ -31,12 +31,7 @@ Everything runs **on the device**. There are no Hydra servers, no account and no
 | **Requirements** | Android 7.0+ (API 24). Android allows only one active VPN at a time. |
 | **Cost / license** | Free. GPL‑3.0‑or‑later. Third-party data and libraries are listed in [Third-party components](#third-party-components-and-licenses). |
 
-<p align="center">
-  <img src="docs/img/1-rules.png" width="200" alt="1 rules">
-  <img src="docs/img/2-prompt.png" width="200" alt="2 prompt">
-  <img src="docs/img/3-protection.png" width="200" alt="3 protection">
-  <img src="docs/img/4-connections.png" width="200" alt="4 connections">
-</p>
+<!--GALLERY-->
 
 ## Table of contents
 
@@ -219,6 +214,7 @@ Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) builds a
 | [`docs/BUILD.md`](docs/BUILD.md) | Build, sign and install; key backups; migration |
 | [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
+| [`TRADEMARK.md`](TRADEMARK.md) | Use of the Hydra Firewall / Hydraroot names and logo |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history (Spanish) |
 | [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | Third-party data, libraries and licenses |
 | [`docs/es/`](docs/es/) | Spanish versions of the guides above |
@@ -262,6 +258,13 @@ details, attribution and exclusions are in [`THIRD_PARTY_NOTICES.md`](THIRD_PART
 companies under their own terms and privacy policies).
 
 This section is a good-faith summary, not legal advice. Trademarks belong to their owners.
+
+## Trademark
+
+The code is free software (GPL‑3.0‑or‑later) and anyone may fork it. The **names "Hydra Firewall" and
+"Hydraroot" and the logo are not licensed with the code**. If you publish a modified version, give it
+a different name, logo and `applicationId`, and do not present it as the official app.
+See [`TRADEMARK.md`](TRADEMARK.md).
 
 ## Security, contributing, license
 
