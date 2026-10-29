@@ -1,42 +1,44 @@
-# Pack de amenazas firmado
+# Signed threat pack
 
-La app puede recibir IPs, dominios y reglas YARA‑Lite de un **pack firmado** (ECDSA P‑256 / SHA‑256).
-Solo se instala si la firma verifica con la clave pública compilada en la app; un pack manipulado se descarta.
+The app can receive IPs, domains and YARA‑Lite rules from a **signed pack** (ECDSA P‑256 / SHA‑256).
+It is installed only if the signature verifies with the public key compiled into the app; a tampered
+pack is discarded.
 
-## Estado por defecto
-- El pack incluido en la app (`assets/hydra_threat_pack_v1.json`) trae **solo reglas YARA‑Lite** y está firmado con la clave original del proyecto (la misma clave pública que está en `app/build.gradle.kts` y en `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`; ambas deben coincidir — lo comprueba `ThreatKeyConsistencyTest`).
-- Una variable `HYDRA_THREAT_PUBLIC_KEY` vacía se trata como no definida (usa la clave por defecto).
-- **Build sin configurar nada** (sin `HYDRA_THREAT_PUBLIC_KEY` en `local.properties` ni como variable de CI): la app usa esa clave por defecto, y el pack incluido verifica correctamente contra ella — el feed de reglas YARA‑Lite arranca con contenido, no vacío. Esto es lo que pasa en un build público normal.
-- La actualización automática está **desactivada** hasta que compiles la app con `HYDRA_THREAT_FEED_URL`.
-- **Atención si seteás `HYDRA_THREAT_PUBLIC_KEY` con tu propia clave** (ver sección siguiente): a partir de ahí la app deja de aceptar la clave por defecto, así que el pack incluido en `assets/` queda rechazado hasta que lo vuelvas a firmar con tu clave privada corriendo `tools/rebuild_bundled_pack.sh`. Si configurás `HYDRA_THREAT_PUBLIC_KEY` en GitHub (Settings → Variables) para el workflow de CI pero no re‑firmás el pack bundleado del repo, el build público que arma esa Action sí te va a quedar con el feed incluido vacío/rechazado.
+## Default state
+- The pack bundled in the app (`assets/hydra_threat_pack_v1.json`) contains **YARA‑Lite rules only** and is signed with the project's original key — the same public key that is in `app/build.gradle.kts` and in `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`. Both must match; `ThreatKeyConsistencyTest` checks it.
+- A blank `HYDRA_THREAT_PUBLIC_KEY` is treated as unset (the default key is used).
+- **The default build already has a feed URL:** `https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json`. The app checks for a new pack about **once every 24 hours** (inexact alarm, scheduled when the VPN service starts and after boot), or on demand with *Update now* in Security Center. Override it at build time with `HYDRA_THREAT_FEED_URL`.
+- The feed must use `https://`, downloads are capped at 20 MB and go over the physical network.
+- **A build with nothing configured** uses the default key, and the bundled pack verifies against it, so the YARA‑Lite feed starts with content. This is what a normal public build does.
+- **Warning if you set `HYDRA_THREAT_PUBLIC_KEY` to your own key** (see below): the app stops accepting the default key, so the bundled pack in `assets/` is rejected until you re-sign it with your private key by running `tools/rebuild_bundled_pack.sh`. If you set `HYDRA_THREAT_PUBLIC_KEY` in GitHub (Settings → Variables) for the CI workflow but do not re-sign the bundled pack in the repo, the public build made by that Action will have an empty/rejected bundled feed.
 
-## Verificar un pack
-`pip install cryptography` y luego `python tools/verify_threat_pack.py <archivo o URL del pack>` (usa la clave de `app/build.gradle.kts`; `--key` para otra).
+## Verify a pack
+`pip install cryptography`, then `python tools/verify_threat_pack.py <file or URL>` (uses the key in `app/build.gradle.kts`; `--key` for another one). It prints `FIRMA VALIDA` when the signature is valid.
 
-## Activarlo con tu propia clave (recomendado)
-1. `tools/generate_signing_key.sh` → crea `secrets/hydra_threat_signing_key.pem` (privada, backup, nunca al repo) y la pública en Base64.
-2. En `local.properties` poné `HYDRA_THREAT_PUBLIC_KEY=<pública>` y `HYDRA_THREAT_FEED_URL=https://raw.githubusercontent.com/Hydraroot/HYDRA_FIREWALL/threat-pack/hydra_threat_pack.json`.
-3. `tools/rebuild_bundled_pack.sh` → re‑firma el pack incluido con tu clave (si no, la app rechazaría el original y arrancaría sin firmas).
-4. En GitHub cargá el secret `HYDRA_THREAT_SIGNING_KEY` (contenido del PEM) y, opcional, `ABUSECH_AUTH_KEY` (gratis en https://auth.abuse.ch/). `.github/workflows/threat-pack.yml` genera y publica el pack a diario en la rama `threat-pack`.
-5. Compilá la app (`./build.sh`).
+## Run it with your own key (recommended for forks)
+1. `tools/generate_signing_key.sh` → creates `secrets/hydra_threat_signing_key.pem` (private — back it up, never commit it) and the public key in Base64.
+2. In `local.properties` set `HYDRA_THREAT_PUBLIC_KEY=<public>` and `HYDRA_THREAT_FEED_URL=<your feed URL>`.
+3. `tools/rebuild_bundled_pack.sh` → re-signs the bundled pack with your key (otherwise the app would reject the original and start with no signatures).
+4. In GitHub add the secret `HYDRA_THREAT_SIGNING_KEY` (the PEM contents) and, optionally, `ABUSECH_AUTH_KEY` (free at https://auth.abuse.ch/). `.github/workflows/threat-pack.yml` generates and publishes the pack daily to the `threat-pack` branch.
+5. Build the app (`./build.sh`).
 
-Si tenés la clave privada original del proyecto, podés saltear 1–2 y usarla en 3.
+If you have the project's original private key you can skip 1–2 and use it in 3.
 
-## Feeds soportados por `tools/build_hydra_threat_pack.py`
-| Feed | Clave | Qué aporta |
+## Feeds supported by `tools/build_hydra_threat_pack.py`
+| Feed | Key | What it provides |
 |---|---|---|
-| Feodo Tracker (`--feodo`) | no | IPs de C2 de botnets |
-| URLhaus (`--urlhaus-api`) | opcional | hosts que distribuyen malware (solo el host; IP literal → IP, dominio → dominio) |
-| ThreatFox (`--threatfox-api`) | sí (`ABUSECH_AUTH_KEY`) | IOCs de los últimos días |
-| Exports manuales (`--threatfox-export`, `--urlhaus-export`, `--feodo-file`, `--urlhaus-text-file`) | — | para uso offline |
+| Feodo Tracker (`--feodo`) | no | Botnet C2 IPs |
+| URLhaus (`--urlhaus-api`) | optional | Hosts that distribute malware (host only: literal IP → IP, domain → domain) |
+| ThreatFox (`--threatfox-api`) | yes (`ABUSECH_AUTH_KEY`) | IOCs from the last few days |
+| Manual exports (`--threatfox-export`, `--urlhaus-export`, `--feodo-file`, `--urlhaus-text-file`) | — | for offline use |
 
-> Los endpoints de abuse.ch están escritos según su documentación pública pero **no pude probarlos en vivo**; cada feed falla de forma aislada (aviso en el log) y `--min-indicators` evita publicar un pack vacío si todos caen.
+> The abuse.ch endpoints are written according to their public documentation but **were not tested live**; each feed fails in isolation (a warning in the log) and `--min-indicators` prevents publishing an empty pack if all of them fail.
 
-## Protecciones contra falsos positivos
-Las coincidencias de amenaza bloquean tráfico, así que el generador:
-- excluye dominios de servicios legítimos muy usados (GitHub, Google, Cloudflare, Discord, Telegram, etc.) aunque un feed los liste;
-- descarta IPs privadas, locales o reservadas;
-- limita el tamaño (150 000 dominios / 60 000 IPs) priorizando los de mayor confianza;
-- usa expiración (14 días en el workflow): un pack vencido se ignora y la app vuelve al incluido.
+## False-positive protections
+Threat matches block traffic, so the generator:
+- excludes domains of widely used legitimate services (GitHub, Google, Cloudflare, Discord, Telegram, etc.) even if a feed lists them;
+- discards private, local or reserved IPs;
+- limits the size (150,000 domains / 60,000 IPs), prioritizing the highest-confidence entries;
+- uses expiry (14 days in the workflow): an expired pack is ignored and the app falls back to the bundled one.
 
-La lista segura es acotada y **no es exhaustiva**: revisá `SAFE_DOMAIN_SUFFIXES` según tu uso.
+The safe list is bounded and **not exhaustive**: review `SAFE_DOMAIN_SUFFIXES` for your use.

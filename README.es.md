@@ -7,14 +7,14 @@ teléfono pasa por la app, que decide qué apps pueden salir a internet, por Wi�
 y filtra anuncios, rastreadores y dominios maliciosos. Nada se envía a servidores de Hydra.
 
 > Estado: **beta** (`1.5-beta6-final-r13-fix174`). Probala primero con apps no críticas.
-> Leé [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) antes de confiar en ella para protegerte de malware.
+> Leé [`docs/LIMITATIONS.md`](docs/es/LIMITATIONS.md) antes de confiar en ella para protegerte de malware.
 
-<!--
-  Capturas de pantalla: agregar acá 2-4 imágenes (pantalla principal de reglas,
-  aviso de primera conexión, Centro de Seguridad, detalle "¿por qué se conecta?")
-  una vez que haya un build para sacarlas. Guardarlas en docs/img/ y enlazarlas
-  así: ![Reglas por app](docs/img/reglas.png)
--->
+<p align="center">
+  <img src="docs/img/1-rules.png" width="200" alt="1 rules">
+  <img src="docs/img/2-prompt.png" width="200" alt="2 prompt">
+  <img src="docs/img/3-protection.png" width="200" alt="3 protection">
+  <img src="docs/img/4-connections.png" width="200" alt="4 connections">
+</p>
 
 ## English
 
@@ -33,8 +33,8 @@ TLS filtering without decryption, a signed threat-intelligence pack
 layer per app, and a static APK scanner (permissions, exported components,
 DEX + YARA‑Lite rules + a small on-device model as a secondary signal). See
 the table above (in Spanish) for the full feature list,
-[`docs/BUILD.md`](docs/BUILD.md) to build it, and
-[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before relying on it against
+[`docs/BUILD.md`](docs/es/BUILD.md) to build it, and
+[`docs/LIMITATIONS.md`](docs/es/LIMITATIONS.md) before relying on it against
 malware. The project is GPL‑3.0‑or‑later; see [`LICENSE`](LICENSE).
 
 Two rows in Security Center legitimately start at zero on a fresh install
@@ -57,7 +57,7 @@ count from recorded traffic each time it opens.
 | DNS cifrado | DoH/DoT con Cloudflare, Google o Quad9 |
 | Inspección TLS (sin descifrar) | Bloqueo por nombre del sitio (SNI) y huella JA3 |
 | QUIC/HTTP3 | Mejor esfuerzo: correlaciona con el DNS que la misma app resolvió antes |
-| Inteligencia de amenazas | IPs/dominios (p. ej. Feodo Tracker, URLhaus) mediante un *pack firmado* — ver [`docs/THREAT-PACK.md`](docs/THREAT-PACK.md). Es distinta de la blocklist de ads/trackers: en el Centro de seguridad arranca en "0 dominios" hasta que corrés "Actualizar listas" con la fuente HaGeZi Threat Intelligence mini habilitada |
+| Inteligencia de amenazas | IPs/dominios (p. ej. Feodo Tracker, URLhaus) mediante un *pack firmado* — ver [`docs/THREAT-PACK.md`](docs/es/THREAT-PACK.md). Es distinta de la blocklist de ads/trackers: en el Centro de seguridad arranca en "0 dominios" hasta que corrés "Actualizar listas" con la fuente HaGeZi Threat Intelligence mini habilitada |
 | Aprendizaje local de comportamiento | Perfil de tráfico por app aprendido en el propio teléfono, sin nube. Depende de activar el registro del Analizador (apagado por defecto); con eso apagado, el Centro de seguridad muestra "0 apps" aunque el firewall funcione normalmente |
 | Escáner de APK | Análisis estático (permisos, componentes exportados, DEX) + reglas YARA‑Lite + modelo MH‑100K como señal secundaria |
 | Seguridad de la app | PIN (PBKDF2) con límite de intentos, huella digital |
@@ -69,7 +69,7 @@ count from recorded traffic each time it opens.
 
 ## Compilar e instalar
 
-Necesitás JDK 17 y el Android SDK (o Android Studio). Guía completa: [`docs/BUILD.md`](docs/BUILD.md).
+Necesitás JDK 17 y el Android SDK (o Android Studio). Guía completa: [`docs/BUILD.md`](docs/es/BUILD.md).
 
 > El ID de la app ahora es `com.hydraroot.firewall` (antes `com.example.firewall`). Android la ve como **otra app**: **exportá tu configuración desde la versión vieja** antes de instalarla (ver `docs/BUILD.md`).
 

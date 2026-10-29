@@ -1,52 +1,38 @@
-# Contribuir a Hydra Firewall
+# Contributing to Hydra Firewall
 
-Gracias por el interés. Esta guía es corta a propósito; el proyecto es
-chico y la mayoría de las contribuciones son bienvenidas sin mucho trámite.
+Thanks for your interest. This guide is short on purpose; the project is small and most contributions
+are welcome without much ceremony.
 
-## Antes de escribir código
+## Before writing code
 
-- Para cambios chicos (typos, docs, fixes puntuales): abrí directamente un
-  Pull Request.
-- Para cambios grandes (nueva función, refactor, cambio de comportamiento de
-  red/firewall): abrí primero un issue describiendo qué y por qué, así no
-  trabajás en algo que termine rechazado por razones de diseño.
-- Para vulnerabilidades de seguridad: **no** uses un issue público — seguí
-  [`SECURITY.md`](SECURITY.md).
+- For small changes (typos, docs, targeted fixes): just open a Pull Request.
+- For big changes (a new feature, a refactor, a change in network/firewall behavior): open an issue first describing what and why, so you do not work on something that ends up rejected for design reasons.
+- For security vulnerabilities: **do not** use a public issue — follow [`SECURITY.md`](SECURITY.md).
 
-## Entorno de desarrollo
+## Development environment
 
-Ver [`docs/BUILD.md`](docs/BUILD.md) para compilar e instalar. En resumen:
+See [`docs/BUILD.md`](docs/BUILD.md) to build and install. In short:
 
 ```bash
-./build.sh install      # tests + APK debug + instalación por adb
+./build.sh install      # tests + debug APK + install via adb
 ```
 
-Requiere JDK 17 y el Android SDK (Android Studio los trae).
+Requires JDK 17 and the Android SDK (Android Studio includes them).
 
-## Antes de abrir el PR
+## Before opening the PR
 
-- `./gradlew testDebugUnitTest` tiene que pasar.
-- Si tocaste `tools/build_hydra_threat_pack.py` o
-  `tools/rebuild_bundled_blocklist.py`, corré también
-  `python3 -m unittest discover -s tools -v`.
-- Si agregás una fuente de datos de terceros (blocklist, feed de amenazas,
-  librería), confirmá que su licencia sea compatible con GPL-3.0 y agregala
-  a `THIRD_PARTY_NOTICES.md` o `third_party/licenses/` según corresponda —
-  ver ahí mismo qué licencias ya se evaluaron y por qué algunas quedaron
-  afuera.
-- Si cambiás algo visible para el usuario (reglas, UI, permisos, qué se
-  bloquea por defecto), agregá una línea en `CHANGELOG.md`.
+- `./gradlew testDebugUnitTest` must pass.
+- If you touched `tools/build_hydra_threat_pack.py` or `tools/rebuild_bundled_blocklist.py`, also run `python3 -m unittest discover -s tools -v`.
+- If you add a third-party data source (blocklist, threat feed, library), confirm its license is compatible with GPL‑3.0 and add it to `THIRD_PARTY_NOTICES.md` or `third_party/licenses/` as appropriate — see there which licenses were already evaluated and why some were left out.
+- If you change something visible to the user (rules, UI, permissions, what is blocked by default), add a line to `CHANGELOG.md`.
 
-## Estilo
+## Style
 
-- Kotlin + Jetpack Compose en `app/`, siguiendo el estilo ya presente en el
-  archivo que estés tocando más que una guía externa.
-- Python en `tools/` sigue `black`/PEP 8 de forma laxa; priorizá que sea
-  legible y testeable sobre seguir una regla al pie de la letra.
-- Commits y PRs pueden estar en español o inglés; el repo ya mezcla ambos.
+- Kotlin + Jetpack Compose in `app/`, following the style already present in the file you are touching rather than an external guide.
+- Python in `tools/` loosely follows `black`/PEP 8; prefer readable and testable over following a rule to the letter.
+- Commits and PRs may be in Spanish or English; the repo already mixes both.
 
-## Qué esperar del review
+## What to expect from review
 
-Es un proyecto con un mantenedor part-time, así que el review puede tardar.
-Un PR chico y enfocado en una sola cosa se revisa más rápido que uno grande
-que mezcla varios cambios.
+This is a project with a part-time maintainer, so review can take a while. A small PR focused on one
+thing is reviewed faster than a large one that mixes several changes.

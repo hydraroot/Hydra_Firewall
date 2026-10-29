@@ -1,52 +1,38 @@
-# Política de seguridad
+# Security policy
 
-Hydra Firewall es una app que intercepta todo el tráfico de red del teléfono
-(VPN local, sin root) y toma decisiones de bloqueo. Tomamos en serio
-cualquier falla que pueda:
+Hydra Firewall intercepts all of a phone's network traffic (local VPN, no root) and makes blocking
+decisions. We take seriously any flaw that could:
 
-- dejar pasar tráfico que debería bloquearse (fuga por fuera de la VPN,
-  bypass de reglas, DNS/SNI/QUIC sin filtrar cuando debería filtrarse);
-- exponer datos del usuario (reglas, historial, estadísticas, PIN) a otra
-  app o a un proceso sin permisos;
-- permitir que un pack de amenazas o una actualización de listas no
-  firmada/manipulada sea aceptada por `ThreatSignatureVerifier`;
-- comprometer la firma de la app o la keystore de release.
+- let through traffic that should be blocked (leak outside the VPN, rule bypass, unfiltered DNS/SNI/QUIC when it should be filtered);
+- expose user data (rules, history, statistics, PIN) to another app or to a process without permissions;
+- allow an unsigned or tampered threat pack or list update to be accepted by `ThreatSignatureVerifier`;
+- compromise the app's signature or the release keystore.
 
-## Cómo reportar una vulnerabilidad
+## How to report a vulnerability
 
-**No abras un issue público para vulnerabilidades.** Un issue público es
-visible para cualquiera antes de que exista una corrección, incluida gente
-con intención de explotarla.
+**Do not open a public issue for vulnerabilities.** A public issue is visible to everyone before a
+fix exists, including people who intend to exploit it.
 
-Opciones, de preferida a alternativa:
+Options, preferred first:
 
-1. **GitHub Security Advisories** (preferido): desde la pestaña *Security*
-   del repositorio → *Report a vulnerability*. Esto abre un reporte privado
-   visible solo para los mantenedores, con su propio hilo de discusión.
-2. Si no podés usar Security Advisories, abrí un issue vacío pidiendo un
-   canal de contacto privado, sin describir el problema, y seguimos por ahí.
+1. **GitHub Security Advisories** (preferred): from the repository's *Security* tab → *Report a vulnerability*. This opens a private report visible only to the maintainers, with its own discussion thread.
+2. If you cannot use Security Advisories, open an empty issue asking for a private contact channel, without describing the problem, and we will continue there.
 
-Incluí, si lo tenés:
+Include, if you have it:
 
-- Versión de la app (tag o commit) y versión de Android donde lo probaste.
-- Pasos para reproducir, o un PoC mínimo.
-- Qué esperabas que pasara y qué pasó en realidad.
-- Impacto estimado (fuga de tráfico, bypass de reglas, fuga de datos, etc.).
+- App version (tag or commit) and the Android version where you tested.
+- Steps to reproduce, or a minimal PoC.
+- What you expected to happen and what actually happened.
+- Estimated impact (traffic leak, rule bypass, data leak, etc.).
 
-## Qué esperar
+## What to expect
 
-- Confirmación de recepción en un plazo razonable.
-- Una vez confirmada la falla, trabajamos en una corrección antes de hacer
-  cualquier mención pública (divulgación coordinada). Si querés, te damos
-  crédito en el `CHANGELOG` al publicar el fix.
-- Para fallas de bajo impacto o que ya son de conocimiento público, un issue
-  normal está bien.
+- Acknowledgement of receipt within a reasonable time.
+- Once the flaw is confirmed, we work on a fix before any public mention (coordinated disclosure). If you wish, we credit you in the `CHANGELOG` when the fix is published.
+- For low-impact flaws or ones that are already public knowledge, a normal issue is fine.
 
-## Alcance
+## Scope
 
-Dentro de alcance: el código de la app (`app/`), los scripts de firma y
-generación de packs (`tools/`), y los workflows de CI (`.github/workflows/`).
+In scope: the app code (`app/`), the pack signing and generation scripts (`tools/`), and the CI workflows (`.github/workflows/`).
 
-Fuera de alcance: vulnerabilidades en dependencias de terceros ya conocidas
-y sin parche disponible aguas arriba (reportalas directamente al proyecto
-correspondiente), e ingeniería social contra usuarios individuales.
+Out of scope: vulnerabilities in third-party dependencies that are already known and have no upstream fix (report them to the corresponding project), and social engineering against individual users.
