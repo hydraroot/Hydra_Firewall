@@ -4174,18 +4174,18 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(pin, { if (it.length <= 8 && it.all(Char::isDigit)) { pin = it; pinError = false } }, singleLine = true,
-                        label = { Text("PIN (4-8)") }, visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(if (AppSettings(context).language.isEnglish()) "PIN (5-8 digits)" else "PIN (5-8 dígitos)") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                     OutlinedTextField(pin2, { if (it.length <= 8 && it.all(Char::isDigit)) { pin2 = it; pinError = false } }, singleLine = true,
                         label = { Text(if (AppSettings(context).language.isEnglish()) "Repeat PIN" else "Repetir PIN") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
-                    if (pinError) Text(if (AppSettings(context).language.isEnglish()) "PINs do not match or are invalid." else "Los PIN no coinciden o no son válidos.", color = MaterialTheme.colorScheme.error)
+                    if (pinError) Text(if (AppSettings(context).language.isEnglish()) "PINs do not match or are invalid (minimum 5 digits)." else "Los PIN no coinciden o no son válidos (mínimo 5 dígitos).", color = MaterialTheme.colorScheme.error)
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     if (cryptoBusy) return@TextButton
-                    if (pin.length in 4..8 && pin == pin2) {
+                    if (pin.length in 5..8 && pin == pin2) {
                         val newPin = pin
                         cryptoBusy = true
                         scope.launch(Dispatchers.Default) {
@@ -4217,7 +4217,7 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
                         label = { Text(if (AppSettings(context).language.isEnglish()) "Current PIN" else "PIN actual") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                     OutlinedTextField(pin, { if (it.length <= 8 && it.all(Char::isDigit)) { pin = it; pinError = false } }, singleLine = true,
-                        label = { Text("PIN (4-8)") }, visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(if (AppSettings(context).language.isEnglish()) "PIN (5-8 digits)" else "PIN (5-8 dígitos)") }, visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                     OutlinedTextField(pin2, { if (it.length <= 8 && it.all(Char::isDigit)) { pin2 = it; pinError = false } }, singleLine = true,
                         label = { Text(if (AppSettings(context).language.isEnglish()) "Repeat PIN" else "Repetir PIN") }, visualTransformation = PasswordVisualTransformation(),
@@ -4228,7 +4228,7 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
             confirmButton = {
                 TextButton(onClick = {
                     if (cryptoBusy) return@TextButton
-                    if (currentPin.length in 4..8 && pin.length in 4..8 && pin2.length in 4..8) {
+                    if (currentPin.length in 4..8 && pin.length in 5..8 && pin2.length in 5..8) {
                         val oldPin = currentPin
                         val newPin = pin
                         if (newPin != pin2) {
@@ -4245,7 +4245,7 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
                             }
                         }
                     } else pinError = true
-                }, enabled = !cryptoBusy && currentPin.length in 4..8 && pin.length in 4..8 && pin2.length in 4..8) { Text(if (cryptoBusy) (if (AppSettings(context).language.isEnglish()) "Saving..." else "Guardando...") else tr(context, "save")) }
+                }, enabled = !cryptoBusy && currentPin.length in 4..8 && pin.length in 5..8 && pin2.length in 5..8) { Text(if (cryptoBusy) (if (AppSettings(context).language.isEnglish()) "Saving..." else "Guardando...") else tr(context, "save")) }
             },
             dismissButton = { TextButton(onClick = { showChangePinDialog = false }) { Text(tr(context, "cancel")) } }
         )

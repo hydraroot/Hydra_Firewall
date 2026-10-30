@@ -85,7 +85,7 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 ### Control who can connect
 - **Per-app rules** for Wi‑Fi and mobile data independently: *Allow*, *Block*, *Permissive*, *Personalized* and *No firewall*.
 - **First-connection prompt.** New apps start blocked and Hydra asks: allow, allow for 10 minutes, 1 hour, always, or block. A *Details* view explains why the app is connecting.
-- **New-app quarantine** so freshly installed apps are reviewed before they get network access.
+- **New-app quarantine** (optional, **off by default**; enable it in *Security → Quarantine*). Apps installed *after* you enable it are blocked from the network until you review them, and Hydra shows their risk score. Apps already on the phone are not affected. It is useful mainly if you let new apps connect by default; with the default settings (new apps start blocked and ask) it is redundant.
 - **Global mode** (blacklist or whitelist), default Wi‑Fi/mobile decision, schedules, roaming and screen-off rules, and an emergency **Block all** switch.
 - **IP blocking and port rules** (advanced mode) by protocol, address and port.
 
@@ -102,12 +102,12 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 - **Usage insights**: per-app traffic ranking (session / today / 7 days) with flags such as "uploads more than it downloads".
 - **APK scanner and APP RISK score** (0–100): permissions, exported components, accessibility/overlay/device-admin capabilities, native libraries, signing certificates.
 - **Behavior engine**: correlates connections, DNS and blocks into a per-app behavior score, using only metadata Hydra already sees.
-- **On-device models** (a small MH‑100K-trained model and a lightweight heuristic model) used only as *secondary signals* that warn — they never block by themselves.
+- **On-device models** (a small MH‑100K-trained model and two lightweight heuristic models) used only as *secondary signals* that warn — they never block by themselves. See [What the built-in AI does](#what-the-built-in-ai-does).
 - **System-app safety labels** (high risk / caution / undetermined) before you block a system component.
 - **Self-test and diagnostics** to check DNS, SNI, TCP and ICMP handling on your device.
 
 ### Protect Hydra itself
-- **PIN** (PBKDF2, with attempt limiting) and **fingerprint** unlock, `allowBackup=false`.
+- **PIN** of **5 to 8 digits** (PBKDF2, 120,000 iterations) and **fingerprint** unlock. Wrong attempts add growing delays (15 s up to 5 min) that survive restarts and cannot be shortened by changing the phone's clock. PINs of 4 digits created by older versions keep working until you change them. `allowBackup=false`.
 - **Tamper and recovery monitoring**: unexpected stops, Doze behavior, rule conflicts, restart after boot.
 - **Configuration export/import** (rules, schedules, advanced rules, IP exceptions) as a file that is portable by app name, with automatic undo.
 - **Normal and Advanced mode**, English/Spanish UI, light/dark theme, battery options.
@@ -128,14 +128,24 @@ How the threat pack is protected:
 - It is accepted **only if its ECDSA P‑256 / SHA‑256 signature verifies** against the public key compiled into the app; tampered packs are discarded.
 - The feed must use `https://`, and downloads are capped at 20 MB.
 - Downloads go over the **physical network** (outside Hydra's own tunnel) so a block rule cannot prevent the update.
-- Packs expire (14 days in the published workflow); an expired pack is ignored and the bundled one is used.
+- Packs published by the workflow expire after 14 days; an expired pack is ignored and the bundled one is used. The pack bundled inside the APK is only a minimal seed (no expiry, almost no indicators): real protection comes from the downloaded pack.
 - You can verify a published pack yourself: `python tools/verify_threat_pack.py <file or URL>`.
 
 Lists are downloaded straight from their authors to your phone; Hydra does not mirror them
 (see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)).
 
-Sensitive permissions requested: `INTERNET`, `FOREGROUND_SERVICE`, `QUERY_ALL_PACKAGES` (app names and icons),
-`PACKAGE_USAGE_STATS` (local statistics), `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, biometrics.
+Permissions requested:
+
+| Permission | Why |
+|---|---|
+| `INTERNET`, `ACCESS_NETWORK_STATE` | Forward allowed traffic, update the threat pack, detect Wi‑Fi vs mobile data |
+| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SYSTEM_EXEMPTED` | Keep the VPN service alive with its notification |
+| `QUERY_ALL_PACKAGES` | List installed apps (names and icons) to apply per-app rules |
+| `PACKAGE_USAGE_STATS` | Local usage statistics only |
+| `POST_NOTIFICATIONS` | First-connection prompts and alerts |
+| `RECEIVE_BOOT_COMPLETED` | Restart protection after the phone boots |
+| `USE_BIOMETRIC`, `USE_FINGERPRINT` | Fingerprint unlock |
+
 
 ## What Hydra does NOT do
 
@@ -153,6 +163,7 @@ Sensitive permissions requested: `INTERNET`, `FOREGROUND_SERVICE`, `QUERY_ALL_PA
   IPv6 does not have full parity (ESP and unsupported extension headers are rejected).
 - **Android 7–9** identify the owning app through `/proc/net`, which can fail transiently; such
   connections are dropped (*fail closed*) and re-resolved in the background.
+- **The PIN protects Hydra's screen, not the phone.** Someone with root, ADB or access to Android Settings can still stop the VPN or clear Hydra's data without the PIN. For stronger protection use Android's screen lock and *Always-on VPN* + *Block connections without VPN*.
 - **Excluded apps are invisible to Hydra.** It cannot see or filter traffic that never enters the tunnel.
 - **New apps start blocked,** so expect to approve apps the first time they connect.
 
@@ -161,6 +172,18 @@ Full list: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 Two Security Center rows legitimately start at zero on a fresh install: **"Threat intelligence
 (0 domains)"** (until you update lists with the HaGeZi Threat Intelligence source enabled) and
 **"Local behavior learning (0 apps)"** (until you enable traffic recording in the Analyzer tab).
+
+## What the built-in AI does
+
+Hydra includes three very small models that run **entirely on your phone** (no cloud, no data leaves the device). None of them can block an app or change a rule: they only add a **warning score** that you see in Security Center and in app details.
+
+| Model | What it looks at | What you get |
+|---|---|---|
+| **APK static model (MH‑100K)** | An APK you scan: permissions, API calls and intents found in its code | A 0–100 score for "looks like known Android malware". Precision is only about 64 % at threshold 0.5 and 5.6 % of legitimate apps are flagged, so treat it as a hint. |
+| **Behavior model ("AI Lite")** | Per-app connection metadata: number of destinations, DNS blocks, unusual ports, TLS alerts, bursts | A behavior risk level. It was trained on synthetic data, so it is **not** evidence of real detection. |
+| **Privacy model** | Per-app tracker-like behavior: many new destinations, blocked DNS queries, SNI blocks | A privacy/tracking signal. It never labels an app as malware. |
+
+Together with the YARA‑Lite rules, the signed threat pack and the per-app behavior baseline (learned locally once you enable traffic recording), they feed **Security Center** so you can decide with more information. The decision is always yours.
 
 ## Quick start
 

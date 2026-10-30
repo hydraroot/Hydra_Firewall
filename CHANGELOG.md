@@ -1,3 +1,8 @@
+## Sin publicar
+- PIN: los PIN nuevos o cambiados deben tener de 5 a 8 dígitos (los PIN de 4 dígitos existentes siguen funcionando hasta que se cambien).
+- PIN: el tiempo de espera tras intentos fallidos se mide con el reloj monotónico del sistema, así que cambiar la fecha del teléfono ya no lo acorta.
+- README en español reescrito por completo y alineado con el README en inglés; capturas de pantalla agregadas; sección "Qué hace la IA incorporada"; lista completa de permisos; aclaración de que la cuarentena es opcional.
+
 ## 1.0.0 — primera versión para prueba cerrada (versionCode 163)
 - Corregido el `applicationId` para que el AAB coincida con el paquete creado en Google Play Console: `com.hydra.firewall`.
 - Preparación del paquete de lanzamiento para la prueba cerrada de Google Play.

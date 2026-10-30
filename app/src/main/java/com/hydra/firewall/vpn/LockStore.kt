@@ -2,6 +2,7 @@ package com.hydra.firewall.vpn
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.util.Base64
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -36,14 +37,31 @@ class LockStore(context: Context) {
 
     /** Remaining lockout time in seconds, rounded up. */
     fun lockoutRemainingSeconds(): Long {
-        val until = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
-        return ((until - System.currentTimeMillis() + 999L) / 1000L).coerceAtLeast(0L)
+        val untilWall = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
+        if (untilWall <= 0L) return 0L
+        val setAtElapsed = prefs.getLong(KEY_LOCKOUT_SET_ELAPSED, -1L)
+        val untilElapsed = prefs.getLong(KEY_LOCKOUT_UNTIL_ELAPSED, -1L)
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val remainingMs = if (setAtElapsed in 0..nowElapsed && untilElapsed >= 0L) {
+            // Same boot: use the monotonic clock so changing the system date cannot shorten the lockout.
+            untilElapsed - nowElapsed
+        } else {
+            // After a reboot the monotonic clock restarts: fall back to wall-clock time,
+            // but never wait longer than the longest delay we ever apply.
+            (untilWall - System.currentTimeMillis()).coerceAtMost(MAX_LOCKOUT_MS)
+        }
+        return ((remainingMs + 999L) / 1000L).coerceAtLeast(0L)
     }
 
     fun canAttempt(): Boolean = lockoutRemainingSeconds() == 0L
 
+    /** New PINs must have at least [MIN_NEW_PIN_LENGTH] digits. Older 4-digit PINs still verify. */
     fun setPin(pin: String) {
-        require(pin.length in MIN_PIN_LENGTH..MAX_PIN_LENGTH && pin.all { it.isDigit() })
+        require(pin.length in MIN_NEW_PIN_LENGTH..MAX_PIN_LENGTH && pin.all { it.isDigit() })
+        storePin(pin)
+    }
+
+    private fun storePin(pin: String) {
         val salt = ByteArray(SALT_BYTES).also(random::nextBytes)
         val derived = derive(pin, salt, PBKDF2_ITERATIONS)
         prefs.edit()
@@ -55,6 +73,8 @@ class LockStore(context: Context) {
             .remove(KEY_LEGACY_SALT)
             .remove(KEY_LEGACY_HASH)
             .remove(KEY_LOCKOUT_UNTIL)
+            .remove(KEY_LOCKOUT_UNTIL_ELAPSED)
+            .remove(KEY_LOCKOUT_SET_ELAPSED)
             .remove(KEY_FAILED_ATTEMPTS)
             .apply()
     }
@@ -83,7 +103,7 @@ class LockStore(context: Context) {
                 val legacyOk = MessageDigest.isEqual(expected, legacyHash(pin, salt))
                 if (legacyOk) {
                     // Upgrade only after proving possession of the old PIN.
-                    setPin(pin)
+                    storePin(pin)
                 }
                 legacyOk
             }
@@ -111,15 +131,19 @@ class LockStore(context: Context) {
         }
         val editor = prefs.edit().putInt(KEY_FAILED_ATTEMPTS, failures)
         if (delaySeconds > 0L) {
+            val nowElapsed = SystemClock.elapsedRealtime()
             editor.putLong(KEY_LOCKOUT_UNTIL, System.currentTimeMillis() + delaySeconds * 1000L)
+                .putLong(KEY_LOCKOUT_SET_ELAPSED, nowElapsed)
+                .putLong(KEY_LOCKOUT_UNTIL_ELAPSED, nowElapsed + delaySeconds * 1000L)
         } else {
-            editor.remove(KEY_LOCKOUT_UNTIL)
+            editor.remove(KEY_LOCKOUT_UNTIL).remove(KEY_LOCKOUT_UNTIL_ELAPSED).remove(KEY_LOCKOUT_SET_ELAPSED)
         }
         editor.apply()
     }
 
     private fun clearFailures() {
-        prefs.edit().remove(KEY_FAILED_ATTEMPTS).remove(KEY_LOCKOUT_UNTIL).apply()
+        prefs.edit().remove(KEY_FAILED_ATTEMPTS).remove(KEY_LOCKOUT_UNTIL)
+            .remove(KEY_LOCKOUT_UNTIL_ELAPSED).remove(KEY_LOCKOUT_SET_ELAPSED).apply()
     }
 
     private fun derive(pin: String, salt: ByteArray, iterations: Int, kdf: String = currentKdf()): ByteArray {
@@ -161,12 +185,18 @@ class LockStore(context: Context) {
         private const val KEY_LEGACY_HASH = "hash"
         private const val KEY_FAILED_ATTEMPTS = "failed_attempts"
         private const val KEY_LOCKOUT_UNTIL = "lockout_until"
+        private const val KEY_LOCKOUT_UNTIL_ELAPSED = "lockout_until_elapsed"
+        private const val KEY_LOCKOUT_SET_ELAPSED = "lockout_set_elapsed"
+        private const val MAX_LOCKOUT_MS = 300_000L
 
         private const val FORMAT_V2 = 2
         private const val SALT_BYTES = 16
         private const val DERIVED_BITS = 256
         private const val PBKDF2_ITERATIONS = 120_000
+        /** Shortest PIN still accepted when *verifying* (PINs created by older versions). */
         private const val MIN_PIN_LENGTH = 4
+        /** Shortest PIN accepted when *creating or changing* a PIN. */
+        private const val MIN_NEW_PIN_LENGTH = 5
         private const val MAX_PIN_LENGTH = 8
         private const val MAX_FAILURES = 100
     }

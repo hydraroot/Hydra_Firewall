@@ -68,7 +68,7 @@ Wi‑Fi and mobile start ON when you allow. Turn the prompt off with *Ask on fir
 
 ## 3. Quarantine and trusted apps
 
-- **New-app quarantine.** When enabled, newly installed apps are held in a network quarantine until you review them. It is a network control only — Hydra never silently uninstalls or modifies an APK, and apps that already exist are not retroactively quarantined.
+- **New-app quarantine** (optional, off by default; *Security → Quarantine*). When enabled, newly installed apps are held in a network quarantine until you review them. It is a network control only — Hydra never silently uninstalls or modifies an APK, and apps that already exist are not retroactively quarantined.
 - **Trusted apps** (optional, off by default). Apps from trusted sources can be allowed automatically; with it off, every new app asks.
 - **System-app safety labels.** Before you block a system app, Hydra labels it **high risk** (known critical components such as the system UI, settings, telephony, Google Play services), **caution** (providers, connectivity components) or **undetermined**. Hydra never claims a package is safe to block just because it is a system app. See [`reference/SYSTEM_APP_SAFETY.md`](reference/SYSTEM_APP_SAFETY.md) (Spanish).
 
@@ -180,7 +180,7 @@ rule conflicts.
 
 ## 9. Protecting Hydra itself
 
-- **PIN** (stored with PBKDF2, with attempt limiting) and **fingerprint** unlock.
+- **PIN** of 5 to 8 digits (stored with PBKDF2; attempt limiting with delays up to 5 minutes that a clock change cannot shorten) and **fingerprint** unlock. Older 4-digit PINs keep working until changed. The PIN protects Hydra's screen, not the phone: root/ADB/Settings access can still stop the VPN.
 - `allowBackup=false`: Android does not back up Hydra's data.
 - **Tamper monitoring**: detects the service being stopped without a recorded request.
 - Signed threat packs and a signed release process (see [BUILD.md](BUILD.md)).
