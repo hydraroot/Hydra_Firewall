@@ -56,6 +56,18 @@ object HydraMh100kApkAi {
 
     fun isLoaded(): Boolean = model != null
 
+    /**
+     * Human-readable reading of the score. On the held-out MH-100K test set, score >= 50 had ~64 % precision
+     * (about 1 in 3 flagged apps was legitimate), score >= 90 about 81 % and score >= 95 about 87 %.
+     * The score is not a calibrated probability: this label only avoids presenting a mid score as an alarm.
+     */
+    fun suspicionLabel(score: Int, english: Boolean): String = when {
+        score >= 95 -> if (english) "Very high suspicion — review this app" else "Sospecha muy alta: revisá esta app"
+        score >= 90 -> if (english) "High suspicion — review this app" else "Sospecha alta: revisá esta app"
+        score >= 50 -> if (english) "Weak hint — many legitimate apps score here" else "Indicio débil: muchas apps legítimas puntúan acá"
+        else -> if (english) "Low suspicion" else "Sospecha baja"
+    }
+
     fun isKnownFeatureHash(hash: Long): Boolean = model?.isKnown(hash) == true
 
     fun score(presentFeatureHashes: LongArray): Result? {
@@ -554,7 +566,7 @@ class Mh100kStaticFeatureExtractor {
         }
 
         private fun instructionSize(opcode: Int): Int = when {
-            opcode == 0x03 || opcode == 0x14 || opcode == 0x17 || opcode == 0x1B || opcode in 0x24..0x26 || opcode in 0x2A..0x2C || opcode in 0x6E..0x72 || opcode in 0x74..0x78 || opcode == 0xFC || opcode == 0xFD -> 3
+            opcode == 0x03 || opcode == 0x06 || opcode == 0x09 || opcode == 0x14 || opcode == 0x17 || opcode == 0x1B || opcode in 0x24..0x26 || opcode in 0x2A..0x2C || opcode in 0x6E..0x72 || opcode in 0x74..0x78 || opcode == 0xFC || opcode == 0xFD -> 3
             opcode == 0x18 -> 5
             opcode == 0xFA || opcode == 0xFB -> 4
             opcode == 0x02 || opcode == 0x05 || opcode == 0x08 || opcode == 0x13 || opcode == 0x15 || opcode == 0x16 || opcode == 0x19 || opcode == 0x1A || opcode == 0x1C || opcode == 0x1F || opcode == 0x20 || opcode == 0x22 || opcode == 0x23 || opcode == 0x29 || opcode in 0x2D..0x3D || opcode in 0x44..0x6D || opcode in 0x90..0xAF || opcode in 0xD0..0xE2 || opcode == 0xFE || opcode == 0xFF -> 2

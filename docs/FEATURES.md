@@ -139,6 +139,8 @@ Accessibility services, Device Admin receivers, overlay and package-install capa
 native `.so` libraries and DEX files, plus YARA‑Lite rules. Everything is analyzed **locally**; no APK is
 uploaded.
 
+The **Scan installed apps** button (Security → APK scanner) runs the scanner over every user-installed app and lists each MH‑100K score with a summary, so you can check how the model behaves on apps you trust. Results are not stored in the security log and are only copied to the clipboard if you tap *Copy results*.
+
 ### APP RISK
 Combines indicators into a **0–100 score** with levels SAFE, LOW, MEDIUM, HIGH and CRITICAL.
 High-impact combinations (for example Accessibility plus overlay or package-install capability) weigh

@@ -1,4 +1,7 @@
 ## Sin publicar
+- Seguridad → Escáner APK: nuevo botón «Escanear apps instaladas». Recorre las apps instaladas por el usuario (omite las del sistema), muestra el puntaje MH‑100K de cada una con un resumen (cuántas llegan a 50 y a 90), permite detenerlo y copiar los resultados. No guarda eventos ni sube nada.
+- Escáner de APK (MH‑100K): corregido el tamaño de las instrucciones `move-wide/16` y `move-object/16` al leer DEX (se contaban como 1 unidad en vez de 3, lo que podía desalinear la lectura en métodos con más de 255 registros). Verificado que el formato de nombres de características (`APICall::Lclase.metodo()`, `Permission::X`, `Intent::X`) coincide con `feature_names.csv` del dataset y que las 2.048 características del modelo se resuelven por hash FNV‑1a‑64.
+- Escáner de APK: el puntaje MH‑100K ahora muestra una etiqueta (indicio débil 50–89, sospecha alta 90+, muy alta 95+) en vez de presentar puntajes medios como alarma. Test agregado.
 - PIN: los PIN nuevos o cambiados deben tener de 5 a 8 dígitos (los PIN de 4 dígitos existentes siguen funcionando hasta que se cambien).
 - PIN: el tiempo de espera tras intentos fallidos se mide con el reloj monotónico del sistema, así que cambiar la fecha del teléfono ya no lo acorta.
 - README en español reescrito por completo y alineado con el README en inglés; capturas de pantalla agregadas; sección "Qué hace la IA incorporada"; lista completa de permisos; aclaración de que la cuarentena es opcional.

@@ -36,7 +36,7 @@ These scores are model-evaluation metrics, not calibrated real-world probabiliti
 
 After model selection, the 2,048-feature model was retrained on all 101,934 samples and saved as `hydra_mh100_production_2048.npz`. The compact runtime artifact is `hydra_apk_ai_mh100k_v2.bin`. It contains 2,048 FNV-1a-64 feature hashes, float32 weights, one mode byte per feature, and the intercept.
 
-**Important integration note:** Hydra's current APK scanner does not yet extract the full MH-100K API-call feature vocabulary. Therefore this model should not be presented in the APK UI as if all 2,048 features are currently being evaluated until a matching static feature extractor is implemented. The artifact is ready for that extractor stage.
+**Important integration note (updated):** Hydra now ships a best-effort static extractor (`Mh100kStaticFeatureExtractor`) that matches permissions, intents and DEX API calls by FNV-1a hash against the 2,048 model features. Whether its feature naming matches the original dataset exactly has not been validated on real apps, and 1,139 of the 2,048 features are *absence* features, so an incomplete extraction inflates the score (an empty APK scores 99). Earlier note: Hydra's earlier APK scanner did not extract the full MH-100K API-call feature vocabulary. Therefore this model should not be presented in the APK UI as if all 2,048 features are currently being evaluated until a matching static feature extractor is implemented. The artifact is ready for that extractor stage.
 
 ## Safety architecture
 

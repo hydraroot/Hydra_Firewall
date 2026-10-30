@@ -117,7 +117,7 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 | Modelo | Qué mira | Qué obtenés |
 |---|---|---|
-| **Modelo estático de APK (MH‑100K)** | Un APK que escaneás: permisos, llamadas a la API e intents que aparecen en su código | Un puntaje de 0 a 100 de "se parece a malware Android conocido". La precisión es de solo ~64 % con umbral 0,5 y marca como sospechosas al 5,6 % de las apps legítimas, así que tomalo como una pista. |
+| **Modelo estático de APK (MH‑100K)** | Un APK que escaneás: permisos, llamadas a la API e intents que aparecen en su código | Un puntaje de 0 a 100 de "se parece a malware Android conocido". La precisión es de solo ~64 % con umbral 0,5 y marca como sospechosas al 5,6 % de las apps legítimas, así que Hydra muestra 50–89 como *indicio débil* y solo 90 o más como *sospecha alta* (~81 % de precisión, 2 % de falsos positivos). |
 | **Modelo de comportamiento ("AI Lite")** | Metadatos de conexión por app: cantidad de destinos, bloqueos de DNS, puertos inusuales, alertas TLS, ráfagas | Un nivel de riesgo de comportamiento. Se entrenó con datos sintéticos, por lo que **no** es evidencia de detección real. |
 | **Modelo de privacidad** | Comportamiento tipo rastreador por app: muchos destinos nuevos, consultas DNS bloqueadas, bloqueos SNI | Una señal de privacidad/rastreo. Nunca etiqueta una app como malware. |
 

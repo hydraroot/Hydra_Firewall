@@ -46,4 +46,12 @@ class HydraMh100kApkAiTest {
             temp.delete()
         }
     }
+
+    @Test
+    fun suspicionLabelDoesNotPresentMidScoresAsAlarms() {
+        assertTrue(HydraMh100kApkAi.suspicionLabel(60, true).startsWith("Weak hint"))
+        assertTrue(HydraMh100kApkAi.suspicionLabel(92, true).startsWith("High suspicion"))
+        assertTrue(HydraMh100kApkAi.suspicionLabel(97, true).startsWith("Very high"))
+        assertTrue(HydraMh100kApkAi.suspicionLabel(10, true).startsWith("Low"))
+    }
 }

@@ -671,6 +671,14 @@ private fun conflictsSection(
 // ---------------------------------------------------------------------------
 // HYDRA SECURITY ENGINE — APK scanner
 // ---------------------------------------------------------------------------
+private data class BulkScanRow(
+    val label: String,
+    val pkg: String,
+    val ai: Int?,
+    val riskScore: Int,
+    val note: String
+)
+
 private fun apkScannerSection(
     scope: androidx.compose.foundation.lazy.LazyListScope,
     context: Context,
@@ -680,6 +688,11 @@ private fun apkScannerSection(
     item {
         var report by remember { mutableStateOf<ApkScanReport?>(null) }
         var scanning by remember { mutableStateOf(false) }
+        var bulkRunning by remember { mutableStateOf(false) }
+        var bulkDone by remember { mutableStateOf(0) }
+        var bulkTotal by remember { mutableStateOf(0) }
+        var bulkRows by remember { mutableStateOf<List<BulkScanRow>>(emptyList()) }
+        val bulkCancel = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             if (uri == null) return@rememberLauncherForActivityResult
             scanning = true
@@ -704,6 +717,94 @@ private fun apkScannerSection(
             Spacer(Modifier.height(8.dp))
             Button(onClick = { launcher.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }, enabled = !scanning) {
                 Text(if (scanning) (if (english) "Analyzing…" else "Analizando…") else (if (english) "Select APK" else "Seleccionar APK"))
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        SectionCard {
+            Text(if (english) "SCAN ALL INSTALLED APPS" else "ESCANEAR TODAS LAS APPS INSTALADAS", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (english) "Scans every app you installed (system apps are skipped) and lists the MH-100K static score of each one. Useful to see how the model behaves on apps you trust: if many legitimate apps score 90 or more, treat the score as unreliable. Everything runs on the phone; results are not saved in the security log and nothing is uploaded. It can take a few minutes."
+                else "Escanea todas las apps que instalaste (se omiten las del sistema) y lista el puntaje estático MH-100K de cada una. Sirve para ver cómo se comporta el modelo con apps de confianza: si muchas apps legítimas puntúan 90 o más, tomá el puntaje como poco confiable. Todo corre en el teléfono; los resultados no se guardan en el registro de seguridad y no se sube nada. Puede tardar unos minutos.",
+                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    enabled = !bulkRunning && !scanning,
+                    onClick = {
+                        bulkCancel.set(false)
+                        bulkRows = emptyList(); bulkDone = 0; bulkTotal = 0; bulkRunning = true
+                        val appContext = context.applicationContext
+                        Thread {
+                            val main = android.os.Handler(android.os.Looper.getMainLooper())
+                            val pm = appContext.packageManager
+                            val pkgs = runCatching {
+                                pm.getInstalledApplications(0)
+                                    .filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != appContext.packageName }
+                                    .map { it.packageName }
+                            }.getOrDefault(emptyList())
+                            main.post { bulkTotal = pkgs.size }
+                            val scanner = ApkScanner(appContext)
+                            val rows = ArrayList<BulkScanRow>()
+                            for ((index, pkg) in pkgs.withIndex()) {
+                                if (bulkCancel.get()) break
+                                val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+                                val row = runCatching {
+                                    val r = scanner.scanInstalledPackage(pkg)
+                                    BulkScanRow(label, pkg, r.mh100kAi?.score, r.risk.score, r.errors.firstOrNull { it.startsWith("MH-100K") }.orEmpty())
+                                }.getOrElse { BulkScanRow(label, pkg, null, 0, it.message ?: it.javaClass.simpleName) }
+                                rows.add(row)
+                                val snapshot = rows.toList()
+                                main.post { bulkDone = index + 1; bulkRows = snapshot }
+                            }
+                            main.post { bulkRunning = false }
+                        }.start()
+                    }
+                ) {
+                    Text(
+                        if (bulkRunning) (if (english) "Scanning $bulkDone/$bulkTotal…" else "Escaneando $bulkDone/$bulkTotal…")
+                        else (if (english) "Scan installed apps" else "Escanear apps instaladas")
+                    )
+                }
+                if (bulkRunning) {
+                    OutlinedButton(onClick = { bulkCancel.set(true) }) { Text(if (english) "Stop" else "Detener") }
+                }
+            }
+            if (bulkRows.isNotEmpty()) {
+                val scored = bulkRows.filter { it.ai != null }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (english) "Scanned ${bulkRows.size} • with score: ${scored.size} • without score: ${bulkRows.size - scored.size}"
+                    else "Escaneadas ${bulkRows.size} • con puntaje: ${scored.size} • sin puntaje: ${bulkRows.size - scored.size}",
+                    fontWeight = FontWeight.Bold, fontSize = 12.sp
+                )
+                Text(
+                    if (english) "Score 50 or more: ${scored.count { (it.ai ?: 0) >= 50 }} • 90 or more: ${scored.count { (it.ai ?: 0) >= 90 }}"
+                    else "Puntaje 50 o más: ${scored.count { (it.ai ?: 0) >= 50 }} • 90 o más: ${scored.count { (it.ai ?: 0) >= 90 }}",
+                    fontSize = 12.sp
+                )
+                Text(
+                    if (english) "\"Without score\" means the static analysis was incomplete (large app or time limit), so no score is shown."
+                    else "\"Sin puntaje\" significa que el análisis estático quedó incompleto (app grande o límite de tiempo), por eso no se muestra puntaje.",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(onClick = {
+                    val text = bulkRows.sortedByDescending { it.ai ?: -1 }
+                        .joinToString("\n") { "${it.ai ?: "-"}\t${it.label}\t${it.pkg}\trisk=${it.riskScore}\t${it.note}" }
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra MH-100K", text))
+                }) { Text(if (english) "Copy results" else "Copiar resultados") }
+                Spacer(Modifier.height(4.dp))
+                bulkRows.sortedByDescending { it.ai ?: -1 }.forEach {
+                    Text(
+                        "${it.ai?.toString() ?: "—"}  •  ${it.label}",
+                        fontSize = 11.sp,
+                        fontWeight = if ((it.ai ?: 0) >= 90) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
             }
         }
 
@@ -787,6 +888,10 @@ private fun apkScannerSection(
                     Text(
                         if (english) "Secondary static-analysis signal: ${ai.score}/100" else "Señal secundaria de análisis estático: ${ai.score}/100",
                         fontWeight = FontWeight.Bold, fontSize = 18.sp
+                    )
+                    Text(
+                        HydraMh100kApkAi.suspicionLabel(ai.score, english),
+                        fontSize = 12.sp, fontWeight = FontWeight.Medium
                     )
                     Text(
                         if (english) "Matched model features: ${ai.matchedFeatures}/${ai.modelFeatureCount} • extracted: ${ai.extractedFeatureCount} • DEX analyzed: ${ai.dexFilesAnalyzed}"
