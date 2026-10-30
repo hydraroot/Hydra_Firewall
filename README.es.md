@@ -9,7 +9,12 @@ y filtra anuncios, rastreadores y dominios maliciosos. Nada se envía a servidor
 > Estado: **candidata para prueba cerrada** (`1.0.0`, versionCode `164`). Probala primero con apps no críticas.
 > Leé [`docs/LIMITATIONS.md`](docs/es/LIMITATIONS.md) antes de confiar en ella para protegerte de malware.
 
-<!--GALLERY-->
+<p align="center">
+  <img src="docs/img/1-rules.png" width="23%" alt="Reglas por app">
+  <img src="docs/img/2-prompt.png" width="23%" alt="Aviso de primera conexión">
+  <img src="docs/img/3-protection.png" width="23%" alt="Protección">
+  <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
+</p>
 
 ## English
 

@@ -8,6 +8,13 @@
 
 🇪🇸 [Versión en español](README.es.md)
 
+<p align="center">
+  <img src="docs/img/1-rules.png" width="23%" alt="Per-app rules">
+  <img src="docs/img/2-prompt.png" width="23%" alt="First-connection prompt">
+  <img src="docs/img/3-protection.png" width="23%" alt="Protection">
+  <img src="docs/img/4-connections.png" width="23%" alt="Connections">
+</p>
+
 > **Status: closed-testing candidate** (`1.0.0`, versionCode `164`). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
