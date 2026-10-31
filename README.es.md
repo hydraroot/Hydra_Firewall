@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (`1.0.0`, versionCode `164`). Probala primero con apps no críticas.
+> **Estado: candidata para prueba cerrada** (versión `1.2.1`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -117,9 +117,11 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 | Modelo | Qué mira | Qué obtenés |
 |---|---|---|
-| **Modelo estático de APK (MH‑100K)** | Un APK que escaneás: permisos, llamadas a la API e intents que aparecen en su código | Un puntaje de 0 a 100 de "se parece a malware Android conocido". La precisión es de solo ~64 % con umbral 0,5 y marca como sospechosas al 5,6 % de las apps legítimas, así que Hydra muestra 50–89 como *indicio débil* y solo 90 o más como *sospecha alta* (~81 % de precisión, 2 % de falsos positivos). |
+| **Modelo estático de APK (MH‑100K)** | Un APK que escaneás: permisos, llamadas a la API e intents que aparecen en su código | Un puntaje de 0 a 100 de "se parece a malware Android conocido". La precisión es de solo ~64 % con umbral 0,5 y marca como sospechosas al 5,6 % de las apps legítimas, así que Hydra llama *dudosa* a 50–89 y solo *sospechosa* a 90 o más (~81 % de precisión, 2 % de falsos positivos). |
 | **Modelo de comportamiento ("AI Lite")** | Metadatos de conexión por app: cantidad de destinos, bloqueos de DNS, puertos inusuales, alertas TLS, ráfagas | Un nivel de riesgo de comportamiento. Se entrenó con datos sintéticos, por lo que **no** es evidencia de detección real. |
 | **Modelo de privacidad** | Comportamiento tipo rastreador por app: muchos destinos nuevos, consultas DNS bloqueadas, bloqueos SNI | Una señal de privacidad/rastreo. Nunca etiqueta una app como malware. |
+
+Cada puntaje viene con un resultado simple: **0–49 parece normal, 50–89 dudosa, 90–100 sospechosa** (cuanto más alto, más sospechosa), según cuán acertado fue el modelo con ese puntaje en las pruebas. Si se pudo analizar muy poco código de la app, el resultado es **sin conclusión**.
 
 Junto con las reglas YARA‑Lite, el pack de amenazas firmado y la línea base de comportamiento por app (se aprende localmente cuando activás el registro de tráfico), alimentan el **Centro de seguridad** para que decidas con más información. La decisión siempre es tuya.
 
@@ -212,7 +214,7 @@ En Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) compi
 
 > El ID de aplicación de esta versión para Google Play es `com.hydra.firewall`, igual al de la app creada en Play Console. Mantenelo sin cambios en futuras actualizaciones. Las compilaciones locales anteriores con `com.hydraroot.firewall` o `com.example.firewall` se tratan como apps distintas; exportá tu configuración desde una versión anterior antes de cambiar e importala en esta.
 >
-> Los APK debug compilados por GitHub Actions se firman con una clave temporal que cambia en cada ejecución. Para actualizar sobre una instalación existente tenés que desinstalar primero (exportá tu configuración antes), o usar un keystore de release; ver `docs/es/BUILD.md`.
+> Los APK debug compilados por GitHub Actions se firman con una clave temporal que cambia en cada ejecución, por eso no pueden actualizar una app ya instalada. Usá el APK **firmado** (artefacto `hydra-release-apk`, que se genera cuando están configurados los secretos de firma): se instala como actualización sobre la versión anterior sin desinstalar. Ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md).
 
 ## Preguntas frecuentes
 
@@ -243,6 +245,7 @@ En Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) compi
 | [`docs/es/LIMITATIONS.md`](docs/es/LIMITATIONS.md) | Qué garantiza y qué no garantiza Hydra |
 | [`docs/es/THREAT-PACK.md`](docs/es/THREAT-PACK.md) | Packs de amenazas firmados: claves, feeds, verificación |
 | [`docs/es/BUILD.md`](docs/es/BUILD.md) | Compilar, firmar e instalar; respaldo de claves; migración |
+| [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md) | Esquema de versiones (1.0.x / 1.x.0 / x.0.0) y actualizaciones sin desinstalar |
 | [`docs/es/SECURITY.md`](docs/es/SECURITY.md) / [`SECURITY.md`](SECURITY.md) | Cómo reportar una vulnerabilidad |
 | [`docs/es/CONTRIBUTING.md`](docs/es/CONTRIBUTING.md) / [`CONTRIBUTING.md`](CONTRIBUTING.md) | Cómo contribuir |
 | [`TRADEMARK.es.md`](TRADEMARK.es.md) | Uso de los nombres y el logo de Hydra Firewall / Hydraroot |

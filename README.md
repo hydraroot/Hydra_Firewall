@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (`1.0.0`, versionCode `164`). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (version `1.2.1`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -179,9 +179,11 @@ Hydra includes three very small models that run **entirely on your phone** (no c
 
 | Model | What it looks at | What you get |
 |---|---|---|
-| **APK static model (MH‑100K)** | An APK you scan: permissions, API calls and intents found in its code | A 0–100 score for "looks like known Android malware". Precision is only about 64 % at threshold 0.5 and 5.6 % of legitimate apps are flagged, so Hydra labels 50–89 as a *weak hint* and only 90+ as *high suspicion* (about 81 % precision, 2 % false positives). |
+| **APK static model (MH‑100K)** | An APK you scan: permissions, API calls and intents found in its code | A 0–100 score for "looks like known Android malware". Precision is only about 64 % at threshold 0.5 and 5.6 % of legitimate apps are flagged, so Hydra calls 50–89 *doubtful* and only 90+ *suspicious* (about 81 % precision, 2 % false positives). |
 | **Behavior model ("AI Lite")** | Per-app connection metadata: number of destinations, DNS blocks, unusual ports, TLS alerts, bursts | A behavior risk level. It was trained on synthetic data, so it is **not** evidence of real detection. |
 | **Privacy model** | Per-app tracker-like behavior: many new destinations, blocked DNS queries, SNI blocks | A privacy/tracking signal. It never labels an app as malware. |
+
+Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful, 90–100 suspicious** (the higher, the more suspicious), based on how often the model was right at that score in testing. If too little of the app's code could be analyzed, the result is **no conclusion**.
 
 Together with the YARA‑Lite rules, the signed threat pack and the per-app behavior baseline (learned locally once you enable traffic recording), they feed **Security Center** so you can decide with more information. The decision is always yours.
 
@@ -213,8 +215,7 @@ Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) builds a
 
 > The Google Play application ID for this release is `com.hydra.firewall`, matching the app created in Play Console. Keep it unchanged for future updates. Older local builds using `com.hydraroot.firewall` or `com.example.firewall` are treated as different apps; export your settings from an older build before switching and import them into this release.
 >
-> Debug APKs built by GitHub Actions are signed with a temporary key that changes every run. To update
-> over an existing install you must uninstall first (export your configuration beforehand) — or use a release keystore, see `docs/BUILD.md`.
+> Debug APKs built by GitHub Actions are signed with a temporary key that changes every run, so they cannot update an installed app. Use the **signed** APK instead (artifact `hydra-release-apk`, built when the signing secrets are configured): it installs as an update over the previous version without uninstalling. See [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
 ## FAQ
 
@@ -241,6 +242,7 @@ Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) builds a
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What Hydra does and does not guarantee |
 | [`docs/THREAT-PACK.md`](docs/THREAT-PACK.md) | Signed threat packs: keys, feeds, verification |
 | [`docs/BUILD.md`](docs/BUILD.md) | Build, sign and install; key backups; migration |
+| [`docs/VERSIONING.md`](docs/VERSIONING.md) | Version scheme (1.0.x / 1.x.0 / x.0.0) and in-place updates |
 | [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`TRADEMARK.md`](TRADEMARK.md) | Use of the Hydra Firewall / Hydraroot names and logo |

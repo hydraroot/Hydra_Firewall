@@ -174,6 +174,8 @@ class FirewallVpnService : VpnService() {
         ThreatSignatureStore.init(this)
         ThreatSignatureUpdater.scheduleDaily(this)
         ThreatSignatureUpdater.updateIfDue(this)
+        // Incremental: only apps that changed (or all, if the pack changed) are checked; otherwise it does nothing.
+        runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
         TlsFingerprintStore.init(this)
         AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)

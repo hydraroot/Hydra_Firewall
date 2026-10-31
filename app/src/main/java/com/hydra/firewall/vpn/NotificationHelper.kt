@@ -134,6 +134,7 @@ object NotificationHelper {
     private const val QUARANTINE_NOTIFICATION_ID = 20001
     private const val TAMPER_NOTIFICATION_ID = 20002
     private const val THREAT_NOTIFICATION_BASE_ID = 21000
+    private const val APP_THREAT_NOTIFICATION_BASE_ID = 22000
     private val threatNotifyTimes = ConcurrentHashMap<String, Long>()
     private val accessNotificationIds = ConcurrentHashMap<String, Int>()
     private val nextAccessNotificationId = AtomicInteger(ACCESS_REQUEST_NOTIFICATION_BASE_ID)
@@ -292,6 +293,41 @@ object NotificationHelper {
             .build()
         (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .notify(QUARANTINE_NOTIFICATION_ID, notification)
+    }
+
+    /** An installed app matched the signed threat pack. [definitive] = exact known-malware hash. */
+    fun notifyAppThreat(context: Context, packageName: String, label: String, definitive: Boolean, matchName: String) {
+        ensureSecurityChannel(context)
+        val english = AppSettings(context).language.isEnglish() ||
+            (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        val pendingIntent = PendingIntent.getActivity(
+            context, 3,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+        val title = if (definitive) {
+            if (english) "Known malware found" else "Se encontró malware conocido"
+        } else {
+            if (english) "Suspicious app pattern found" else "Se encontró un patrón sospechoso en una app"
+        }
+        val text = if (definitive) {
+            if (english) "$label matches a known-malware signature ($matchName). Open Security Center to review it."
+            else "$label coincide con una firma de malware conocido ($matchName). Abrí el Centro de Seguridad para revisarla."
+        } else {
+            if (english) "$label matches a suspicious pattern ($matchName). It may be a false positive: review it in Security Center."
+            else "$label coincide con un patrón sospechoso ($matchName). Puede ser un falso positivo: revisala en el Centro de Seguridad."
+        }
+        val notification = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .notify(APP_THREAT_NOTIFICATION_BASE_ID + (packageName.hashCode() and 0x3FF), notification)
     }
 
     /** The VPN service stopped without a matching intentional-stop marker. */

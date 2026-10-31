@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import com.hydra.firewall.security.AppThreatScanner
 
 /**
  * Dynamically-registered receiver (manifest-declared PACKAGE_ADDED/REPLACED
@@ -47,13 +48,16 @@ class AppLifecycleWatcher(
                 quarantineManager.onPackageAdded(ctx, packageName)
                 onRulesChanged()
                 NotificationHelper.notifyQuarantine(ctx, packageName)
+                AppThreatScanner.onPackageChanged(ctx, packageName)
             }
             Intent.ACTION_PACKAGE_REPLACED -> {
                 AppNetworkProfileStore.onAppUpdated(packageName)
+                AppThreatScanner.onPackageChanged(ctx, packageName)
             }
             Intent.ACTION_PACKAGE_FULLY_REMOVED -> {
                 quarantineManager.onPackageRemoved(packageName)
                 AppNetworkProfileStore.onAppRemoved(packageName)
+                AppThreatScanner.onPackageRemoved(ctx, packageName)
             }
         }
     }

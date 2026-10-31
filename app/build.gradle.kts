@@ -17,6 +17,20 @@ fun cfg(name: String, default: String = ""): String =
         .map { it?.trim().orEmpty() }
         .firstOrNull { it.isNotEmpty() } ?: default.trim()
 
+// ---- Versión: única fuente en version.properties (raíz). Ver docs/es/VERSIONING.md --------
+// versionCode = MAYOR*10000 + MENOR*100 + PARCHE, así siempre crece al subir la versión.
+val versionProps = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+val appVersionName: String = versionProps.getProperty("VERSION_NAME").trim()
+val appVersionCode: Int = run {
+    val parts = appVersionName.split(".").map { it.toInt() }
+    require(parts.size == 3 && parts[1] in 0..99 && parts[2] in 0..99) {
+        "VERSION_NAME debe ser MAYOR.MENOR.PARCHE (menor y parche entre 0 y 99)"
+    }
+    parts[0] * 10000 + parts[1] * 100 + parts[2]
+}
+
 // Feed de firmas de amenazas (HTTPS). Vacío = actualización desactivada por defecto.
 val threatFeedUrl = cfg("HYDRA_THREAT_FEED_URL", "https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json")
 // Clave pública P-256 (X.509 DER en Base64) que verifica el pack. Vacío = clave original del proyecto.
@@ -36,9 +50,9 @@ android {
         // tiempo de ejecución según Build.VERSION.SDK_INT (ver UidResolver.kt).
         minSdk = 24
         targetSdk = 36
-        versionCode = 164
-        versionName = "1.0.0"
-        buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V1.0.0\"")
+        versionCode = appVersionCode
+        versionName = appVersionName
+        buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V$appVersionName\"")
         buildConfigField("String", "THREAT_FEED_URL", "\"${threatFeedUrl.replace("\"", "")}\"")
         buildConfigField("String", "THREAT_PUBLIC_KEY", "\"${threatPublicKey.replace("\"", "")}\"")
     }

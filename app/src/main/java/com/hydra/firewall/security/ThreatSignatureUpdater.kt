@@ -58,6 +58,8 @@ object ThreatSignatureUpdater {
                     if (!ThreatSignatureStore.installVerifiedPack(context, payload)) {
                         throw IllegalStateException("pack_install_failed")
                     }
+                    // New pack = maybe new known-malware hashes: check the installed apps again.
+                    runCatching { AppThreatScanner.onPackUpdated(context.applicationContext) }
                     Result(true, ThreatSignatureStore.activePackVersion())
                 } else {
                     throw IllegalStateException("signature_invalid")

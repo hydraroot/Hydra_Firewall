@@ -56,17 +56,60 @@ object HydraMh100kApkAi {
 
     fun isLoaded(): Boolean = model != null
 
-    /**
-     * Human-readable reading of the score. On the held-out MH-100K test set, score >= 50 had ~64 % precision
-     * (about 1 in 3 flagged apps was legitimate), score >= 90 about 81 % and score >= 95 about 87 %.
-     * The score is not a calibrated probability: this label only avoids presenting a mid score as an alarm.
-     */
-    fun suspicionLabel(score: Int, english: Boolean): String = when {
-        score >= 95 -> if (english) "Very high suspicion — review this app" else "Sospecha muy alta: revisá esta app"
-        score >= 90 -> if (english) "High suspicion — review this app" else "Sospecha alta: revisá esta app"
-        score >= 50 -> if (english) "Weak hint — many legitimate apps score here" else "Indicio débil: muchas apps legítimas puntúan acá"
-        else -> if (english) "Low suspicion" else "Sospecha baja"
+    /** Plain reading of a score. One direction only: the higher the score, the more suspicious. */
+    data class Verdict(val level: Level, val label: String, val detail: String) {
+        enum class Level { NORMAL, DOUBTFUL, SUSPICIOUS, INCONCLUSIVE }
     }
+
+    /**
+     * Turns a score into one verdict. Bands and the numbers in the detail text come from the model's held-out test
+     * set (MH-100K, apps from 2010-2022, so they may not reflect today's malware):
+     *  - 0-49:  fewer than 1 in 100 apps with such a score were malware  -> NORMAL
+     *  - 50-89: only ~6 in 10 were malware; many legitimate apps land here -> DOUBTFUL
+     *  - 90+:   ~8 in 10 (81 % at 90, 87 % at 95) were malware            -> SUSPICIOUS
+     * If the analysis was incomplete or saw very little code (packed/obfuscated apps) there is no verdict at all,
+     * because the model had nothing solid to judge: INCONCLUSIVE.
+     */
+    fun verdict(score: Int, apiCallsObserved: Int, dexFilesAnalyzed: Int, extractionIncomplete: Boolean, english: Boolean): Verdict {
+        if (extractionIncomplete || dexFilesAnalyzed < 1) {
+            return Verdict(
+                Verdict.Level.INCONCLUSIVE,
+                if (english) "No conclusion" else "Sin conclusión",
+                if (english) "The analysis was incomplete, so this score should not be trusted."
+                else "El análisis quedó incompleto: no te fíes de este puntaje."
+            )
+        }
+        if (apiCallsObserved < MIN_API_CALLS_FOR_VERDICT) {
+            return Verdict(
+                Verdict.Level.INCONCLUSIVE,
+                if (english) "No conclusion" else "Sin conclusión",
+                if (english) "Very little code was visible (packed or obfuscated app), so the model has little to judge."
+                else "Se vio muy poco código (app empaquetada u ofuscada): el modelo casi no tiene en qué basarse."
+            )
+        }
+        return when {
+            score >= 90 -> Verdict(
+                Verdict.Level.SUSPICIOUS,
+                if (english) "Suspicious" else "Sospechosa",
+                if (english) "In tests, about 8 in 10 apps with this score were malware. Review it; it is not proof."
+                else "En las pruebas, ~8 de cada 10 apps con este puntaje eran malware. Revisala; no es una prueba."
+            )
+            score >= 50 -> Verdict(
+                Verdict.Level.DOUBTFUL,
+                if (english) "Doubtful" else "Dudosa",
+                if (english) "In tests, only about 6 in 10 apps with this score were malware; many legitimate apps land here."
+                else "En las pruebas, solo ~6 de cada 10 apps con este puntaje eran malware; muchas apps legítimas caen acá."
+            )
+            else -> Verdict(
+                Verdict.Level.NORMAL,
+                if (english) "Looks normal" else "Parece normal",
+                if (english) "In tests, fewer than 1 in 100 apps with this score were malware. Not a guarantee: it cannot see new threats."
+                else "En las pruebas, menos de 1 de cada 100 apps con este puntaje era malware. No es garantía: no ve amenazas nuevas."
+            )
+        }
+    }
+
+    private const val MIN_API_CALLS_FOR_VERDICT = 500
 
     fun isKnownFeatureHash(hash: Long): Boolean = model?.isKnown(hash) == true
 

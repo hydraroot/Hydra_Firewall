@@ -82,6 +82,129 @@ fun SecurityCenterTab(context: Context, language: AppLanguage) {
     }
 }
 
+
+/** One place to switch on/off and update each protection layer. */
+@Composable
+private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger: Int) {
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    var vpnOn by remember(refreshTrigger) { mutableStateOf(FirewallVpnService.isRunning) }
+    var packOn by remember(refreshTrigger) { mutableStateOf(ThreatSignatureStore.isEnabled(context)) }
+    var packMsg by remember { mutableStateOf("") }
+    var packBusy by remember { mutableStateOf(false) }
+    var listMsg by remember { mutableStateOf("") }
+    var listBusy by remember { mutableStateOf(false) }
+    var avOn by remember(refreshTrigger) { mutableStateOf(AppThreatScanner.isAutoEnabled(context)) }
+    var avBusy by remember { mutableStateOf(AppThreatScanner.isFullScanRunning()) }
+    var avMsg by remember { mutableStateOf("") }
+    var tlsOn by remember(refreshTrigger) { mutableStateOf(TlsFingerprintStore.isEnabled()) }
+
+    SectionCard {
+        Text(if (english) "Control and updates" else "Control y actualizaciones", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(
+            if (english) "Switch each protection on or off and update what needs updating."
+            else "Activá o desactivá cada protección y actualizá lo que lo necesite.",
+            fontSize = 11.sp
+        )
+
+        // --- Firewall (VPN)
+        SmallCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = vpnOn, onCheckedChange = { want ->
+                    runCatching {
+                        if (want) {
+                            if (android.net.VpnService.prepare(context) != null) {
+                                packMsg = ""
+                                avMsg = if (english) "Android needs your VPN permission: start the firewall once from the main tab." else "Android necesita tu permiso de VPN: iniciá el firewall una vez desde la pestaña principal."
+                            } else {
+                                val i = android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_START }
+                                androidx.core.content.ContextCompat.startForegroundService(context, i)
+                                vpnOn = true
+                            }
+                        } else {
+                            context.startService(android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_STOP })
+                            vpnOn = false
+                        }
+                    }
+                })
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(if (english) "Firewall (VPN)" else "Firewall (VPN)", fontWeight = FontWeight.Bold)
+                    Text(if (vpnOn) (if (english) "On" else "Activo") else (if (english) "Off" else "Apagado"), fontSize = 11.sp)
+                }
+            }
+        }
+
+        // --- Threat pack
+        SmallCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = packOn, onCheckedChange = { packOn = it; ThreatSignatureStore.setEnabled(context, it) })
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(if (english) "Threat pack (signatures)" else "Pack de amenazas (firmas)", fontWeight = FontWeight.Bold)
+                    Text((if (english) "Version: " else "Versión: ") + ThreatSignatureStore.activePackVersion(), fontSize = 11.sp)
+                }
+            }
+            Button(enabled = !packBusy, onClick = {
+                packBusy = true; packMsg = if (english) "Updating…" else "Actualizando…"
+                ThreatSignatureUpdater.updateIfDue(context, force = true) { r ->
+                    main.post {
+                        packBusy = false
+                        packMsg = if (r.success) (if (english) "Up to date: " else "Actualizado: ") + (r.version ?: "")
+                        else (if (english) "Update failed: " else "Falló la actualización: ") + (r.error ?: "")
+                    }
+                }
+            }) { Text(if (english) "Update threat pack" else "Actualizar pack de amenazas") }
+            if (packMsg.isNotEmpty()) Text(packMsg, fontSize = 11.sp)
+        }
+
+        // --- Antivirus
+        SmallCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = avOn, onCheckedChange = { avOn = it; AppThreatScanner.setAutoEnabled(context, it) })
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(if (english) "Antivirus (automatic app checks)" else "Antivirus (revisión automática de apps)", fontWeight = FontWeight.Bold)
+                    val n = AppThreatScanner.findings(context).size
+                    Text(if (english) "Threats found: $n" else "Amenazas encontradas: $n", fontSize = 11.sp)
+                }
+            }
+            Button(enabled = !avBusy, onClick = {
+                avBusy = true; avMsg = if (english) "Checking…" else "Revisando…"
+                val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
+                    main.post { avBusy = false; avMsg = if (english) "Done. Threats found: ${list.size}" else "Listo. Amenazas encontradas: ${list.size}" }
+                })
+                if (!started) avBusy = false
+            }) { Text(if (english) "Check all apps now" else "Revisar todas las apps ahora") }
+            if (avMsg.isNotEmpty()) Text(avMsg, fontSize = 11.sp)
+        }
+
+        // --- Domain blocklists
+        SmallCard {
+            Text(if (english) "Domain blocklists" else "Listas de dominios bloqueados", fontWeight = FontWeight.Bold)
+            Button(enabled = !listBusy, onClick = {
+                listBusy = true; listMsg = if (english) "Downloading…" else "Descargando…"
+                BlocklistUpdater.downloadAndApply(context) { r ->
+                    main.post {
+                        listBusy = false
+                        listMsg = if (r.success) (if (english) "Updated: ${r.domainCount} domains" else "Actualizado: ${r.domainCount} dominios")
+                        else (if (english) "Failed: " else "Falló: ") + (r.error ?: "")
+                    }
+                }
+            }) { Text(if (english) "Update blocklists" else "Actualizar listas") }
+            if (listMsg.isNotEmpty()) Text(listMsg, fontSize = 11.sp)
+        }
+
+        // --- TLS fingerprinting
+        SmallCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = tlsOn, onCheckedChange = { tlsOn = it; TlsFingerprintStore.setEnabled(it) })
+                Spacer(Modifier.width(8.dp))
+                Text(if (english) "TLS fingerprint check" else "Huella TLS", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 private enum class SecuritySection { STATUS, APK_SCANNER, BEHAVIOR, FINGERPRINT, QUARANTINE, UPDATE_WATCH, DOZE, TAMPER, CONFLICTS, TIMELINE }
 
 @Composable
@@ -124,6 +247,7 @@ private fun statusSection(
     quarantineManager: QuarantineManager,
     refreshTrigger: Int
 ) = with(scope) {
+    item { ControlPanelCard(context, english, refreshTrigger) }
     item {
         val protection = ProtectionStatus.read(context)
         val ruleStore = remember { RuleStore(context) }
@@ -677,7 +801,8 @@ private data class BulkScanRow(
     val ai: Int?,
     val riskScore: Int,
     val note: String,
-    val seconds: Int = 0
+    val seconds: Int = 0,
+    val verdict: String = ""
 )
 
 private fun apkScannerSection(
@@ -686,6 +811,64 @@ private fun apkScannerSection(
     english: Boolean,
     refreshTrigger: Int
 ) = with(scope) {
+    item {
+        var auto by remember { mutableStateOf(AppThreatScanner.isAutoEnabled(context)) }
+        var running by remember { mutableStateOf(AppThreatScanner.isFullScanRunning()) }
+        var found by remember { mutableStateOf(AppThreatScanner.findings(context)) }
+        var lastScan by remember { mutableStateOf(AppThreatScanner.lastFullScan(context)) }
+        val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+        SectionCard {
+            Text(if (english) "Antivirus protection (threat pack)" else "Protección antivirus (pack de amenazas)", fontWeight = FontWeight.Bold)
+            Text(
+                if (english) "Checks your apps against the signed threat pack when they are installed or updated, and again when the pack updates. It only finds known threats; it never removes anything by itself."
+                else "Revisa tus apps contra el pack de amenazas firmado cuando se instalan o actualizan, y de nuevo cuando el pack se actualiza. Solo detecta amenazas conocidas; nunca borra nada por sí solo.",
+                fontSize = 12.sp
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = auto, onCheckedChange = { auto = it; AppThreatScanner.setAutoEnabled(context, it) })
+                Spacer(Modifier.width(8.dp))
+                Text(if (english) "Automatic checks" else "Revisión automática")
+            }
+            Text(
+                (if (english) "Pack: " else "Pack: ") + ThreatSignatureStore.activePackVersion() +
+                    " • " + (if (english) "last full check: " else "última revisión completa: ") +
+                    (if (lastScan == 0L) "-" else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(lastScan))),
+                fontSize = 11.sp
+            )
+            Button(enabled = !running, onClick = {
+                running = true
+                val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
+                    main.post { found = list; lastScan = AppThreatScanner.lastFullScan(context); running = false }
+                })
+                if (!started) running = false
+            }) {
+                Text(if (running) (if (english) "Checking…" else "Revisando…") else (if (english) "Check all apps now" else "Revisar todas las apps ahora"))
+            }
+            if (!running && lastScan != 0L && found.isEmpty()) {
+                Text(if (english) "No known threats found." else "No se encontraron amenazas conocidas.", fontSize = 12.sp)
+            }
+            found.forEach { f ->
+                SmallCard {
+                    Text((if (f.definitive) "\u26A0 " else "? ") + f.label, fontWeight = FontWeight.Bold)
+                    Text(f.packageName, fontSize = 11.sp)
+                    Text(
+                        f.matches.take(3).joinToString(", ") { it.name } +
+                            if (f.definitive) (if (english) " — exact known-malware hash" else " — hash exacto de malware conocido")
+                            else (if (english) " — pattern only, may be a false positive" else " — solo patrón, puede ser falso positivo"),
+                        fontSize = 12.sp
+                    )
+                    TextButton(onClick = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_DELETE, Uri.parse("package:" + f.packageName))
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }) { Text(if (english) "Uninstall…" else "Desinstalar…") }
+                }
+            }
+        }
+    }
     item {
         var report by remember { mutableStateOf<ApkScanReport?>(null) }
         var scanning by remember { mutableStateOf(false) }
@@ -765,7 +948,10 @@ private fun apkScannerSection(
                                         BulkScanRow(
                                             label, pkg, r.mh100kAi?.score, r.risk.score,
                                             r.errors.firstOrNull { it.startsWith("MH-100K") }.orEmpty(),
-                                            ((System.currentTimeMillis() - startedAt) / 1000L).toInt()
+                                            ((System.currentTimeMillis() - startedAt) / 1000L).toInt(),
+                                            r.mh100kAi?.let { ai ->
+                                                HydraMh100kApkAi.verdict(ai.score, ai.apiCallsObserved, ai.dexFilesAnalyzed, ai.extractionIncomplete, false).level.name
+                                            }.orEmpty()
                                         )
                                     })
                                     val row = try {
@@ -828,14 +1014,14 @@ private fun apkScannerSection(
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(onClick = {
                     val text = bulkRows.sortedByDescending { it.ai ?: -1 }
-                        .joinToString("\n") { "${it.ai ?: "-"}\t${it.label}\t${it.pkg}\trisk=${it.riskScore}\t${it.seconds}s\t${it.note}" }
+                        .joinToString("\n") { "${it.ai ?: "-"}\t${it.label}\t${it.pkg}\trisk=${it.riskScore}\t${it.seconds}s\t${it.verdict}\t${it.note}" }
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra MH-100K", text))
                 }) { Text(if (english) "Copy results" else "Copiar resultados") }
                 Spacer(Modifier.height(4.dp))
                 bulkRows.sortedByDescending { it.ai ?: -1 }.forEach {
                     Text(
-                        "${it.ai?.toString() ?: "—"}  •  ${it.label}  ·  ${it.seconds}s" + (if (it.ai == null && it.note.isNotBlank()) "  (${it.note.take(70)})" else ""),
+                        "${it.ai?.toString() ?: "—"}  •  ${it.label}  ·  ${it.seconds}s" + (if (it.verdict.isNotEmpty()) "  [${when (it.verdict) { "NORMAL" -> "parece normal"; "DOUBTFUL" -> "dudosa"; "SUSPICIOUS" -> "sospechosa"; else -> "sin conclusión" }}]" else "") + (if (it.ai == null && it.note.isNotBlank()) "  (${it.note.take(70)})" else ""),
                         fontSize = 11.sp,
                         fontWeight = if ((it.ai ?: 0) >= 90) FontWeight.Bold else FontWeight.Normal
                     )
@@ -924,9 +1110,22 @@ private fun apkScannerSection(
                         if (english) "Secondary static-analysis signal: ${ai.score}/100" else "Señal secundaria de análisis estático: ${ai.score}/100",
                         fontWeight = FontWeight.Bold, fontSize = 18.sp
                     )
+                    val verdict = HydraMh100kApkAi.verdict(ai.score, ai.apiCallsObserved, ai.dexFilesAnalyzed, ai.extractionIncomplete, english)
                     Text(
-                        HydraMh100kApkAi.suspicionLabel(ai.score, english),
-                        fontSize = 12.sp, fontWeight = FontWeight.Medium
+                        (if (english) "Result: " else "Resultado: ") + verdict.label,
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        color = when (verdict.level) {
+                            HydraMh100kApkAi.Verdict.Level.NORMAL -> Color(0xFF2E8B57)
+                            HydraMh100kApkAi.Verdict.Level.DOUBTFUL -> Color(0xFFD98E1F)
+                            HydraMh100kApkAi.Verdict.Level.SUSPICIOUS -> Color(0xFFC0392B)
+                            HydraMh100kApkAi.Verdict.Level.INCONCLUSIVE -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                    Text(verdict.detail, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        if (english) "Scale: 0–49 looks normal • 50–89 doubtful • 90–100 suspicious (higher = more suspicious)"
+                        else "Escala: 0–49 parece normal • 50–89 dudosa • 90–100 sospechosa (más alto = más sospechosa)",
+                        fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         if (english) "Matched model features: ${ai.matchedFeatures}/${ai.modelFeatureCount} • extracted: ${ai.extractedFeatureCount} • DEX analyzed: ${ai.dexFilesAnalyzed}"

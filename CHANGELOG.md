@@ -1,4 +1,19 @@
-## Sin publicar
+## 1.2.1 (versionCode 10201)
+- Seguridad → Resumen: nueva tarjeta «Control y actualizaciones» con, en un solo lugar, el interruptor y/o el botón de actualizar de cada capa: Firewall (VPN), pack de amenazas, antivirus (revisión automática + revisar ahora), listas de dominios y huella TLS.
+
+## 1.2.0 (versionCode 10200)
+- **Protección tipo antivirus con el pack de amenazas:** nuevo `AppThreatScanner`. Revisa las apps contra el pack firmado (hashes SHA‑256 de malware conocido + reglas YARA‑Lite) automáticamente cuando una app se instala o se actualiza, y de nuevo para todas las apps cuando el pack se actualiza (incremental: omite las apps que no cambiaron con el mismo pack). Es liviano (sin modelo ni lectura de DEX), corre en segundo plano con prioridad mínima.
+- Si encuentra algo: registra un evento de seguridad y envía una notificación. Hash exacto = «malware conocido»; solo patrón YARA = «sospechoso, puede ser falso positivo». Nunca borra ni bloquea nada por sí solo: el usuario decide.
+- Seguridad → nueva tarjeta «Protección antivirus»: interruptor de revisión automática (activado por defecto), botón «Revisar todas las apps ahora», lista de hallazgos con botón «Desinstalar…».
+- Límites honestos: solo detecta lo que está en el pack (amenazas conocidas); no es un antivirus completo ni reemplaza a Play Protect.
+
+## 1.1.1 (versionCode 10101)
+- Escáner MH‑100K: el resultado se muestra en **una sola escala, en un solo sentido**: 0–49 «Parece normal» (verde), 50–89 «Dudosa» (ámbar), 90–100 «Sospechosa» (rojo); más alto = más sospechosa. Si el análisis quedó incompleto o se vio muy poco código, el resultado es «Sin conclusión». Reemplaza las etiquetas «sospecha» y «confiabilidad» de la 1.1.0, que se contradecían entre sí. Test actualizado.
+
+## 1.1.0 (versionCode 10100)
+- **Versiones:** nuevo esquema MAYOR.MENOR.PARCHE en `version.properties` (patch = cambios pequeños 1.0.x, minor = medianos 1.x.0, major = grandes x.0.0). El `versionCode` se calcula solo (mayor×10000 + menor×100 + parche) y siempre crece. Herramienta `tools/bump_version.py` con tests. Guía en `docs/es/VERSIONING.md`.
+- **Actualizar sin desinstalar:** el CI genera en cada push el artefacto `hydra-release-apk`, firmado con tu clave de release (si están los 4 secretos de firma), que Android instala como actualización. Los APK debug siguen siendo solo de prueba.
+- Puntaje MH‑100K con resultado interpretado (ver 1.1.1, que lo simplificó).
 - Escáner de apps: mucho más rápido para que las apps grandes terminen en vez de agotar el tiempo. El extractor MH‑100K calcula el nombre y el hash de cada método UNA vez (antes armaba un texto y lo hasheaba en cada instrucción de llamada, millones de veces), lee las cadenas del DEX sin streams intermedios y revisa el reloj cada 256 instrucciones. El análisis de pistas estáticas pasa el texto a minúsculas una vez y usa búsqueda directa (antes `contains(ignoreCase)` por pista y por bloque). Límites: extracción 30 s, DEX total 160 MB, 120 s por app en el escaneo masivo. La lista ahora muestra los segundos que tardó cada app.
 - Escáner MH‑100K: corregido el error que dejaba **todas** las apps «sin puntaje». El lector de DEX acumulaba el índice de método a lo largo de las listas de métodos directos y virtuales (en el formato DEX cada lista empieza de nuevo en 0), se pasaba del final de la tabla y marcaba el análisis como incompleto. Verificado con un DEX de prueba. Además: las cadenas del DEX se leen una sola vez, el tiempo máximo de extracción sube de 5,5 s a 20 s, el límite por app del escaneo masivo pasa a 90 s y la lista muestra el motivo cuando una app no tiene puntaje.
 - Seguridad → Escáner APK: nuevo botón «Escanear apps instaladas». Recorre las apps instaladas por el usuario (omite las del sistema), muestra el puntaje MH‑100K de cada una con un resumen (cuántas llegan a 50 y a 90), permite detenerlo y copiar los resultados. No guarda eventos ni sube nada.

@@ -73,6 +73,40 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # APK firmado con TU clave de release en cada push: Android lo instala como ACTUALIZACIÓN
+      # (sin desinstalar) siempre que el versionCode sea mayor. Requiere los 4 secretos de firma.
+      - name: Compilar APK firmado actualizable
+        env:
+          HYDRA_KEYSTORE_FILE: hydra-release.jks
+          HYDRA_KEYSTORE_BASE64: ${{ secrets.HYDRA_KEYSTORE_BASE64 }}
+          HYDRA_KEYSTORE_PASSWORD: ${{ secrets.HYDRA_KEYSTORE_PASSWORD }}
+          HYDRA_KEY_ALIAS: ${{ secrets.HYDRA_KEY_ALIAS }}
+          HYDRA_KEY_PASSWORD: ${{ secrets.HYDRA_KEY_PASSWORD }}
+          HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
+          HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${HYDRA_KEYSTORE_BASE64}" || -z "${HYDRA_KEYSTORE_PASSWORD}" || -z "${HYDRA_KEY_ALIAS}" ]]; then
+            echo "::notice::Sin secretos de firma: no se genera el APK actualizable (solo el debug de prueba). Ver docs/es/VERSIONING.md."
+            exit 0
+          fi
+          printf '%s' "$HYDRA_KEYSTORE_BASE64" | base64 --decode > "$HYDRA_KEYSTORE_FILE"
+          test -s "$HYDRA_KEYSTORE_FILE"
+          trap 'rm -f "$HYDRA_KEYSTORE_FILE"' EXIT
+          ./gradlew --no-daemon assembleRelease
+          VERSION="$(grep '^VERSION_NAME=' version.properties | cut -d= -f2 | tr -d '\r ')"
+          mkdir -p signed
+          cp app/build/outputs/apk/release/app-release.apk "signed/Hydra-Firewall-${VERSION}.apk"
+
+      - name: Subir APK firmado actualizable
+        uses: actions/upload-artifact@v7
+        with:
+          name: hydra-release-apk
+          path: signed/*.apk
+          if-no-files-found: ignore
+          retention-days: 30
+
   release:
     name: Compilar Release firmado y publicar APK
     needs: verify

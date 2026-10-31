@@ -9,6 +9,8 @@ import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+private typealias VerdictLevel = HydraMh100kApkAi.Verdict.Level
+
 class HydraMh100kApkAiTest {
     @Test
     fun loadsProductionModelAndHonorsAbsenceMode() {
@@ -48,14 +50,6 @@ class HydraMh100kApkAiTest {
     }
 
     @Test
-    fun suspicionLabelDoesNotPresentMidScoresAsAlarms() {
-        assertTrue(HydraMh100kApkAi.suspicionLabel(60, true).startsWith("Weak hint"))
-        assertTrue(HydraMh100kApkAi.suspicionLabel(92, true).startsWith("High suspicion"))
-        assertTrue(HydraMh100kApkAi.suspicionLabel(97, true).startsWith("Very high"))
-        assertTrue(HydraMh100kApkAi.suspicionLabel(10, true).startsWith("Low"))
-    }
-
-    @Test
     fun intentSuffixMatchesOldRegexAndStaysFastOnHugeStrings() {
         val old = Regex("""([A-Z][A-Z0-9_]{2,})$""")
         val samples = listOf(
@@ -69,5 +63,20 @@ class HydraMh100kApkAiTest {
         val started = System.currentTimeMillis()
         assertEquals(null, Mh100kStaticFeatureExtractor.intentSuffix(huge))
         assertTrue(System.currentTimeMillis() - started < 1_000L)
+    }
+
+    @Test
+    fun verdictGoesOneDirectionAndNeedsEnoughCodeSeen() {
+        // Enough code seen: the higher the score, the worse the verdict.
+        assertEquals(VerdictLevel.NORMAL, HydraMh100kApkAi.verdict(0, 5000, 2, false, true).level)
+        assertEquals(VerdictLevel.NORMAL, HydraMh100kApkAi.verdict(49, 5000, 2, false, true).level)
+        assertEquals(VerdictLevel.DOUBTFUL, HydraMh100kApkAi.verdict(50, 5000, 2, false, true).level)
+        assertEquals(VerdictLevel.DOUBTFUL, HydraMh100kApkAi.verdict(89, 5000, 2, false, true).level)
+        assertEquals(VerdictLevel.SUSPICIOUS, HydraMh100kApkAi.verdict(90, 5000, 2, false, true).level)
+        assertEquals(VerdictLevel.SUSPICIOUS, HydraMh100kApkAi.verdict(100, 5000, 2, false, true).level)
+        // Incomplete analysis or almost no code seen: no verdict, whatever the score says.
+        assertEquals(VerdictLevel.INCONCLUSIVE, HydraMh100kApkAi.verdict(95, 5000, 2, true, true).level)
+        assertEquals(VerdictLevel.INCONCLUSIVE, HydraMh100kApkAi.verdict(5, 5000, 0, false, true).level)
+        assertEquals(VerdictLevel.INCONCLUSIVE, HydraMh100kApkAi.verdict(5, 100, 1, false, true).level)
     }
 }
