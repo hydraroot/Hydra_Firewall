@@ -64,7 +64,8 @@ object HydraYaraLite {
         return result
     }
 
-    fun scanApk(file: File, rules: List<Rule>, maxBytesTotal: Long = 16L * 1024L * 1024L): List<ThreatSignatureMatch> {
+    fun scanApk(file: File, rules: List<Rule>, maxBytesTotal: Long = 16L * 1024L * 1024L, maxMillis: Long = 10_000L): List<ThreatSignatureMatch> {
+        val deadline = System.currentTimeMillis() + maxMillis
         if (rules.isEmpty() || !file.isFile || !file.canRead()) return emptyList()
         // Coincidencias acumuladas en TODO el APK: los permisos viven en AndroidManifest.xml y las APIs en
         // classes.dex, así que una regla combinada debe poder sumar patrones de archivos distintos.
@@ -74,7 +75,7 @@ object HydraYaraLite {
         runCatching {
             ZipFile(file).use { zip ->
                 val entries = zip.entries()
-                while (entries.hasMoreElements() && remaining > 0L) {
+                while (entries.hasMoreElements() && remaining > 0L && System.currentTimeMillis() < deadline) {
                     val entry = entries.nextElement()
                     if (entry.isDirectory) continue
                     val lower = entry.name.lowercase(Locale.US)
@@ -96,6 +97,7 @@ object HydraYaraLite {
                     remaining -= bytes.size.toLong()
                     if (bytes.isEmpty()) continue
                     for (rule in rules) {
+                        if (System.currentTimeMillis() >= deadline) break
                         val seen = hits.getValue(rule)
                         if (seen.size == rule.patterns.size) continue
                         for ((idx, p) in rule.patterns.withIndex()) {

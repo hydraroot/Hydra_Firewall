@@ -157,7 +157,7 @@ class ApkScanner(private val context: Context) {
                         dex++
                         val remaining = (MAX_STATIC_SCAN_TOTAL - staticBytesScanned).coerceAtLeast(0L)
                         if (remaining > 0 && System.currentTimeMillis() - scanStartedAt < MAX_SCAN_MILLIS) {
-                            staticBytesScanned += scanDexStrings(zip, entry.name, remaining) { text ->
+                            staticBytesScanned += scanDexStrings(zip, entry.name, remaining, scanStartedAt + MAX_SCAN_MILLIS) { text ->
                                 for (hint in STATIC_HINTS) if (text.contains(hint, ignoreCase = true)) staticHints += hint
                                 webViewRefs = (webViewRefs + countOccurrences(text, "WebView")).coerceAtMost(1000)
                                 jsBridgeRefs = (jsBridgeRefs + countOccurrences(text, "addJavascriptInterface")).coerceAtMost(1000)
@@ -193,7 +193,7 @@ class ApkScanner(private val context: Context) {
                                 dex++
                                 val remaining = (MAX_STATIC_SCAN_TOTAL - staticBytesScanned).coerceAtLeast(0L)
                                 if (remaining > 0 && System.currentTimeMillis() - scanStartedAt < MAX_SCAN_MILLIS) {
-                                    staticBytesScanned += scanDexStrings(zip, entry.name, remaining) { text ->
+                                    staticBytesScanned += scanDexStrings(zip, entry.name, remaining, scanStartedAt + MAX_SCAN_MILLIS) { text ->
                                         for (hint in STATIC_HINTS) if (text.contains(hint, ignoreCase = true)) staticHints += hint
                                         webViewRefs = (webViewRefs + countOccurrences(text, "WebView")).coerceAtMost(1000)
                                         jsBridgeRefs = (jsBridgeRefs + countOccurrences(text, "addJavascriptInterface")).coerceAtMost(1000)
@@ -284,14 +284,14 @@ class ApkScanner(private val context: Context) {
         )
     }
 
-    private fun scanDexStrings(zip: ZipFile, name: String, maxBytes: Long, consumer: (String) -> Unit): Long {
+    private fun scanDexStrings(zip: ZipFile, name: String, maxBytes: Long, deadlineMs: Long, consumer: (String) -> Unit): Long {
         val entry = zip.getEntry(name) ?: return 0L
         val limit = minOf(STATIC_SCAN_LIMIT_PER_DEX, maxBytes)
         var total = 0L
         zip.getInputStream(entry).use { input ->
             val out = ByteArray(64 * 1024)
             var carry = ""
-            while (total < limit) {
+            while (total < limit && System.currentTimeMillis() < deadlineMs) {
                 val wanted = minOf(out.size.toLong(), limit - total).toInt()
                 val n = input.read(out, 0, wanted)
                 if (n <= 0) break

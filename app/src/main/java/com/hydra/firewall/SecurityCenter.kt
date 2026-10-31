@@ -691,6 +691,7 @@ private fun apkScannerSection(
         var bulkRunning by remember { mutableStateOf(false) }
         var bulkDone by remember { mutableStateOf(0) }
         var bulkTotal by remember { mutableStateOf(0) }
+        var bulkCurrent by remember { mutableStateOf("") }
         var bulkRows by remember { mutableStateOf<List<BulkScanRow>>(emptyList()) }
         val bulkCancel = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -739,27 +740,49 @@ private fun apkScannerSection(
                         val appContext = context.applicationContext
                         Thread {
                             val main = android.os.Handler(android.os.Looper.getMainLooper())
-                            val pm = appContext.packageManager
-                            val pkgs = runCatching {
-                                pm.getInstalledApplications(0)
-                                    .filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != appContext.packageName }
-                                    .map { it.packageName }
-                            }.getOrDefault(emptyList())
-                            main.post { bulkTotal = pkgs.size }
-                            val scanner = ApkScanner(appContext)
                             val rows = ArrayList<BulkScanRow>()
-                            for ((index, pkg) in pkgs.withIndex()) {
-                                if (bulkCancel.get()) break
-                                val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
-                                val row = runCatching {
-                                    val r = scanner.scanInstalledPackage(pkg)
-                                    BulkScanRow(label, pkg, r.mh100kAi?.score, r.risk.score, r.errors.firstOrNull { it.startsWith("MH-100K") }.orEmpty())
-                                }.getOrElse { BulkScanRow(label, pkg, null, 0, it.message ?: it.javaClass.simpleName) }
-                                rows.add(row)
+                            // Each app is scanned on its own worker with a time limit, so one app that
+                            // takes too long (or hangs) is reported as "timed out" instead of freezing everything.
+                            val exec = java.util.concurrent.Executors.newCachedThreadPool { r -> Thread(r).apply { isDaemon = true } }
+                            try {
+                                val pm = appContext.packageManager
+                                val pkgs = runCatching {
+                                    pm.getInstalledApplications(0)
+                                        .filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != appContext.packageName }
+                                        .map { it.packageName }
+                                }.getOrDefault(emptyList())
+                                main.post { bulkTotal = pkgs.size }
+                                val scanner = ApkScanner(appContext)
+                                var timeouts = 0
+                                for ((index, pkg) in pkgs.withIndex()) {
+                                    if (bulkCancel.get() || timeouts >= 3) break
+                                    val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+                                    main.post { bulkCurrent = label }
+                                    val future = exec.submit(java.util.concurrent.Callable {
+                                        val r = scanner.scanInstalledPackage(pkg)
+                                        BulkScanRow(label, pkg, r.mh100kAi?.score, r.risk.score, r.errors.firstOrNull { it.startsWith("MH-100K") }.orEmpty())
+                                    })
+                                    val row = try {
+                                        future.get(60, java.util.concurrent.TimeUnit.SECONDS)
+                                    } catch (e: java.util.concurrent.TimeoutException) {
+                                        future.cancel(true)
+                                        timeouts++
+                                        BulkScanRow(label, pkg, null, 0, "TIMEOUT 60s")
+                                    } catch (e: Throwable) {
+                                        BulkScanRow(label, pkg, null, 0, (e.cause ?: e).let { it.message ?: it.javaClass.simpleName })
+                                    }
+                                    rows.add(row)
+                                    val snapshot = rows.toList()
+                                    main.post { bulkDone = index + 1; bulkRows = snapshot }
+                                }
+                            } catch (e: Throwable) {
+                                rows.add(BulkScanRow("(error)", "", null, 0, e.message ?: e.javaClass.simpleName))
                                 val snapshot = rows.toList()
-                                main.post { bulkDone = index + 1; bulkRows = snapshot }
+                                main.post { bulkRows = snapshot }
+                            } finally {
+                                exec.shutdown()
+                                main.post { bulkRunning = false; bulkCurrent = "" }
                             }
-                            main.post { bulkRunning = false }
                         }.start()
                     }
                 ) {
@@ -771,6 +794,12 @@ private fun apkScannerSection(
                 if (bulkRunning) {
                     OutlinedButton(onClick = { bulkCancel.set(true) }) { Text(if (english) "Stop" else "Detener") }
                 }
+            }
+            if (bulkRunning && bulkCurrent.isNotEmpty()) {
+                Text(
+                    if (english) "Now scanning: $bulkCurrent (60 s limit per app)" else "Escaneando ahora: $bulkCurrent (límite de 60 s por app)",
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             if (bulkRows.isNotEmpty()) {
                 val scored = bulkRows.filter { it.ai != null }

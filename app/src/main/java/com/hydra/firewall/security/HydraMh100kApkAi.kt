@@ -177,7 +177,23 @@ class Mh100kStaticFeatureExtractor {
         private const val MAX_EXTRACT_MILLIS = 5_500L
         private const val MANIFEST_LIMIT = 4L * 1024L * 1024L
         private val DEX_NAME = Regex("""classes(\d*)?\.dex""")
-        private val INTENT_SUFFIX = Regex("""([A-Z][A-Z0-9_]{2,})$""")
+
+        /**
+         * Same result as the regex `([A-Z][A-Z0-9_]{2,})$` (the leftmost match that reaches the end of the
+         * string) but in linear time. The regex is quadratic on long runs of capital letters/digits
+         * (100,000 characters took ~47 s), which let one odd DEX string freeze the whole scan.
+         */
+        internal fun intentSuffix(text: String): String? {
+            val end = text.length
+            var runStart = end
+            while (runStart > 0) {
+                val c = text[runStart - 1]
+                if ((c in 'A'..'Z') || (c in '0'..'9') || c == '_') runStart-- else break
+            }
+            var i = runStart
+            while (i < end && text[i] !in 'A'..'Z') i++
+            return if (i < end && end - i >= 3) text.substring(i) else null
+        }
     }
 
     fun extract(
@@ -205,7 +221,7 @@ class Mh100kStaticFeatureExtractor {
         fun recordIntent(raw: String): Boolean {
             val normalized = raw.trim().substringBefore('\u0000')
             if (normalized.isBlank()) return false
-            val suffix = INTENT_SUFFIX.find(normalized)?.groupValues?.getOrNull(1) ?: return false
+            val suffix = intentSuffix(normalized) ?: return false
             val hash = fnv1a64("Intent::$suffix")
             return HydraMh100kApkAi.isKnownFeatureHash(hash) && present.add(hash)
         }
@@ -299,7 +315,11 @@ class Mh100kStaticFeatureExtractor {
         if (!parser.isValid()) return DexScanResult(0, 0, true)
         var apiCalls = 0
         var newIntent = 0
-        parser.allStrings().forEach { value ->
+        var stringsSeen = 0
+        for (value in parser.allStrings()) {
+            if ((++stringsSeen and 0x3FF) == 0 && System.currentTimeMillis() >= deadlineMs) {
+                return DexScanResult(apiCalls, newIntent, true)
+            }
             if (recordIntent(value)) newIntent++
         }
         parser.forEachInvokedMethod(deadlineMs) { feature ->
@@ -402,6 +422,13 @@ class Mh100kStaticFeatureExtractor {
     private class DexParser(private val bytes: ByteArray) {
         private var timedOut = false
 
+        private companion object {
+            /** A DEX string is at most 65,535 UTF-16 units; cap reads so a bad offset cannot scan the whole file per string. */
+            const val MAX_STRING_BYTES = 256 * 1024
+            /** Total characters read across all strings of one DEX. */
+            const val STRING_TOTAL_BUDGET_BYTES = 96L * 1024L * 1024L
+        }
+
         private data class Uleb(val value: Int, val next: Int)
 
         fun isValid(): Boolean =
@@ -414,10 +441,11 @@ class Mh100kStaticFeatureExtractor {
             val count = u32(56)
             val off = u32(60)
             if (count <= 0 || count > 500_000 || off < 0 || off.toLong() + count.toLong() * 4L > bytes.size) return emptyArray()
+            var budget = STRING_TOTAL_BUDGET_BYTES
             return Array(count) { index ->
                 val rel = u32(off + index * 4)
                 val at = rel.coerceAtLeast(0)
-                if (at >= bytes.size) "" else readMutf8(at)
+                if (at >= bytes.size || budget <= 0) "" else readMutf8(at).also { budget -= it.length + 1 }
             }
         }
 
@@ -465,6 +493,14 @@ class Mh100kStaticFeatureExtractor {
                 val instanceFields = readUleb(cursor)
                 val directMethods = readUleb(cursor)
                 val virtualMethods = readUleb(cursor)
+                // Every field/method entry takes at least 2 bytes, so counts larger than the bytes left are
+                // corrupt or deliberately malformed (packers). Without this check a bogus count could spin for hours.
+                val bytesLeft = (bytes.size - cursor[0]).toLong()
+                if (staticFields < 0 || instanceFields < 0 || directMethods < 0 || virtualMethods < 0 ||
+                    (staticFields.toLong() + instanceFields.toLong() + directMethods.toLong() + virtualMethods.toLong()) * 2L > bytesLeft) {
+                    timedOut = true
+                    return
+                }
                 repeat(staticFields) { readUleb(cursor); readUleb(cursor) }
                 repeat(instanceFields) { readUleb(cursor); readUleb(cursor) }
                 var methodIndex = 0
@@ -592,7 +628,8 @@ class Mh100kStaticFeatureExtractor {
             var p = offset
             readUlebAt(p).also { p = it.next }
             val out = java.io.ByteArrayOutputStream()
-            while (p < bytes.size) {
+            val limit = minOf(bytes.size, p + MAX_STRING_BYTES)
+            while (p < limit) {
                 val b = bytes[p++].toInt() and 0xFF
                 if (b == 0) break
                 out.write(b)

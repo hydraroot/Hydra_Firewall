@@ -54,4 +54,20 @@ class HydraMh100kApkAiTest {
         assertTrue(HydraMh100kApkAi.suspicionLabel(97, true).startsWith("Very high"))
         assertTrue(HydraMh100kApkAi.suspicionLabel(10, true).startsWith("Low"))
     }
+
+    @Test
+    fun intentSuffixMatchesOldRegexAndStaysFastOnHugeStrings() {
+        val old = Regex("""([A-Z][A-Z0-9_]{2,})$""")
+        val samples = listOf(
+            "android.intent.action.BOOT_COMPLETED", "ABC", "AB", "aBCD", "x_ABC9", "1AB", "A_9z", "", "ab_CD_E1", "_ABC", "9ABC"
+        )
+        for (sample in samples) {
+            assertEquals(sample, old.find(sample)?.groupValues?.get(1), Mh100kStaticFeatureExtractor.intentSuffix(sample))
+        }
+        // The old regex needed ~47 s for 100,000 characters; the linear version must be instant.
+        val huge = "A".repeat(2_000_000) + "x"
+        val started = System.currentTimeMillis()
+        assertEquals(null, Mh100kStaticFeatureExtractor.intentSuffix(huge))
+        assertTrue(System.currentTimeMillis() - started < 1_000L)
+    }
 }
