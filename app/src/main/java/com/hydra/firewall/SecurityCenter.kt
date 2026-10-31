@@ -676,7 +676,8 @@ private data class BulkScanRow(
     val pkg: String,
     val ai: Int?,
     val riskScore: Int,
-    val note: String
+    val note: String,
+    val seconds: Int = 0
 )
 
 private fun apkScannerSection(
@@ -758,16 +759,21 @@ private fun apkScannerSection(
                                     if (bulkCancel.get() || timeouts >= 3) break
                                     val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
                                     main.post { bulkCurrent = label }
+                                    val startedAt = System.currentTimeMillis()
                                     val future = exec.submit(java.util.concurrent.Callable {
                                         val r = scanner.scanInstalledPackage(pkg)
-                                        BulkScanRow(label, pkg, r.mh100kAi?.score, r.risk.score, r.errors.firstOrNull { it.startsWith("MH-100K") }.orEmpty())
+                                        BulkScanRow(
+                                            label, pkg, r.mh100kAi?.score, r.risk.score,
+                                            r.errors.firstOrNull { it.startsWith("MH-100K") }.orEmpty(),
+                                            ((System.currentTimeMillis() - startedAt) / 1000L).toInt()
+                                        )
                                     })
                                     val row = try {
-                                        future.get(60, java.util.concurrent.TimeUnit.SECONDS)
+                                        future.get(120, java.util.concurrent.TimeUnit.SECONDS)
                                     } catch (e: java.util.concurrent.TimeoutException) {
                                         future.cancel(true)
                                         timeouts++
-                                        BulkScanRow(label, pkg, null, 0, "TIMEOUT 60s")
+                                        BulkScanRow(label, pkg, null, 0, "TIMEOUT 120s", 120)
                                     } catch (e: Throwable) {
                                         BulkScanRow(label, pkg, null, 0, (e.cause ?: e).let { it.message ?: it.javaClass.simpleName })
                                     }
@@ -797,7 +803,7 @@ private fun apkScannerSection(
             }
             if (bulkRunning && bulkCurrent.isNotEmpty()) {
                 Text(
-                    if (english) "Now scanning: $bulkCurrent (60 s limit per app)" else "Escaneando ahora: $bulkCurrent (límite de 60 s por app)",
+                    if (english) "Now scanning: $bulkCurrent (120 s limit per app)" else "Escaneando ahora: $bulkCurrent (límite de 120 s por app)",
                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -822,14 +828,14 @@ private fun apkScannerSection(
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(onClick = {
                     val text = bulkRows.sortedByDescending { it.ai ?: -1 }
-                        .joinToString("\n") { "${it.ai ?: "-"}\t${it.label}\t${it.pkg}\trisk=${it.riskScore}\t${it.note}" }
+                        .joinToString("\n") { "${it.ai ?: "-"}\t${it.label}\t${it.pkg}\trisk=${it.riskScore}\t${it.seconds}s\t${it.note}" }
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra MH-100K", text))
                 }) { Text(if (english) "Copy results" else "Copiar resultados") }
                 Spacer(Modifier.height(4.dp))
                 bulkRows.sortedByDescending { it.ai ?: -1 }.forEach {
                     Text(
-                        "${it.ai?.toString() ?: "—"}  •  ${it.label}",
+                        "${it.ai?.toString() ?: "—"}  •  ${it.label}  ·  ${it.seconds}s" + (if (it.ai == null && it.note.isNotBlank()) "  (${it.note.take(70)})" else ""),
                         fontSize = 11.sp,
                         fontWeight = if ((it.ai ?: 0) >= 90) FontWeight.Bold else FontWeight.Normal
                     )

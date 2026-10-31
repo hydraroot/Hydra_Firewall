@@ -70,6 +70,16 @@ object HydraMh100kApkAi {
 
     fun isKnownFeatureHash(hash: Long): Boolean = model?.isKnown(hash) == true
 
+    /** FNV-1a 64 of the UTF-8 text, the same hash the model uses for its feature names. */
+    internal fun hashFeature(text: String): Long {
+        var hash = 0xcbf29ce484222325UL.toLong()
+        for (byte in text.toByteArray(Charsets.UTF_8)) {
+            hash = hash xor (byte.toInt() and 0xFF).toLong()
+            hash *= 0x100000001b3L
+        }
+        return hash
+    }
+
     fun score(presentFeatureHashes: LongArray): Result? {
         val m = model ?: return null
         return scoreInternal(m, presentFeatureHashes)
@@ -173,8 +183,8 @@ class Mh100kStaticFeatureExtractor {
 
     companion object {
         private const val MAX_DEX_BYTES_PER_FILE = 24L * 1024L * 1024L
-        private const val MAX_TOTAL_DEX_BYTES = 48L * 1024L * 1024L
-        private const val MAX_EXTRACT_MILLIS = 5_500L
+        private const val MAX_TOTAL_DEX_BYTES = 160L * 1024L * 1024L
+        private const val MAX_EXTRACT_MILLIS = 30_000L
         private const val MANIFEST_LIMIT = 4L * 1024L * 1024L
         private val DEX_NAME = Regex("""classes(\d*)?\.dex""")
 
@@ -316,17 +326,15 @@ class Mh100kStaticFeatureExtractor {
         var apiCalls = 0
         var newIntent = 0
         var stringsSeen = 0
-        for (value in parser.allStrings()) {
+        val allStrings = parser.allStrings()
+        for (value in allStrings) {
             if ((++stringsSeen and 0x3FF) == 0 && System.currentTimeMillis() >= deadlineMs) {
                 return DexScanResult(apiCalls, newIntent, true)
             }
             if (recordIntent(value)) newIntent++
         }
-        parser.forEachInvokedMethod(deadlineMs) { feature ->
-            apiCalls++
-            val hash = fnv1a64("APICall::$feature")
-            if (HydraMh100kApkAi.isKnownFeatureHash(hash)) present.add(hash)
-        }
+        parser.forEachInvokedMethod(deadlineMs, allStrings) { hash -> present.add(hash) }
+        apiCalls = parser.invokeCount
         return DexScanResult(apiCalls, newIntent, parser.incomplete)
     }
 
@@ -422,6 +430,15 @@ class Mh100kStaticFeatureExtractor {
     private class DexParser(private val bytes: ByteArray) {
         private var timedOut = false
 
+        /** Per method_id: hash of "APICall::Lclass.name()", whether the model knows it, and whether we already reported it. */
+        private var methodHash = LongArray(0)
+        private var methodKnown = BooleanArray(0)
+        private var methodSeen = BooleanArray(0)
+        private var tick = 0
+        /** Number of invoke instructions seen (calls observed). */
+        var invokeCount = 0
+            private set
+
         private companion object {
             /** A DEX string is at most 65,535 UTF-16 units; cap reads so a bad offset cannot scan the whole file per string. */
             const val MAX_STRING_BYTES = 256 * 1024
@@ -449,9 +466,9 @@ class Mh100kStaticFeatureExtractor {
             }
         }
 
-        fun forEachInvokedMethod(deadlineMs: Long, consumer: (String) -> Unit) {
+        fun forEachInvokedMethod(deadlineMs: Long, preloadedStrings: Array<String>? = null, consumer: (Long) -> Unit) {
             if (!isValid()) return
-            val strings = allStrings()
+            val strings = preloadedStrings ?: allStrings()
             val typeCount = u32(64)
             val typeOff = u32(68)
             val methodCount = u32(88)
@@ -474,6 +491,26 @@ class Mh100kStaticFeatureExtractor {
                 val at = methodOff + i * 8
                 methodClassIdx[i] = u16(at)
                 methodNameIdx[i] = u32(at + 4)
+            }
+            // Build each method's feature name and hash ONCE (a DEX has at most 65,536 method ids) instead of
+            // building a string and hashing it for every invoke instruction (millions in a large app).
+            methodHash = LongArray(methodCount)
+            methodKnown = BooleanArray(methodCount)
+            methodSeen = BooleanArray(methodCount)
+            for (m in 0 until methodCount) {
+                val classIdx = methodClassIdx[m]
+                val nameIdx = methodNameIdx[m]
+                if (classIdx !in typeDescriptorStringIdx.indices || nameIdx !in strings.indices) continue
+                val descriptorIdx = typeDescriptorStringIdx[classIdx]
+                if (descriptorIdx !in strings.indices) continue
+                val descriptor = strings[descriptorIdx]
+                val name = strings[nameIdx]
+                if (!descriptor.startsWith("L") || name.isBlank()) continue
+                val hash = HydraMh100kApkAi.hashFeature("APICall::" + descriptor.trimEnd(';') + "." + name + "()")
+                if (HydraMh100kApkAi.isKnownFeatureHash(hash)) {
+                    methodHash[m] = hash
+                    methodKnown[m] = true
+                }
             }
 
             for (classIndex in 0 until classCount) {
@@ -503,26 +540,32 @@ class Mh100kStaticFeatureExtractor {
                 }
                 repeat(staticFields) { readUleb(cursor); readUleb(cursor) }
                 repeat(instanceFields) { readUleb(cursor); readUleb(cursor) }
-                var methodIndex = 0
-                repeat(directMethods + virtualMethods) {
-                    methodIndex += readUleb(cursor)
-                    if (methodIndex !in methodClassIdx.indices) {
-                        timedOut = true
-                        return
-                    }
-                    readUleb(cursor) // access flags
-                    val codeOff = readUleb(cursor)
-                    if (codeOff == 0) {
-                        // Abstract/native method: no code item to scan.
-                    } else if (codeOff < 0 || codeOff >= bytes.size) {
-                        timedOut = true
-                        return
-                    } else if (System.currentTimeMillis() < deadlineMs) {
-                        scanCodeItem(codeOff, methodClassIdx, methodNameIdx, typeDescriptorStringIdx, strings, deadlineMs, consumer)
-                        if (timedOut) return
-                    } else {
-                        timedOut = true
-                        return
+                // DEX format: direct and virtual methods are two separate lists, and the method index of the
+                // first element of EACH list is absolute (the following ones are deltas). Accumulating one
+                // index across both lists made it run past the end of the method table, which marked almost
+                // every app as "incomplete" and hid the score.
+                for (listNumber in 0..1) {
+                    var methodIndex = 0
+                    repeat(if (listNumber == 0) directMethods else virtualMethods) {
+                        methodIndex += readUleb(cursor)
+                        if (methodIndex !in methodClassIdx.indices) {
+                            timedOut = true
+                            return
+                        }
+                        readUleb(cursor) // access flags
+                        val codeOff = readUleb(cursor)
+                        if (codeOff == 0) {
+                            // Abstract/native method: no code item to scan.
+                        } else if (codeOff < 0 || codeOff >= bytes.size) {
+                            timedOut = true
+                            return
+                        } else if (System.currentTimeMillis() < deadlineMs) {
+                            scanCodeItem(codeOff, deadlineMs, consumer)
+                            if (timedOut) return
+                        } else {
+                            timedOut = true
+                            return
+                        }
                     }
                 }
             }
@@ -532,12 +575,8 @@ class Mh100kStaticFeatureExtractor {
 
         private fun scanCodeItem(
             codeOff: Int,
-            methodClassIdx: IntArray,
-            methodNameIdx: IntArray,
-            typeDescriptorStringIdx: IntArray,
-            strings: Array<String>,
             deadlineMs: Long,
-            consumer: (String) -> Unit
+            consumer: (Long) -> Unit
         ) {
             if (codeOff < 0 || codeOff.toLong() + 16L > bytes.size) {
                 timedOut = true
@@ -551,7 +590,7 @@ class Mh100kStaticFeatureExtractor {
             }
             var pc = 0
             while (pc < insnsSize) {
-                if (System.currentTimeMillis() >= deadlineMs) {
+                if ((++tick and 0xFF) == 0 && System.currentTimeMillis() >= deadlineMs) {
                     timedOut = true
                     return
                 }
@@ -575,18 +614,11 @@ class Mh100kStaticFeatureExtractor {
                 if (opcode in 0x6E..0x72 || opcode in 0x74..0x78 || opcode == 0xFA || opcode == 0xFB) {
                     if (pc + 1 < insnsSize) {
                         val methodIndex = u16(insnsAt + (pc + 1) * 2)
-                        if (methodIndex in methodClassIdx.indices) {
-                            val classIdx = methodClassIdx[methodIndex]
-                            val nameIdx = methodNameIdx[methodIndex]
-                            if (classIdx in typeDescriptorStringIdx.indices && nameIdx in strings.indices) {
-                                val descriptorIdx = typeDescriptorStringIdx[classIdx]
-                                if (descriptorIdx in strings.indices) {
-                                    val descriptor = strings[descriptorIdx].trimEnd(';')
-                                    val name = strings[nameIdx]
-                                    if (descriptor.startsWith("L") && name.isNotBlank()) {
-                                        consumer("$descriptor.$name()")
-                                    }
-                                }
+                        if (methodIndex in methodKnown.indices) {
+                            invokeCount++
+                            if (methodKnown[methodIndex] && !methodSeen[methodIndex]) {
+                                methodSeen[methodIndex] = true
+                                consumer(methodHash[methodIndex])
                             }
                         }
                     }
@@ -627,14 +659,10 @@ class Mh100kStaticFeatureExtractor {
         private fun readMutf8(offset: Int): String {
             var p = offset
             readUlebAt(p).also { p = it.next }
-            val out = java.io.ByteArrayOutputStream()
+            val start = p
             val limit = minOf(bytes.size, p + MAX_STRING_BYTES)
-            while (p < limit) {
-                val b = bytes[p++].toInt() and 0xFF
-                if (b == 0) break
-                out.write(b)
-            }
-            return runCatching { String(out.toByteArray(), Charsets.UTF_8) }.getOrDefault("")
+            while (p < limit && bytes[p].toInt() != 0) p++
+            return runCatching { String(bytes, start, p - start, Charsets.UTF_8) }.getOrDefault("")
         }
 
         private fun readUlebAt(at: Int): Uleb {

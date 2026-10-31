@@ -28,6 +28,7 @@ class ApkScanner(private val context: Context) {
         private val DEX_NAME = Regex("""classes(\d*)?\.dex""")
         private val NATIVE_HINTS = setOf("frida", "xposed", "substrate", "riru", "zygisk", "magisk", "hook", "inject")
         private val URL_HINT = Regex("""(?i)(https?|wss?|tcp|udp)://[^\u0000\s"'<>]+""")
+        private val STATIC_HINTS_LOWER by lazy { STATIC_HINTS.map { it to it.lowercase(Locale.ROOT) } }
         private val STATIC_HINTS = listOf(
             "WebView", "addJavascriptInterface", "setJavaScriptEnabled",
             "setWebContentsDebuggingEnabled", "setAllowFileAccessFromFileURLs",
@@ -158,9 +159,10 @@ class ApkScanner(private val context: Context) {
                         val remaining = (MAX_STATIC_SCAN_TOTAL - staticBytesScanned).coerceAtLeast(0L)
                         if (remaining > 0 && System.currentTimeMillis() - scanStartedAt < MAX_SCAN_MILLIS) {
                             staticBytesScanned += scanDexStrings(zip, entry.name, remaining, scanStartedAt + MAX_SCAN_MILLIS) { text ->
-                                for (hint in STATIC_HINTS) if (text.contains(hint, ignoreCase = true)) staticHints += hint
-                                webViewRefs = (webViewRefs + countOccurrences(text, "WebView")).coerceAtMost(1000)
-                                jsBridgeRefs = (jsBridgeRefs + countOccurrences(text, "addJavascriptInterface")).coerceAtMost(1000)
+                                val lowerText = text.lowercase(Locale.ROOT)
+                                for ((hint, lowerHint) in STATIC_HINTS_LOWER) if (lowerText.contains(lowerHint)) staticHints += hint
+                                webViewRefs = (webViewRefs + countOccurrences(lowerText, "webview")).coerceAtMost(1000)
+                                jsBridgeRefs = (jsBridgeRefs + countOccurrences(lowerText, "addjavascriptinterface")).coerceAtMost(1000)
                                 urlRefs = (urlRefs + URL_HINT.findAll(text).count()).coerceAtMost(2000)
                             }
                         }
@@ -194,9 +196,10 @@ class ApkScanner(private val context: Context) {
                                 val remaining = (MAX_STATIC_SCAN_TOTAL - staticBytesScanned).coerceAtLeast(0L)
                                 if (remaining > 0 && System.currentTimeMillis() - scanStartedAt < MAX_SCAN_MILLIS) {
                                     staticBytesScanned += scanDexStrings(zip, entry.name, remaining, scanStartedAt + MAX_SCAN_MILLIS) { text ->
-                                        for (hint in STATIC_HINTS) if (text.contains(hint, ignoreCase = true)) staticHints += hint
-                                        webViewRefs = (webViewRefs + countOccurrences(text, "WebView")).coerceAtMost(1000)
-                                        jsBridgeRefs = (jsBridgeRefs + countOccurrences(text, "addJavascriptInterface")).coerceAtMost(1000)
+                                        val lowerText = text.lowercase(Locale.ROOT)
+                                for ((hint, lowerHint) in STATIC_HINTS_LOWER) if (lowerText.contains(lowerHint)) staticHints += hint
+                                        webViewRefs = (webViewRefs + countOccurrences(lowerText, "webview")).coerceAtMost(1000)
+                                        jsBridgeRefs = (jsBridgeRefs + countOccurrences(lowerText, "addjavascriptinterface")).coerceAtMost(1000)
                                         urlRefs = (urlRefs + URL_HINT.findAll(text).count()).coerceAtMost(2000)
                                     }
                                 }
@@ -351,7 +354,7 @@ class ApkScanner(private val context: Context) {
         var count = 0
         var at = 0
         while (true) {
-            val i = text.indexOf(needle, at, ignoreCase = true)
+            val i = text.indexOf(needle, at)
             if (i < 0) break
             count++
             at = i + needle.length
