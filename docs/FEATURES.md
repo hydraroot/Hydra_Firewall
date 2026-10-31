@@ -116,6 +116,8 @@ with the DNS answer the same app resolved earlier. QUIC protection can be switch
 
 ## 5. Threat intelligence
 
+**Antivirus-style app checks (1.2.0).** Installed apps are compared with the signed pack (SHA‑256 hashes + YARA‑Lite) when installed/updated and after each pack update; matches raise a security event and a notification. Known threats only; nothing is removed automatically. **Control and updates card (1.2.1)** in Security → Overview: one place to switch/update VPN, threat pack, antivirus, blocklists and TLS fingerprint.
+
 Hydra can load a **signed threat pack** with malicious IPs, domains and **YARA‑Lite** rules. Sources
 include abuse.ch (Feodo Tracker, URLhaus, ThreatFox).
 

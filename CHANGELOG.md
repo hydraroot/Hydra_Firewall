@@ -1,3 +1,6 @@
+## 1.2.2 (versionCode 10202)
+- Documentación: README (EN/ES), docs/FEATURES.md y la ayuda dentro de la app (EN/ES) ahora explican la protección tipo antivirus y la tarjeta «Control y actualizaciones», con sus límites.
+
 ## 1.2.1 (versionCode 10201)
 - Seguridad → Resumen: nueva tarjeta «Control y actualizaciones» con, en un solo lugar, el interruptor y/o el botón de actualizar de cada capa: Firewall (VPN), pack de amenazas, antivirus (revisión automática + revisar ahora), listas de dominios y huella TLS.
 
