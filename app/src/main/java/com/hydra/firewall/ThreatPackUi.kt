@@ -89,12 +89,14 @@ fun ThreatPackCard(english: Boolean, refreshTrigger: Int, modifier: Modifier = M
             enabled = feedConfigured && !updating,
             onClick = {
                 updating = true
+                val before = ThreatSignatureStore.activePackVersion()
                 ThreatSignatureUpdater.updateIfDue(context, force = true) { result ->
                     // El callback llega desde el hilo del actualizador: volvemos al principal.
                     Handler(Looper.getMainLooper()).post {
                         updating = false
                         version++
                         val msg = when {
+                            result.success && result.version == before -> t("✅ Ya está actualizado (versión ${result.version ?: ""}). No hay pack nuevo.", "✅ Already up to date (version ${result.version ?: ""}). No new pack.")
                             result.success -> t("Pack actualizado: ${result.version ?: ""}", "Pack updated: ${result.version ?: ""}")
                             else -> ThreatPackStatusFormat.friendlyError(result.error, english) ?: t("Falló la actualización.", "Update failed.")
                         }

@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (versión `1.2.3`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
+> **Estado: candidata para prueba cerrada** (versión `1.3.0`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -129,12 +129,12 @@ Junto con las reglas YARA‑Lite, el pack de amenazas firmado y la línea base d
 
 ## Actualizaciones y actividad de red
 
-Hydra **no tiene telemetría** y **no se actualiza sola**: las versiones nuevas de la app las instalás vos
-manualmente. Las únicas conexiones que la app hace por su cuenta son:
+Hydra **no tiene telemetría**. Desde la 1.3.0 puede buscar (y descargar) versiones nuevas de sí misma en los Releases de GitHub de este repositorio; **Android siempre te pide confirmar la instalación**, y Hydra solo acepta un APK cuyo SHA‑256 coincide con el publicado y que está firmado con la misma clave que la app instalada. Podés apagar la búsqueda automática en Seguridad → Resumen. Las únicas conexiones que la app hace por su cuenta son:
 
 | Qué | Cuándo | A dónde |
 |---|---|---|
 | **Pack de amenazas firmado** | Automáticamente cada ~24 h (alarma inexacta), o a pedido con *Actualizar ahora* en el Centro de seguridad. La compilación por defecto apunta a la rama `threat-pack` de este repositorio. | `raw.githubusercontent.com` |
+| **Actualización de Hydra** | Cada ~24 h (y cuando tocás *Buscar actualización*): consulta la API de GitHub por el último release; descarga el APK solo en redes sin datos medidos. | `api.github.com`, releases de `github.com` |
 | **Revisión antivirus de apps** | Solo local, sin red: cuando se instala o actualiza una app y después de cada actualización del pack, las apps instaladas se comparan con el pack descargado. Se puede apagar en Seguridad → Resumen. | — |
 | **Listas de dominios** | Solo cuando **vos** tocás *Actualizar listas* / *Buscar actualización* en la pantalla de listas. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) y, si lo activás, `big.oisd.nl` |
 | **DNS cifrado** | De forma continua, para resolver nombres. | Cloudflare / Google / Quad9 (a tu elección) |

@@ -167,6 +167,7 @@ jobs:
           test -f app/build/outputs/apk/release/app-release.apk
           test -f app/build/outputs/bundle/release/app-release.aab
           cp app/build/outputs/apk/release/app-release.apk "Hydra-Firewall-${RELEASE_TAG}.apk"
+          sha256sum "Hydra-Firewall-${RELEASE_TAG}.apk" > "Hydra-Firewall-${RELEASE_TAG}.apk.sha256"
 
       - name: Subir APK y AAB como artefactos de Actions
         uses: actions/upload-artifact@v7
@@ -187,5 +188,7 @@ jobs:
             Signed Android Release build of Hydra Firewall.
 
             The APK attached here is a public direct-download build. Testers enrolled in the restricted Google Play closed test should use the Google Play testing link.
-          files: Hydra-Firewall-${{ env.RELEASE_TAG }}.apk
+          files: |
+            Hydra-Firewall-${{ env.RELEASE_TAG }}.apk
+            Hydra-Firewall-${{ env.RELEASE_TAG }}.apk.sha256
           prerelease: true

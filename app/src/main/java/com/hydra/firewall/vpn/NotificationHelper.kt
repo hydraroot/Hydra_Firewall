@@ -135,6 +135,7 @@ object NotificationHelper {
     private const val TAMPER_NOTIFICATION_ID = 20002
     private const val THREAT_NOTIFICATION_BASE_ID = 21000
     private const val APP_THREAT_NOTIFICATION_BASE_ID = 22000
+    private const val APP_UPDATE_NOTIFICATION_ID = 23000
     private val threatNotifyTimes = ConcurrentHashMap<String, Long>()
     private val accessNotificationIds = ConcurrentHashMap<String, Int>()
     private val nextAccessNotificationId = AtomicInteger(ACCESS_REQUEST_NOTIFICATION_BASE_ID)
@@ -293,6 +294,29 @@ object NotificationHelper {
             .build()
         (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .notify(QUARANTINE_NOTIFICATION_ID, notification)
+    }
+
+    /** A newer Hydra version exists. [readyToInstall] = downloaded and verified, waiting for Android's confirmation. */
+    fun notifyAppUpdate(context: Context, version: String, readyToInstall: Boolean, confirmIntent: Intent? = null) {
+        ensureSecurityChannel(context)
+        val english = AppSettings(context).language.isEnglish() ||
+            (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+        val target = confirmIntent ?: Intent(context, MainActivity::class.java)
+        val pending = if (confirmIntent != null) PendingIntent.getActivity(context, 4, target, flags)
+        else PendingIntent.getActivity(context, 4, target, flags)
+        val title = if (english) "Hydra Firewall $version available" else "Hydra Firewall $version disponible"
+        val text = if (readyToInstall) {
+            if (english) "Downloaded and verified. Tap to install the update." else "Descargada y verificada. Tocá para instalar la actualización."
+        } else {
+            if (english) "Open Security → Overview to download it." else "Abrí Seguridad → Resumen para descargarla."
+        }
+        val n = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle(title).setContentText(text)
+            .setContentIntent(pending).setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT).build()
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(APP_UPDATE_NOTIFICATION_ID, n)
     }
 
     /** An installed app matched the signed threat pack. [definitive] = exact known-malware hash. */

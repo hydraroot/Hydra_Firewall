@@ -70,6 +70,7 @@ object ThreatSignatureUpdater {
             // Whatever happened (new pack, same pack, or no network), check apps that are new or changed
             // since the last check. Works from the daily alarm even when the VPN is off.
             runCatching { AppThreatScanner.onPackUpdated(context.applicationContext) }
+            runCatching { AppUpdater.autoCheck(context.applicationContext) }
             callback?.invoke(result)
         }
     }
@@ -87,7 +88,7 @@ object ThreatSignatureUpdater {
         alarm.setInexactRepeating(AlarmManager.RTC_WAKEUP, trigger, DEFAULT_INTERVAL_MS, pending)
     }
 
-    private fun physicalNetworks(context: Context): List<android.net.Network> {
+    internal fun physicalNetworks(context: Context): List<android.net.Network> {
         val cm = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         return cm.allNetworks.mapNotNull { network ->
             val caps = cm.getNetworkCapabilities(network) ?: return@mapNotNull null

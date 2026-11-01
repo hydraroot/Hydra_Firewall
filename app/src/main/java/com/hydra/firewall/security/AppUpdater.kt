@@ -1,0 +1,244 @@
+package com.hydra.firewall.security
+
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.os.Build
+import com.hydra.firewall.BuildConfig
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
+import java.util.concurrent.Executors
+
+/**
+ * Self-update from the project's signed GitHub Releases.
+ *
+ * Safety: the APK is only handed to Android if (1) its SHA-256 matches the one published with the release,
+ * (2) it is the same package, (3) it is signed with the SAME certificate as the installed app and (4) its
+ * versionCode is higher. Android itself refuses an update with a different signature, so this is a second lock.
+ * Android always has the last word on installing; without "install unknown apps" for Hydra it asks the user.
+ */
+object AppUpdater {
+    const val REPO = "hydraroot/Hydra_Firewall"
+    const val ACTION_INSTALL_RESULT = "com.hydra.firewall.action.APP_UPDATE_INSTALL_RESULT"
+
+    data class Release(
+        val tag: String, val version: String, val apkUrl: String, val sizeBytes: Long,
+        val sha256: String?, val sha256Url: String?, val notes: String
+    )
+
+    sealed class CheckResult {
+        data class UpToDate(val current: String) : CheckResult()
+        data class Available(val release: Release) : CheckResult()
+        data class Error(val message: String) : CheckResult()
+    }
+
+    private const val PREFS = "hydra_app_updater"
+    private const val KEY_AUTO = "auto_enabled"
+    private const val KEY_LAST_CHECK = "last_check"
+    private const val KEY_LAST_MSG = "last_message"
+    private const val CHECK_INTERVAL_MS = 20L * 60L * 60L * 1000L
+    private const val MAX_APK_BYTES = 200L * 1024L * 1024L
+    private val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "hydra-app-updater").apply { isDaemon = true } }
+
+    private fun prefs(c: Context) = c.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun isAutoEnabled(c: Context) = prefs(c).getBoolean(KEY_AUTO, true)
+    fun setAutoEnabled(c: Context, v: Boolean) { prefs(c).edit().putBoolean(KEY_AUTO, v).apply() }
+    fun lastCheck(c: Context) = prefs(c).getLong(KEY_LAST_CHECK, 0L)
+    fun lastMessage(c: Context): String = prefs(c).getString(KEY_LAST_MSG, "").orEmpty()
+    fun setMessage(c: Context, m: String) { prefs(c).edit().putString(KEY_LAST_MSG, m).apply() }
+    fun currentVersion(): String = BuildConfig.VERSION_NAME
+
+    // ---- version helpers (pure, unit-tested) ------------------------------------------------------------
+
+    internal fun parseVersion(raw: String): List<Int>? {
+        val m = Regex("""(\d+)\.(\d+)\.(\d+)""").find(raw) ?: return null
+        return m.groupValues.drop(1).map { it.toInt() }
+    }
+
+    /** true if [remote] is strictly newer than [local] (both MAJOR.MINOR.PATCH, optional leading "v"). */
+    internal fun isNewer(remote: String, local: String): Boolean {
+        val r = parseVersion(remote) ?: return false
+        val l = parseVersion(local) ?: return false
+        for (i in 0..2) { if (r[i] != l[i]) return r[i] > l[i] }
+        return false
+    }
+
+    internal fun parseReleases(json: String): Release? {
+        val arr = JSONArray(json)
+        var best: Release? = null
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optBoolean("draft")) continue
+            val tag = o.optString("tag_name")
+            val ver = parseVersion(tag)?.joinToString(".") ?: continue
+            val assets = o.optJSONArray("assets") ?: continue
+            var apk: JSONObject? = null
+            var sha: JSONObject? = null
+            for (j in 0 until assets.length()) {
+                val a = assets.optJSONObject(j) ?: continue
+                val name = a.optString("name")
+                if (name.endsWith(".apk", true)) apk = a
+                if (name.endsWith(".apk.sha256", true)) sha = a
+            }
+            val apkObj = apk ?: continue
+            val url = apkObj.optString("browser_download_url")
+            if (!url.startsWith("https://")) continue
+            val digest = apkObj.optString("digest").removePrefix("sha256:").lowercase().takeIf { it.length == 64 }
+            val cand = Release(tag, ver, url, apkObj.optLong("size"), digest, sha?.optString("browser_download_url"), o.optString("body"))
+            if (best == null || isNewer(cand.version, best.version)) best = cand
+        }
+        return best
+    }
+
+    // ---- check / download / install ---------------------------------------------------------------------
+
+    fun check(context: Context, callback: (CheckResult) -> Unit) {
+        val app = context.applicationContext
+        executor.execute {
+            val result = runCatching {
+                val json = httpText(app, "https://api.github.com/repos/$REPO/releases?per_page=10")
+                val rel = parseReleases(json)
+                prefs(app).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
+                if (rel != null && isNewer(rel.version, currentVersion())) CheckResult.Available(rel)
+                else CheckResult.UpToDate(currentVersion())
+            }.getOrElse { CheckResult.Error(it.message ?: it.javaClass.simpleName) }
+            setMessage(app, when (result) {
+                is CheckResult.UpToDate -> "UP_TO_DATE"
+                is CheckResult.Available -> "AVAILABLE:" + result.release.version
+                is CheckResult.Error -> "ERROR:" + result.message
+            })
+            callback(result)
+        }
+    }
+
+    /** Called by the daily alarm and when the app opens. Downloads on unmetered networks only. */
+    fun autoCheck(context: Context) {
+        val app = context.applicationContext
+        if (!isAutoEnabled(app)) return
+        if (System.currentTimeMillis() - lastCheck(app) < CHECK_INTERVAL_MS) return
+        check(app) { r ->
+            if (r is CheckResult.Available) {
+                if (isMetered(app)) {
+                    com.hydra.firewall.vpn.NotificationHelper.notifyAppUpdate(app, r.release.version, readyToInstall = false)
+                } else {
+                    downloadAndInstall(app, r.release, background = true) { }
+                }
+            }
+        }
+    }
+
+    fun downloadAndInstall(context: Context, release: Release, background: Boolean, onDone: (String?) -> Unit) {
+        val app = context.applicationContext
+        executor.execute {
+            val error = runCatching {
+                val dir = File(app.cacheDir, "update").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+                val file = File(dir, "Hydra-Firewall-${release.version}.apk")
+                val actual = download(app, release.apkUrl, file)
+                val expected = release.sha256
+                    ?: release.sha256Url?.let { httpText(app, it).trim().split(Regex("\\s+")).firstOrNull()?.lowercase() }
+                require(expected != null && expected.length == 64) { "no_published_sha256" }
+                require(actual == expected) { "sha256_mismatch" }
+                verifyPackage(app, file)
+                commitInstall(app, file, background, release.version)
+                null
+            }.getOrElse { it.message ?: it.javaClass.simpleName }
+            if (error != null) setMessage(app, "ERROR:$error")
+            onDone(error)
+        }
+    }
+
+    private fun verifyPackage(context: Context, file: File) {
+        val pm = context.packageManager
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
+        val archive = pm.getPackageArchiveInfo(file.absolutePath, flags) ?: error("not_an_apk")
+        require(archive.packageName == context.packageName) { "wrong_package" }
+        val own = pm.getPackageInfo(context.packageName, flags)
+        val newCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else @Suppress("DEPRECATION") archive.versionCode.toLong()
+        val oldCode = if (Build.VERSION.SDK_INT >= 28) own.longVersionCode else @Suppress("DEPRECATION") own.versionCode.toLong()
+        require(newCode > oldCode) { "not_newer" }
+        require(certs(archive).isNotEmpty() && certs(archive) == certs(own)) { "signature_differs" }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun certs(info: android.content.pm.PackageInfo): Set<String> {
+        val sigs = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else info.signatures
+        return sigs.orEmpty().map { sha256Hex(it.toByteArray()) }.toSet()
+    }
+
+    private fun commitInstall(context: Context, file: File, background: Boolean, version: String) {
+        val installer = context.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        params.setAppPackageName(context.packageName)
+        if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        val id = installer.createSession(params)
+        installer.openSession(id).use { session ->
+            file.inputStream().use { input ->
+                session.openWrite("hydra.apk", 0, file.length()).use { out ->
+                    input.copyTo(out); session.fsync(out)
+                }
+            }
+            val intent = Intent(context, UpdateInstallReceiver::class.java).setAction(ACTION_INSTALL_RESULT)
+                .putExtra("version", version).putExtra("background", background)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+            session.commit(PendingIntent.getBroadcast(context, id, intent, flags).intentSender)
+        }
+        setMessage(context, "INSTALLING:$version")
+    }
+
+    // ---- network ----------------------------------------------------------------------------------------
+
+    private fun isMetered(context: Context): Boolean =
+        (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).isActiveNetworkMetered
+
+    private fun open(context: Context, url: String): HttpURLConnection {
+        require(url.startsWith("https://")) { "https_required" }
+        var conn: HttpURLConnection? = null
+        for (n in ThreatSignatureUpdater.physicalNetworks(context)) {
+            conn = runCatching { n.openConnection(URL(url)) as HttpURLConnection }.getOrNull()
+            if (conn != null) break
+        }
+        val c = conn ?: (URL(url).openConnection() as HttpURLConnection)
+        c.connectTimeout = 15_000; c.readTimeout = 30_000; c.instanceFollowRedirects = true; c.useCaches = false
+        c.setRequestProperty("User-Agent", "Hydra-Firewall/${BuildConfig.VERSION_NAME}")
+        c.setRequestProperty("Accept", "application/vnd.github+json, application/octet-stream, */*")
+        return c
+    }
+
+    private fun httpText(context: Context, url: String): String {
+        val c = open(context, url)
+        try {
+            if (c.responseCode !in 200..299) error("http_${c.responseCode}")
+            return c.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+        } finally { c.disconnect() }
+    }
+
+    private fun download(context: Context, url: String, dest: File): String {
+        val c = open(context, url)
+        try {
+            if (c.responseCode !in 200..299) error("http_${c.responseCode}")
+            if (!c.url.protocol.equals("https", true)) error("downgraded_to_http")
+            if (c.contentLengthLong > MAX_APK_BYTES) error("apk_too_large")
+            val md = MessageDigest.getInstance("SHA-256")
+            var total = 0L
+            c.inputStream.use { input -> dest.outputStream().use { out ->
+                val buf = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buf); if (n < 0) break
+                    total += n; if (total > MAX_APK_BYTES) error("apk_too_large")
+                    md.update(buf, 0, n); out.write(buf, 0, n)
+                }
+            } }
+            return md.digest().joinToString("") { "%02x".format(it) }
+        } finally { c.disconnect() }
+    }
+
+    internal fun sha256Hex(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+}

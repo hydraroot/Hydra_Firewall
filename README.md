@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (version `1.2.3`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (version `1.3.0`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -114,12 +114,12 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 
 ## Updates and network activity
 
-Hydra has **no telemetry** and **does not update itself**: new versions of the app are installed
-manually by you. The only connections the app makes on its own are:
+Hydra has **no telemetry**. Since 1.3.0 it can check for (and download) new versions of itself from this repository's GitHub Releases; **Android always asks you to confirm the install**, and Hydra only accepts an APK whose SHA‑256 matches the published one and which is signed with the same key as the installed app. You can turn the automatic check off in Security → Overview. The only connections the app makes on its own are:
 
 | What | When | Where |
 |---|---|---|
 | **Signed threat pack** | Automatically about once every 24 h (inexact alarm), or on demand with *Update now* in Security Center. The default build points to this repository's `threat-pack` branch. | `raw.githubusercontent.com` |
+| **Hydra updates** | About once a day (and when you tap *Check for update*): asks the GitHub API for the latest release; downloads the APK only on unmetered networks. | `api.github.com`, `github.com` releases |
 | **Antivirus app checks** | Local only, no network: when an app is installed/updated and after each pack update, installed apps are compared with the downloaded pack. Can be turned off in Security → Overview. | — |
 | **Domain blocklists** | Only when **you** tap *Update lists* / *Check for update* in the blocklist screen. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) and, if enabled, `big.oisd.nl` |
 | **Encrypted DNS** | Continuously, to resolve names. | Cloudflare / Google / Quad9 (your choice) |

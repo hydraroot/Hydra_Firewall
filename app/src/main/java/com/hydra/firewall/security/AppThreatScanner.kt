@@ -131,6 +131,48 @@ object AppThreatScanner {
         return true
     }
 
+    /** Everything useful to research a flagged app (copy-paste friendly). Does file I/O: call off the main thread. */
+    @Suppress("DEPRECATION")
+    fun detailsText(context: Context, f: Finding): String {
+        val pm = context.packageManager
+        val sb = StringBuilder()
+        sb.appendLine("Hydra Firewall ${com.hydra.firewall.BuildConfig.VERSION_NAME} — app report")
+        sb.appendLine("App: ${f.label}")
+        sb.appendLine("Package: ${f.packageName}")
+        runCatching {
+            val flags = if (android.os.Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES or android.content.pm.PackageManager.GET_PERMISSIONS
+            else android.content.pm.PackageManager.GET_SIGNATURES or android.content.pm.PackageManager.GET_PERMISSIONS
+            val pi = pm.getPackageInfo(f.packageName, flags)
+            sb.appendLine("Version: ${pi.versionName} (${if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode else pi.versionCode.toLong()})")
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+            sb.appendLine("Installed: ${fmt.format(java.util.Date(pi.firstInstallTime))}  Updated: ${fmt.format(java.util.Date(pi.lastUpdateTime))}")
+            val installer = if (android.os.Build.VERSION.SDK_INT >= 30) pm.getInstallSourceInfo(f.packageName).installingPackageName
+            else pm.getInstallerPackageName(f.packageName)
+            sb.appendLine("Installed by: ${installer ?: "unknown/sideloaded"}")
+            val sigs = if (android.os.Build.VERSION.SDK_INT >= 28) pi.signingInfo?.apkContentsSigners else pi.signatures
+            sigs.orEmpty().forEach { sb.appendLine("Signing cert SHA-256: " + AppUpdater.sha256Hex(it.toByteArray())) }
+            val ai = pm.getApplicationInfo(f.packageName, 0)
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            java.io.File(ai.sourceDir).inputStream().use { i -> val b = ByteArray(65536); while (true) { val n = i.read(b); if (n < 0) break; md.update(b, 0, n) } }
+            sb.appendLine("APK SHA-256: " + md.digest().joinToString("") { "%02x".format(it) })
+            sb.appendLine("Permissions: " + pi.requestedPermissions.orEmpty().joinToString(", ") { it.removePrefix("android.permission.") })
+        }
+        sb.appendLine("Threat pack: ${ThreatSignatureStore.activePackVersion()}")
+        sb.appendLine("Matches:")
+        f.matches.forEach { m ->
+            sb.appendLine("- [${m.kind}] ${m.name}${m.family?.let { " ($it)" } ?: ""} • ${m.severity} • confidence ${m.confidence} • source ${m.source}")
+            if (m.detail.isNotBlank()) sb.appendLine("    ${m.detail}")
+        }
+        sb.appendLine(if (f.definitive) "Verdict: exact known-malware hash." else "Verdict: pattern only — may be a false positive.")
+        return sb.toString()
+    }
+
+    /** Web search that helps decide whether the app is really suspicious. */
+    fun googleQuery(f: Finding): String {
+        val term = f.matches.firstOrNull { it.family != null }?.family ?: "malware"
+        return "https://www.google.com/search?q=" + java.net.URLEncoder.encode("\"${f.packageName}\" $term", "UTF-8")
+    }
+
     // ---- internals --------------------------------------------------------------------------------------
 
     private fun scanOne(context: Context, packageName: String): Finding? {

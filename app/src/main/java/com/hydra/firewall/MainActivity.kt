@@ -133,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         // Antivirus: whenever the app is opened, check apps that are new/changed since the last check (cheap, background).
         runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
+        runCatching { com.hydra.firewall.security.AppUpdater.autoCheck(this) }
         if (lastBackgroundMs > 0L && lockStore.enabled && lockStore.configured &&
             System.currentTimeMillis() - lastBackgroundMs >= 30_000L) {
             appLocked = true

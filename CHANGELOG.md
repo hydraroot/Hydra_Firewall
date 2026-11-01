@@ -1,3 +1,8 @@
+## 1.3.0 (versionCode 10300)
+- **Actualización de la propia app:** busca sola (una vez al día, solo descarga en redes sin datos medidos) y a mano con «Buscar actualización». Muestra «Ya está actualizado» cuando no hay versión nueva. Descarga el APK del último Release de GitHub y solo lo instala si el SHA‑256 coincide con el publicado (`.apk.sha256`, ahora adjunto en cada Release), es el mismo paquete, es más nuevo y está firmado con la misma clave; Android siempre pide confirmación. Nuevo permiso `REQUEST_INSTALL_PACKAGES`. Tests de versiones/parseo.
+- **Una sola pestaña Seguridad sin repetidos:** la tarjeta «Control y actualizaciones» (Resumen) concentra Hydra, VPN, pack de amenazas (estado + actualizar manual, con «Ya está actualizado»), antivirus (con sus hallazgos) y listas de dominios. Se quitaron las copias: tarjeta de antivirus del Analizador APK, tarjeta suelta del pack en Resumen e interruptor de huella TLS duplicado (queda en su sección).
+- **Apps sospechosas:** cada hallazgo tiene «Copiar datos» (paquete, versión, instalador, hash del APK, huella del certificado, permisos, reglas coincidentes), un botón chico «🔍 Google» (busca el paquete + familia de malware) y «Desinstalar…».
+
 ## 1.2.3 (versionCode 10203)
 - Antivirus: la revisión de apps nuevas/modificadas ahora también corre al abrir Hydra y tras cada intento de actualización diaria del pack (aunque no haya pack nuevo o falle la red), así que funciona con el firewall apagado. La detección instantánea al instalar/actualizar una app sigue requiriendo el firewall (VPN) activo (Android no permite recibir esos avisos de otra forma). Ayuda actualizada.
 

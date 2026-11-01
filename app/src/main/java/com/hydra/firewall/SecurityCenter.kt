@@ -83,28 +83,70 @@ fun SecurityCenterTab(context: Context, language: AppLanguage) {
 }
 
 
-/** One place to switch on/off and update each protection layer. */
+/** The single place to switch on/off and update each protection layer. Nothing here is repeated elsewhere. */
 @Composable
 private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger: Int) {
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    fun t(es: String, en: String) = if (english) en else es
+    var tick by remember { mutableStateOf(0) }
     var vpnOn by remember(refreshTrigger) { mutableStateOf(FirewallVpnService.isRunning) }
+    var vpnMsg by remember { mutableStateOf("") }
     var packOn by remember(refreshTrigger) { mutableStateOf(ThreatSignatureStore.isEnabled(context)) }
-    var packMsg by remember { mutableStateOf("") }
-    var packBusy by remember { mutableStateOf(false) }
     var listMsg by remember { mutableStateOf("") }
     var listBusy by remember { mutableStateOf(false) }
     var avOn by remember(refreshTrigger) { mutableStateOf(AppThreatScanner.isAutoEnabled(context)) }
     var avBusy by remember { mutableStateOf(AppThreatScanner.isFullScanRunning()) }
     var avMsg by remember { mutableStateOf("") }
-    var tlsOn by remember(refreshTrigger) { mutableStateOf(TlsFingerprintStore.isEnabled()) }
+    var found by remember(tick, refreshTrigger) { mutableStateOf(AppThreatScanner.findings(context)) }
+    var updAuto by remember { mutableStateOf(AppUpdater.isAutoEnabled(context)) }
+    var updBusy by remember { mutableStateOf(false) }
+    var updMsg by remember { mutableStateOf("") }
+    var updRelease by remember { mutableStateOf<AppUpdater.Release?>(null) }
 
     SectionCard {
-        Text(if (english) "Control and updates" else "Control y actualizaciones", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Text(
-            if (english) "Switch each protection on or off and update what needs updating."
-            else "Activá o desactivá cada protección y actualizá lo que lo necesite.",
-            fontSize = 11.sp
-        )
+        Text(t("Control y actualizaciones", "Control and updates"), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(t("Todo lo que se activa o se actualiza está acá, una sola vez.", "Everything you switch on or update is here, once."), fontSize = 11.sp)
+
+        // --- Hydra itself
+        SmallCard {
+            Text(t("Actualización de Hydra", "Hydra update"), fontWeight = FontWeight.Bold)
+            Text(t("Versión instalada: ", "Installed version: ") + AppUpdater.currentVersion(), fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = updAuto, onCheckedChange = { updAuto = it; AppUpdater.setAutoEnabled(context, it) })
+                Spacer(Modifier.width(8.dp))
+                Text(t("Buscar y descargar solo (Wi‑Fi/sin datos medidos)", "Check and download automatically (unmetered)"), fontSize = 12.sp)
+            }
+            Button(enabled = !updBusy, onClick = {
+                updBusy = true; updMsg = t("Buscando…", "Checking…"); updRelease = null
+                AppUpdater.check(context) { r ->
+                    main.post {
+                        updBusy = false
+                        when (r) {
+                            is AppUpdater.CheckResult.UpToDate -> updMsg = t("✅ Ya está actualizado (versión ${r.current}). No hay versiones nuevas.", "✅ Already up to date (version ${r.current}). No new versions.")
+                            is AppUpdater.CheckResult.Available -> { updRelease = r.release; updMsg = t("Hay una versión nueva: ${r.release.version}", "New version available: ${r.release.version}") }
+                            is AppUpdater.CheckResult.Error -> updMsg = t("No se pudo buscar: ", "Could not check: ") + r.message
+                        }
+                    }
+                }
+            }) { Text(t("Buscar actualización", "Check for update")) }
+            updRelease?.let { rel ->
+                Button(enabled = !updBusy, onClick = {
+                    updBusy = true; updMsg = t("Descargando y verificando…", "Downloading and verifying…")
+                    AppUpdater.downloadAndInstall(context, rel, background = false) { err ->
+                        main.post {
+                            updBusy = false
+                            updMsg = if (err == null) t("Verificada. Android te pedirá confirmar la instalación.", "Verified. Android will ask you to confirm the install.")
+                            else t("Falló: ", "Failed: ") + err
+                        }
+                    }
+                }) { Text(t("Descargar e instalar ${rel.version}", "Download and install ${rel.version}")) }
+            }
+            if (updMsg.isEmpty()) {
+                val last = AppUpdater.lastCheck(context)
+                if (last > 0L) Text(t("Última búsqueda: ", "Last check: ") + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last)), fontSize = 11.sp)
+            } else Text(updMsg, fontSize = 12.sp)
+            Text(t("Solo instala versiones firmadas con la misma clave que la app actual; Android siempre te pide confirmar.", "Only installs versions signed with the same key as the current app; Android always asks you to confirm."), fontSize = 10.sp)
+        }
 
         // --- Firewall (VPN)
         SmallCard {
@@ -113,12 +155,11 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                     runCatching {
                         if (want) {
                             if (android.net.VpnService.prepare(context) != null) {
-                                packMsg = ""
-                                avMsg = if (english) "Android needs your VPN permission: start the firewall once from the main tab." else "Android necesita tu permiso de VPN: iniciá el firewall una vez desde la pestaña principal."
+                                vpnMsg = t("Android necesita tu permiso de VPN: iniciá el firewall una vez desde la pestaña principal.", "Android needs your VPN permission: start the firewall once from the main tab.")
                             } else {
                                 val i = android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_START }
                                 androidx.core.content.ContextCompat.startForegroundService(context, i)
-                                vpnOn = true
+                                vpnOn = true; vpnMsg = ""
                             }
                         } else {
                             context.startService(android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_STOP })
@@ -128,33 +169,21 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                 })
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text(if (english) "Firewall (VPN)" else "Firewall (VPN)", fontWeight = FontWeight.Bold)
-                    Text(if (vpnOn) (if (english) "On" else "Activo") else (if (english) "Off" else "Apagado"), fontSize = 11.sp)
+                    Text("Firewall (VPN)", fontWeight = FontWeight.Bold)
+                    Text(if (vpnOn) t("Activo", "On") else t("Apagado", "Off"), fontSize = 11.sp)
                 }
             }
+            if (vpnMsg.isNotEmpty()) Text(vpnMsg, fontSize = 11.sp)
         }
 
-        // --- Threat pack
+        // --- Threat pack (status + manual update live in ThreatPackCard)
         SmallCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = packOn, onCheckedChange = { packOn = it; ThreatSignatureStore.setEnabled(context, it) })
                 Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(if (english) "Threat pack (signatures)" else "Pack de amenazas (firmas)", fontWeight = FontWeight.Bold)
-                    Text((if (english) "Version: " else "Versión: ") + ThreatSignatureStore.activePackVersion(), fontSize = 11.sp)
-                }
+                Text(t("Pack de amenazas (se actualiza solo cada ~24 h)", "Threat pack (updates itself every ~24 h)"), fontWeight = FontWeight.Bold)
             }
-            Button(enabled = !packBusy, onClick = {
-                packBusy = true; packMsg = if (english) "Updating…" else "Actualizando…"
-                ThreatSignatureUpdater.updateIfDue(context, force = true) { r ->
-                    main.post {
-                        packBusy = false
-                        packMsg = if (r.success) (if (english) "Up to date: " else "Actualizado: ") + (r.version ?: "")
-                        else (if (english) "Update failed: " else "Falló la actualización: ") + (r.error ?: "")
-                    }
-                }
-            }) { Text(if (english) "Update threat pack" else "Actualizar pack de amenazas") }
-            if (packMsg.isNotEmpty()) Text(packMsg, fontSize = 11.sp)
+            ThreatPackCard(english, refreshTrigger + tick)
         }
 
         // --- Antivirus
@@ -163,44 +192,83 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                 Switch(checked = avOn, onCheckedChange = { avOn = it; AppThreatScanner.setAutoEnabled(context, it) })
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text(if (english) "Antivirus (automatic app checks)" else "Antivirus (revisión automática de apps)", fontWeight = FontWeight.Bold)
-                    val n = AppThreatScanner.findings(context).size
-                    Text(if (english) "Threats found: $n" else "Amenazas encontradas: $n", fontSize = 11.sp)
+                    Text(t("Antivirus (revisión automática de apps)", "Antivirus (automatic app checks)"), fontWeight = FontWeight.Bold)
+                    val last = AppThreatScanner.lastFullScan(context)
+                    Text(t("Última revisión completa: ", "Last full check: ") + (if (last == 0L) "-" else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last))), fontSize = 11.sp)
                 }
             }
             Button(enabled = !avBusy, onClick = {
-                avBusy = true; avMsg = if (english) "Checking…" else "Revisando…"
+                avBusy = true; avMsg = t("Revisando…", "Checking…")
                 val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
-                    main.post { avBusy = false; avMsg = if (english) "Done. Threats found: ${list.size}" else "Listo. Amenazas encontradas: ${list.size}" }
+                    main.post {
+                        avBusy = false; tick++
+                        avMsg = if (list.isEmpty()) t("✅ Ya está todo revisado: no se encontraron amenazas conocidas.", "✅ All checked: no known threats found.")
+                        else t("Amenazas encontradas: ${list.size}", "Threats found: ${list.size}")
+                    }
                 })
                 if (!started) avBusy = false
-            }) { Text(if (english) "Check all apps now" else "Revisar todas las apps ahora") }
-            if (avMsg.isNotEmpty()) Text(avMsg, fontSize = 11.sp)
+            }) { Text(t("Revisar todas las apps ahora", "Check all apps now")) }
+            if (avMsg.isNotEmpty()) Text(avMsg, fontSize = 12.sp)
+            else if (found.isEmpty() && AppThreatScanner.lastFullScan(context) > 0L) Text(t("✅ Sin amenazas conocidas.", "✅ No known threats."), fontSize = 12.sp)
+            found.forEach { f ->
+                SmallCard {
+                    Text((if (f.definitive) "⚠ " else "? ") + f.label, fontWeight = FontWeight.Bold)
+                    Text(f.packageName, fontSize = 11.sp)
+                    Text(
+                        f.matches.take(3).joinToString(", ") { it.name } +
+                            if (f.definitive) t(" — hash exacto de malware conocido", " — exact known-malware hash")
+                            else t(" — solo patrón, puede ser falso positivo", " — pattern only, may be a false positive"),
+                        fontSize = 12.sp
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val small = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        TextButton(contentPadding = small, onClick = {
+                            Thread {
+                                val text = runCatching { AppThreatScanner.detailsText(context, f) }.getOrDefault(f.packageName)
+                                main.post {
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra app report", text))
+                                    android.widget.Toast.makeText(context, t("Datos copiados", "Details copied"), android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }.start()
+                        }) { Text(t("Copiar datos", "Copy details"), fontSize = 11.sp) }
+                        TextButton(contentPadding = small, onClick = {
+                            runCatching {
+                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(AppThreatScanner.googleQuery(f)))
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        }) { Text("🔍 Google", fontSize = 11.sp) }
+                        TextButton(contentPadding = small, onClick = {
+                            runCatching {
+                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE, Uri.parse("package:" + f.packageName))
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        }) { Text(t("Desinstalar…", "Uninstall…"), fontSize = 11.sp) }
+                    }
+                }
+            }
         }
 
         // --- Domain blocklists
         SmallCard {
-            Text(if (english) "Domain blocklists" else "Listas de dominios bloqueados", fontWeight = FontWeight.Bold)
+            Text(t("Listas de dominios bloqueados", "Domain blocklists"), fontWeight = FontWeight.Bold)
             Button(enabled = !listBusy, onClick = {
-                listBusy = true; listMsg = if (english) "Downloading…" else "Descargando…"
-                BlocklistUpdater.downloadAndApply(context) { r ->
-                    main.post {
-                        listBusy = false
-                        listMsg = if (r.success) (if (english) "Updated: ${r.domainCount} domains" else "Actualizado: ${r.domainCount} dominios")
-                        else (if (english) "Failed: " else "Falló: ") + (r.error ?: "")
+                listBusy = true; listMsg = t("Buscando…", "Checking…")
+                BlocklistUpdater.checkForUpdate(context) { c ->
+                    if (c.error == null && !c.newAvailable) {
+                        main.post { listBusy = false; listMsg = t("✅ Ya están actualizadas. No hay listas nuevas.", "✅ Already up to date. No new lists.") }
+                    } else {
+                        BlocklistUpdater.downloadAndApply(context) { r ->
+                            main.post {
+                                listBusy = false
+                                listMsg = if (r.success) t("Actualizadas: ${r.domainCount} dominios", "Updated: ${r.domainCount} domains")
+                                else t("Falló: ", "Failed: ") + (r.error ?: "")
+                            }
+                        }
                     }
                 }
-            }) { Text(if (english) "Update blocklists" else "Actualizar listas") }
+            }) { Text(t("Actualizar listas", "Update blocklists")) }
             if (listMsg.isNotEmpty()) Text(listMsg, fontSize = 11.sp)
-        }
-
-        // --- TLS fingerprinting
-        SmallCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = tlsOn, onCheckedChange = { tlsOn = it; TlsFingerprintStore.setEnabled(it) })
-                Spacer(Modifier.width(8.dp))
-                Text(if (english) "TLS fingerprint check" else "Huella TLS", fontWeight = FontWeight.Bold)
-            }
         }
     }
 }
@@ -399,10 +467,6 @@ private fun statusSection(
                 else "Integridad: ${if (integrity.detail == "debuggable_build") "compilación DEBUG (informativo)" else "firma release presente"}",
                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-
-        SmallCard {
-            ThreatPackCard(english, refreshTrigger)
         }
 
         SmallCard {
@@ -811,64 +875,6 @@ private fun apkScannerSection(
     english: Boolean,
     refreshTrigger: Int
 ) = with(scope) {
-    item {
-        var auto by remember { mutableStateOf(AppThreatScanner.isAutoEnabled(context)) }
-        var running by remember { mutableStateOf(AppThreatScanner.isFullScanRunning()) }
-        var found by remember { mutableStateOf(AppThreatScanner.findings(context)) }
-        var lastScan by remember { mutableStateOf(AppThreatScanner.lastFullScan(context)) }
-        val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
-        SectionCard {
-            Text(if (english) "Antivirus protection (threat pack)" else "Protección antivirus (pack de amenazas)", fontWeight = FontWeight.Bold)
-            Text(
-                if (english) "Checks your apps against the signed threat pack when they are installed or updated, and again when the pack updates. It only finds known threats; it never removes anything by itself."
-                else "Revisa tus apps contra el pack de amenazas firmado cuando se instalan o actualizan, y de nuevo cuando el pack se actualiza. Solo detecta amenazas conocidas; nunca borra nada por sí solo.",
-                fontSize = 12.sp
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = auto, onCheckedChange = { auto = it; AppThreatScanner.setAutoEnabled(context, it) })
-                Spacer(Modifier.width(8.dp))
-                Text(if (english) "Automatic checks" else "Revisión automática")
-            }
-            Text(
-                (if (english) "Pack: " else "Pack: ") + ThreatSignatureStore.activePackVersion() +
-                    " • " + (if (english) "last full check: " else "última revisión completa: ") +
-                    (if (lastScan == 0L) "-" else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(lastScan))),
-                fontSize = 11.sp
-            )
-            Button(enabled = !running, onClick = {
-                running = true
-                val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
-                    main.post { found = list; lastScan = AppThreatScanner.lastFullScan(context); running = false }
-                })
-                if (!started) running = false
-            }) {
-                Text(if (running) (if (english) "Checking…" else "Revisando…") else (if (english) "Check all apps now" else "Revisar todas las apps ahora"))
-            }
-            if (!running && lastScan != 0L && found.isEmpty()) {
-                Text(if (english) "No known threats found." else "No se encontraron amenazas conocidas.", fontSize = 12.sp)
-            }
-            found.forEach { f ->
-                SmallCard {
-                    Text((if (f.definitive) "\u26A0 " else "? ") + f.label, fontWeight = FontWeight.Bold)
-                    Text(f.packageName, fontSize = 11.sp)
-                    Text(
-                        f.matches.take(3).joinToString(", ") { it.name } +
-                            if (f.definitive) (if (english) " — exact known-malware hash" else " — hash exacto de malware conocido")
-                            else (if (english) " — pattern only, may be a false positive" else " — solo patrón, puede ser falso positivo"),
-                        fontSize = 12.sp
-                    )
-                    TextButton(onClick = {
-                        runCatching {
-                            context.startActivity(
-                                android.content.Intent(android.content.Intent.ACTION_DELETE, Uri.parse("package:" + f.packageName))
-                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
-                        }
-                    }) { Text(if (english) "Uninstall…" else "Desinstalar…") }
-                }
-            }
-        }
-    }
     item {
         var report by remember { mutableStateOf<ApkScanReport?>(null) }
         var scanning by remember { mutableStateOf(false) }
