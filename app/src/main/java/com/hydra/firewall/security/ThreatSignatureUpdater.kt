@@ -43,8 +43,14 @@ object ThreatSignatureUpdater {
             .edit().putString(KEY_FEED_URL, url.trim()).apply()
     }
 
+    private val updatingFlag = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** True while a pack download/verification is in progress (for the UI to explain disabled buttons). */
+    fun isUpdating(): Boolean = updatingFlag.get()
+
     fun updateIfDue(context: Context, force: Boolean = false, callback: ((Result) -> Unit)? = null) {
         executor.execute {
+            updatingFlag.set(true)
             val result = runCatching {
                 val url = configuredFeedUrl(context)
                 if (url.isBlank()) return@runCatching Result(true, ThreatSignatureStore.activePackVersion(), skipped = true)
@@ -67,6 +73,7 @@ object ThreatSignatureUpdater {
                 ThreatSignatureStore.markUpdateError(context, e.message ?: e.javaClass.simpleName)
                 Result(false, error = e.message ?: e.javaClass.simpleName)
             }
+            updatingFlag.set(false)
             // Whatever happened (new pack, same pack, or no network), check apps that are new or changed
             // since the last check. Works from the daily alarm even when the VPN is off.
             runCatching { AppThreatScanner.onPackUpdated(context.applicationContext) }

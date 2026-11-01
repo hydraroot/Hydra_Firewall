@@ -1,3 +1,6 @@
+## 1.5.1 (versionCode 10501)
+- Seguridad: mientras se descarga el pack o se revisan las apps (por ejemplo, justo después de instalar), la tarjeta de estado muestra «Preparando la protección…» con lo que está pasando («Descargando y verificando el pack…» / «Revisando tus apps: X de Y») y explica por qué «Revisar todo ahora» y «Revisar apps ahora» están deshabilitados; se activan cuando aparece «Estás protegido». Antes los botones quedaban apagados sin explicación hasta que terminaba la primera revisión automática.
+
 ## 1.5.0 (versionCode 10500)
 - **Ignorar apps sospechosas:** cada hallazgo tiene «Ignorar (no es un problema)». La app pasa a una lista «Apps ignoradas» (con «Volver a vigilar»); deja de contar como amenaza y no se vuelve a notificar, salvo que luego coincida con reglas distintas. Queda un evento en la línea de tiempo. Tests.
 - **Arreglo del botón «Revisar apps ahora» que no se activaba:** el estado «revisando» se leía una sola vez; si la revisión arrancaba sola en segundo plano (al abrir la app o tras actualizar el pack), el botón quedaba deshabilitado para siempre. Ahora sigue el estado real cada segundo, y la revisión se marca como terminada antes de avisar a la pantalla.

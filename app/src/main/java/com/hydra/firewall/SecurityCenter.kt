@@ -150,13 +150,24 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     var showIgnored by remember { mutableStateOf(false) }
     // The scan can also be started in the background (on app open, after a pack update): follow its real state so the
     // button is enabled again as soon as it ends (the old value was read once and could stay disabled forever).
+    var uiTick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
+        var wasBusy = false
         while (true) {
             val running = AppThreatScanner.isFullScanRunning()
+            val updating = ThreatSignatureUpdater.isUpdating()
             if (avBusy != running && !allBusy) { avBusy = running; if (!running) tick++ }
+            val busyNow = running || updating
+            if (busyNow || wasBusy) uiTick++   // redraw progress while busy, and once more when it ends
+            wasBusy = busyNow
             kotlinx.coroutines.delay(1000)
         }
     }
+    @Suppress("UNUSED_VARIABLE") val redraw = uiTick
+    val packUpdating = ThreatSignatureUpdater.isUpdating()
+    val scanning = AppThreatScanner.isFullScanRunning()
+    val (scanDone, scanTotal) = AppThreatScanner.progress()
+    val busyAny = packUpdating || scanning || allBusy
     val lastFull = AppThreatScanner.lastFullScan(context)
     val dateFmt = java.text.DateFormat.getDateTimeInstance()
     val debugBuild = remember { AppUpdater.isDebugBuild(context) }
@@ -172,11 +183,12 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
         // ---- status header
         val attention = found.size
         val headline = when {
+            busyAny && attention == 0 -> t("Preparando la protección…", "Getting protection ready…")
             attention > 0 -> t("$attention app(s) requieren atención", "$attention app(s) need attention")
             lastFull == 0L -> t("Todavía no se revisaron las apps", "Apps not checked yet")
             else -> t("Estás protegido", "You are protected")
         }
-        val headColor = if (attention > 0) Color(0xFFF87171) else if (lastFull == 0L) Color(0xFFFBBF24) else Color(0xFF34D399)
+        val headColor = if (attention > 0) Color(0xFFF87171) else if (busyAny || lastFull == 0L) Color(0xFFFBBF24) else Color(0xFF34D399)
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
                 .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(headColor.copy(alpha = 0.30f), MaterialTheme.colorScheme.surface)))
@@ -187,7 +199,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                 Box(
                     Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(headColor),
                     contentAlignment = Alignment.Center
-                ) { Text(if (attention > 0) "!" else if (lastFull == 0L) "?" else "✓", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10131A)) }
+                ) { Text(if (attention > 0) "!" else if (busyAny) "…" else if (lastFull == 0L) "?" else "✓", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10131A)) }
                 Spacer(Modifier.width(12.dp))
                 Text(headline, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
@@ -196,12 +208,28 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                     " • " + (if (lastFull == 0L) t("sin revisión completa", "no full check yet") else t("última revisión ", "last check ") + dateFmt.format(java.util.Date(lastFull))),
                 fontSize = 12.sp
             )
+            if (busyAny) {
+                Text(
+                    when {
+                        packUpdating -> t("Descargando y verificando el pack de amenazas…", "Downloading and verifying the threat pack…")
+                        scanning && scanTotal > 0 -> t("Revisando tus apps contra el pack: $scanDone de $scanTotal…", "Checking your apps against the pack: $scanDone of $scanTotal…")
+                        scanning -> t("Preparando la revisión de apps…", "Preparing the app check…")
+                        else -> t("Revisando…", "Checking…")
+                    },
+                    fontSize = 13.sp, fontWeight = FontWeight.Medium
+                )
+                Text(
+                    t("Los botones «Revisar» se activan cuando termina y aparece «Estás protegido». Pasa solo tras instalar o actualizar; puede tardar unos minutos según cuántas apps tengas.",
+                      "The “Check” buttons turn on when it finishes and “You are protected” appears. This happens by itself after installing or updating; it can take a few minutes depending on how many apps you have."),
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatusChip(if (vpnOn) t("VPN activa", "VPN on") else t("VPN apagada", "VPN off"))
                 StatusChip("Pack " + ThreatSignatureStore.activePackVersion())
                 StatusChip("Hydra " + AppUpdater.currentVersion())
             }
-            Button(modifier = Modifier.fillMaxWidth(), enabled = !allBusy && !avBusy, onClick = {
+            Button(modifier = Modifier.fillMaxWidth(), enabled = !busyAny, onClick = {
                 allBusy = true; avMsg = t("Revisando…", "Checking…")
                 ThreatSignatureUpdater.updateIfDue(context, force = true) { _ ->
                     val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
@@ -213,7 +241,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                     })
                     if (!started) main.post { allBusy = false }
                 }
-            }) { Text(if (allBusy) t("Revisando…", "Checking…") else t("Revisar todo ahora", "Check everything now")) }
+            }) { Text(if (busyAny) (if (scanning && scanTotal > 0) t("Revisando $scanDone/$scanTotal…", "Checking $scanDone/$scanTotal…") else t("Espere, preparando…", "Please wait, preparing…")) else t("Revisar todo ahora", "Check everything now")) }
         }
 
         // ---- findings first (what needs action)
@@ -290,7 +318,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             t("Revisa apps nuevas solo • última completa: ", "Checks new apps by itself • last full: ") + (if (lastFull == 0L) "-" else dateFmt.format(java.util.Date(lastFull))),
             if (found.isEmpty()) true else false, avOn, { avOn = it; AppThreatScanner.setAutoEnabled(context, it) }
         ) {
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !avBusy && !allBusy, onClick = {
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !busyAny, onClick = {
                 avBusy = true; avMsg = t("Revisando…", "Checking…")
                 val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
                     main.post {
@@ -300,7 +328,8 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                     }
                 })
                 if (!started) avBusy = false
-            }) { Text(t("Revisar apps ahora", "Check apps now")) }
+            }) { Text(if (busyAny) t("Revisión en curso…", "Check in progress…") else t("Revisar apps ahora", "Check apps now")) }
+            if (busyAny) Text(t("Deshabilitado mientras se actualiza el pack o se revisan las apps (ver arriba).", "Disabled while the pack updates or apps are being checked (see above)."), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (avMsg.isNotEmpty()) Text(avMsg, fontSize = 12.sp)
         }
 

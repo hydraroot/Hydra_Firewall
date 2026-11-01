@@ -43,6 +43,11 @@ object AppThreatScanner {
         Thread(r, "hydra-app-threat-scan").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }
     }
     private val fullScanRunning = AtomicBoolean(false)
+    @Volatile private var progressDone = 0
+    @Volatile private var progressTotal = 0
+
+    /** (checked so far, total) of the full scan that is running; (0,0) when idle. */
+    fun progress(): Pair<Int, Int> = progressDone to progressTotal
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -149,8 +154,10 @@ object AppThreatScanner {
                 }.getOrDefault(emptyList())
                 val p = prefs(app)
                 var done = 0
+                progressTotal = apps.size; progressDone = 0
                 for (info in apps) {
                     done++
+                    progressDone = done
                     onProgress?.invoke(done, apps.size)
                     val stamp = seenStamp(app, info.packageName, pack)
                     if (!force && p.getString(SEEN_PREFIX + info.packageName, null) == stamp) continue
@@ -159,10 +166,12 @@ object AppThreatScanner {
                     p.edit().putString(SEEN_PREFIX + info.packageName, stamp).apply()
                 }
                 p.edit().putLong(KEY_LAST_FULL, System.currentTimeMillis()).putString(KEY_LAST_PACK, pack).apply()
+                progressDone = 0; progressTotal = 0
                 // Mark "not running" BEFORE telling the UI, so the button is enabled when it reacts.
                 fullScanRunning.set(false)
                 onDone?.invoke(findings(app))
             } catch (t: Throwable) {
+                progressDone = 0; progressTotal = 0
                 fullScanRunning.set(false)
                 onDone?.invoke(findings(app))
             } finally {
