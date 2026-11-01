@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -15,14 +16,45 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+// Modern palette (violet accent, deep neutral surfaces, softer corners). Colors only: no behavior change.
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF80CBC4),
-    secondary = Color(0xFFB0BEC5)
+    primary = Color(0xFFA78BFA),
+    onPrimary = Color(0xFF1A0B3D),
+    primaryContainer = Color(0xFF3B2A6E),
+    onPrimaryContainer = Color(0xFFE9E1FF),
+    secondary = Color(0xFFC4B9E0),
+    background = Color(0xFF121217),
+    onBackground = Color(0xFFF3F0FF),
+    surface = Color(0xFF1B1B22),
+    onSurface = Color(0xFFF3F0FF),
+    surfaceVariant = Color(0xFF23232B),
+    onSurfaceVariant = Color(0xFFB9B5C9),
+    outline = Color(0xFF4A4A57),
+    error = Color(0xFFF87171)
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF00695C),
-    secondary = Color(0xFF455A64)
+    primary = Color(0xFF6D3FE0),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFE9E1FF),
+    onPrimaryContainer = Color(0xFF241A34),
+    secondary = Color(0xFF5B4B8A),
+    background = Color(0xFFF6F4FB),
+    onBackground = Color(0xFF1B1B22),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF1B1B22),
+    surfaceVariant = Color(0xFFEDE9F7),
+    onSurfaceVariant = Color(0xFF4F4A63),
+    outline = Color(0xFF8A84A0),
+    error = Color(0xFFB3261E)
+)
+
+private val ModernShapes = androidx.compose.material3.Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
 )
 
 private val CompactTypography = Typography(
@@ -61,5 +93,5 @@ fun FirewallLocalTheme(
         else -> LightColors
     }
 
-    MaterialTheme(colorScheme = colorScheme, typography = CompactTypography, content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = CompactTypography, shapes = ModernShapes, content = content)
 }

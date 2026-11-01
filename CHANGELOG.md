@@ -1,3 +1,7 @@
+## 1.3.3 (versionCode 10303)
+- **Aspecto moderno en TODA la app:** nueva paleta (violeta, superficies oscuras/claras más limpias) y esquinas más redondeadas aplicadas desde el tema, así que todas las pestañas (Protección, Reglas, Conexiones, Estadísticas, Ajustes, Ayuda…) lo reciben. Solo colores y formas: sin cambios de funcionamiento.
+- **Sin botones repetidos entre pestañas:** el interruptor del firewall y los botones de actualizar listas viven solo en PROTECCIÓN; en Seguridad → Resumen ahora son solo estado (con la indicación de dónde se manejan). Quedan en Seguridad únicamente las acciones propias: pack de amenazas, antivirus y actualización de Hydra.
+
 ## 1.3.2 (versionCode 10302)
 - Seguridad → Resumen, aspecto más moderno: encabezado con degradado y círculo de estado (✓ / ! / ?), chips (VPN, pack, versión), tarjetas redondeadas con más aire y una fila por capa. Mismas funciones.
 

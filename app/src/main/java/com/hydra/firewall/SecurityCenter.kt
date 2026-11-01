@@ -134,11 +134,8 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     fun t(es: String, en: String) = if (english) en else es
     var tick by remember { mutableStateOf(0) }
     var vpnOn by remember(refreshTrigger) { mutableStateOf(FirewallVpnService.isRunning) }
-    var vpnMsg by remember { mutableStateOf("") }
     var packOn by remember(refreshTrigger) { mutableStateOf(ThreatSignatureStore.isEnabled(context)) }
     var packDetails by remember { mutableStateOf(false) }
-    var listMsg by remember { mutableStateOf("") }
-    var listBusy by remember { mutableStateOf(false) }
     var avOn by remember(refreshTrigger) { mutableStateOf(AppThreatScanner.isAutoEnabled(context)) }
     var avBusy by remember { mutableStateOf(AppThreatScanner.isFullScanRunning()) }
     var avMsg by remember { mutableStateOf("") }
@@ -251,26 +248,12 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             }
         }
 
-        // ---- Firewall (VPN)
+        // ---- Firewall (VPN): status only. The on/off switch lives in the PROTECTION tab (not repeated here).
         LayerRow(
-            "Firewall (VPN)", if (vpnOn) t("Activo", "On") else t("Apagado", "Off"), vpnOn, vpnOn,
-            { want ->
-                runCatching {
-                    if (want) {
-                        if (android.net.VpnService.prepare(context) != null) {
-                            vpnMsg = t("Android necesita tu permiso de VPN: iniciá el firewall una vez desde la pestaña principal.", "Android needs your VPN permission: start the firewall once from the main tab.")
-                        } else {
-                            val i = android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_START }
-                            androidx.core.content.ContextCompat.startForegroundService(context, i)
-                            vpnOn = true; vpnMsg = ""
-                        }
-                    } else {
-                        context.startService(android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_STOP })
-                        vpnOn = false
-                    }
-                }
-            }
-        ) { if (vpnMsg.isNotEmpty()) Text(vpnMsg, fontSize = 11.sp) }
+            "Firewall (VPN)",
+            (if (vpnOn) t("Activo", "On") else t("Apagado", "Off")) + " • " + t("se enciende y apaga en la pestaña PROTECCIÓN", "switch it on/off in the PROTECTION tab"),
+            vpnOn, null, null
+        )
 
         // ---- Antivirus
         LayerRow(
@@ -304,29 +287,12 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             if (packDetails) ThreatPackCard(english, refreshTrigger + tick)
         }
 
-        // ---- Domain blocklists
+        // ---- Domain blocklists: status only. Update/Check buttons live in the PROTECTION tab (not repeated here).
         LayerRow(
             t("Listas de dominios", "Domain blocklists"),
-            if (listMsg.isEmpty()) t("Bloqueo de anuncios, rastreadores y malware", "Ads, trackers and malware blocking") else listMsg,
+            t("Anuncios, rastreadores y malware • se actualizan desde la pestaña PROTECCIÓN", "Ads, trackers and malware • update them from the PROTECTION tab"),
             null, null, null
-        ) {
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !listBusy, onClick = {
-                listBusy = true; listMsg = t("Buscando…", "Checking…")
-                BlocklistUpdater.checkForUpdate(context) { c ->
-                    if (c.error == null && !c.newAvailable) {
-                        main.post { listBusy = false; listMsg = t("✅ Ya están actualizadas. No hay listas nuevas.", "✅ Already up to date. No new lists.") }
-                    } else {
-                        BlocklistUpdater.downloadAndApply(context) { r ->
-                            main.post {
-                                listBusy = false
-                                listMsg = if (r.success) t("Actualizadas: ${r.domainCount} dominios", "Updated: ${r.domainCount} domains")
-                                else t("Falló: ", "Failed: ") + (r.error ?: "")
-                            }
-                        }
-                    }
-                }
-            }) { Text(t("Actualizar listas", "Update blocklists")) }
-        }
+        )
 
         // ---- Hydra itself
         LayerRow(
