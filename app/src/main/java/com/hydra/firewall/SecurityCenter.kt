@@ -84,11 +84,29 @@ fun SecurityCenterTab(context: Context, language: AppLanguage) {
 
 
 @Composable
+private fun ModernCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun StatusChip(text: String) {
+    Text(
+        text, fontSize = 11.sp, maxLines = 1,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 10.dp, vertical = 5.dp)
+    )
+}
+
+@Composable
 private fun LayerRow(
     title: String, sub: String, ok: Boolean?, checked: Boolean?, onChecked: ((Boolean) -> Unit)?,
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
-    SmallCard {
+    ModernCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(
@@ -142,7 +160,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
         else -> err
     }
 
-    SectionCard {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // ---- status header
         val attention = found.size
         val headline = when {
@@ -151,18 +169,30 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             else -> t("Estás protegido", "You are protected")
         }
         val headColor = if (attention > 0) Color(0xFFF87171) else if (lastFull == 0L) Color(0xFFFBBF24) else Color(0xFF34D399)
-        SmallCard {
-            Text(headline, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = headColor)
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(headColor.copy(alpha = 0.30f), MaterialTheme.colorScheme.surface)))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(headColor),
+                    contentAlignment = Alignment.Center
+                ) { Text(if (attention > 0) "!" else if (lastFull == 0L) "?" else "✓", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10131A)) }
+                Spacer(Modifier.width(12.dp))
+                Text(headline, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
             Text(
                 (if (attention > 0) t("Coinciden con amenazas conocidas", "Match known threats") else t("0 amenazas conocidas", "0 known threats")) +
                     " • " + (if (lastFull == 0L) t("sin revisión completa", "no full check yet") else t("última revisión ", "last check ") + dateFmt.format(java.util.Date(lastFull))),
                 fontSize = 12.sp
             )
-            Text(
-                (if (vpnOn) t("VPN activa", "VPN on") else t("VPN apagada", "VPN off")) + " • " +
-                    t("Pack ", "Pack ") + ThreatSignatureStore.activePackVersion() + " • Hydra " + AppUpdater.currentVersion(),
-                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusChip(if (vpnOn) t("VPN activa", "VPN on") else t("VPN apagada", "VPN off"))
+                StatusChip("Pack " + ThreatSignatureStore.activePackVersion())
+                StatusChip("Hydra " + AppUpdater.currentVersion())
+            }
             Button(modifier = Modifier.fillMaxWidth(), enabled = !allBusy && !avBusy, onClick = {
                 allBusy = true; avMsg = t("Revisando…", "Checking…")
                 ThreatSignatureUpdater.updateIfDue(context, force = true) { _ ->
@@ -180,7 +210,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
 
         // ---- findings first (what needs action)
         found.forEach { f ->
-            SmallCard {
+            ModernCard {
                 Text((if (f.definitive) "⚠ " else "? ") + f.label, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(f.packageName, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(

@@ -1,3 +1,6 @@
+## 1.3.2 (versionCode 10302)
+- Seguridad → Resumen, aspecto más moderno: encabezado con degradado y círculo de estado (✓ / ! / ?), chips (VPN, pack, versión), tarjetas redondeadas con más aire y una fila por capa. Mismas funciones.
+
 ## 1.3.1 (versionCode 10301)
 - Seguridad → Resumen rediseñada: arriba el estado («Estás protegido» / «N apps requieren atención») con «Revisar todo ahora»; luego las apps con hallazgos (Desinstalar a ancho completo, Copiar datos y Buscar en Google debajo, lado a lado); luego una fila por capa (punto de estado + interruptor a la derecha + su botón). Los textos largos ya no empujan el interruptor fuera de la pantalla. Detalles del pack plegados («Ver detalles y actualizar»).
 - Diagnóstico de la actualización: la tarjeta «Actualización de Hydra» ahora dice si esta instalación es de PRUEBA (debug) o release y muestra la huella de la firma; si la firma del APK nuevo no coincide, explica por qué no se puede actualizar y qué hacer.
