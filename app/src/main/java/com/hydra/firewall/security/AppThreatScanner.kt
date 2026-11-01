@@ -34,6 +34,7 @@ object AppThreatScanner {
     private const val KEY_LAST_FULL = "last_full_scan"
     private const val KEY_LAST_PACK = "last_full_scan_pack"
     private const val KEY_FINDINGS = "findings"
+    private const val KEY_IGNORED = "ignored"
     private const val SEEN_PREFIX = "seen_"
     private const val MAX_FINDINGS = 100
     private const val MAX_APK_BYTES = 512L * 1024L * 1024L
@@ -58,6 +59,41 @@ object AppThreatScanner {
     fun findings(context: Context): List<Finding> =
         decodeFindings(prefs(context).getString(KEY_FINDINGS, "[]").orEmpty())
 
+    // ---- ignore list ------------------------------------------------------------------------------------
+
+    fun ignoredFindings(context: Context): List<Finding> =
+        decodeFindings(prefs(context).getString(KEY_IGNORED, "[]").orEmpty())
+
+    /** Same app + same set of matching rules. If the app later matches something different, it is reported again. */
+    internal fun ruleKey(f: Finding): String = f.matches.map { it.name }.sorted().joinToString("|")
+
+    fun isIgnored(context: Context, f: Finding): Boolean =
+        ignoredFindings(context).any { it.packageName == f.packageName && ruleKey(it) == ruleKey(f) }
+
+    /** The user looked into it and decided it is not a problem: move it from findings to the ignored list. */
+    @Synchronized
+    fun ignore(context: Context, f: Finding) {
+        val app = context.applicationContext
+        val ignored = listOf(f) + ignoredFindings(app).filterNot { it.packageName == f.packageName }
+        val kept = findings(app).filterNot { it.packageName == f.packageName }
+        prefs(app).edit().putString(KEY_IGNORED, encodeFindings(ignored)).putString(KEY_FINDINGS, encodeFindings(kept)).apply()
+        SecurityEventStore.record(app, "APP_THREAT_IGNORED", "Ignored: ${f.label}", f.packageName, Severity.INFO)
+    }
+
+    /** Watch the app again: it is checked right away and reported if it still matches. */
+    @Synchronized
+    fun unignore(context: Context, packageName: String) {
+        val app = context.applicationContext
+        val ignored = ignoredFindings(app).filterNot { it.packageName == packageName }
+        prefs(app).edit().putString(KEY_IGNORED, encodeFindings(ignored)).apply()
+        executor.execute {
+            runCatching {
+                recordResult(app, packageName, scanOne(app, packageName))
+                markSeen(app, packageName)
+            }
+        }
+    }
+
     // ---- triggers ---------------------------------------------------------------------------------------
 
     /** An app was installed or updated: check just that app (if automatic checks are on). */
@@ -78,7 +114,9 @@ object AppThreatScanner {
         executor.execute {
             runCatching {
                 val kept = findings(app).filterNot { it.packageName == packageName }
-                prefs(app).edit().putString(KEY_FINDINGS, encodeFindings(kept)).remove(SEEN_PREFIX + packageName).apply()
+                val keptIgnored = ignoredFindings(app).filterNot { it.packageName == packageName }
+                prefs(app).edit().putString(KEY_FINDINGS, encodeFindings(kept)).putString(KEY_IGNORED, encodeFindings(keptIgnored))
+                    .remove(SEEN_PREFIX + packageName).apply()
             }
         }
     }
@@ -121,8 +159,11 @@ object AppThreatScanner {
                     p.edit().putString(SEEN_PREFIX + info.packageName, stamp).apply()
                 }
                 p.edit().putLong(KEY_LAST_FULL, System.currentTimeMillis()).putString(KEY_LAST_PACK, pack).apply()
+                // Mark "not running" BEFORE telling the UI, so the button is enabled when it reacts.
+                fullScanRunning.set(false)
                 onDone?.invoke(findings(app))
             } catch (t: Throwable) {
+                fullScanRunning.set(false)
                 onDone?.invoke(findings(app))
             } finally {
                 fullScanRunning.set(false)
@@ -200,7 +241,9 @@ object AppThreatScanner {
     }
 
     @Synchronized
-    private fun recordResult(context: Context, packageName: String, finding: Finding?) {
+    private fun recordResult(context: Context, packageName: String, raw: Finding?) {
+        // Ignored by the user (same app, same rules): keep it out of the findings and do not notify again.
+        val finding = if (raw != null && isIgnored(context, raw)) null else raw
         val current = findings(context)
         val previous = current.firstOrNull { it.packageName == packageName }
         val rest = current.filterNot { it.packageName == packageName }

@@ -1,3 +1,7 @@
+## 1.5.0 (versionCode 10500)
+- **Ignorar apps sospechosas:** cada hallazgo tiene «Ignorar (no es un problema)». La app pasa a una lista «Apps ignoradas» (con «Volver a vigilar»); deja de contar como amenaza y no se vuelve a notificar, salvo que luego coincida con reglas distintas. Queda un evento en la línea de tiempo. Tests.
+- **Arreglo del botón «Revisar apps ahora» que no se activaba:** el estado «revisando» se leía una sola vez; si la revisión arrancaba sola en segundo plano (al abrir la app o tras actualizar el pack), el botón quedaba deshabilitado para siempre. Ahora sigue el estado real cada segundo, y la revisión se marca como terminada antes de avisar a la pantalla.
+
 ## 1.4.0 (versionCode 10400)
 - **Seguridad dentro de Protección:** la pestaña SEGURIDAD desaparece de la barra; ahora es una sección de PROTECCIÓN (selector FIREWALL / SEGURIDAD arriba). Todo el control de protección está en un solo lugar y no hay controles repetidos: de «Control y actualizaciones» se quitaron las filas de VPN y listas (ya están en el selector FIREWALL; el estado de la VPN se ve en el encabezado).
 - Tarjeta principal de la VPN rediseñada (más grande, esquinas redondeadas y fondo verde cuando está activa). Sin cambios de funcionamiento.

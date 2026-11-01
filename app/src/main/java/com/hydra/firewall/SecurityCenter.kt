@@ -146,6 +146,17 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     var updMsg by remember { mutableStateOf("") }
     var updOk by remember { mutableStateOf<Boolean?>(null) }
     var updRelease by remember { mutableStateOf<AppUpdater.Release?>(null) }
+    var ignoredList by remember(tick, refreshTrigger) { mutableStateOf(AppThreatScanner.ignoredFindings(context)) }
+    var showIgnored by remember { mutableStateOf(false) }
+    // The scan can also be started in the background (on app open, after a pack update): follow its real state so the
+    // button is enabled again as soon as it ends (the old value was read once and could stay disabled forever).
+    LaunchedEffect(Unit) {
+        while (true) {
+            val running = AppThreatScanner.isFullScanRunning()
+            if (avBusy != running && !allBusy) { avBusy = running; if (!running) tick++ }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
     val lastFull = AppThreatScanner.lastFullScan(context)
     val dateFmt = java.text.DateFormat.getDateTimeInstance()
     val debugBuild = remember { AppUpdater.isDebugBuild(context) }
@@ -244,7 +255,32 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                         }
                     }) { Text(t("Buscar en Google", "Search Google"), fontSize = 12.sp, maxLines = 1) }
                 }
+                OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = {
+                    AppThreatScanner.ignore(context, f); tick++
+                    android.widget.Toast.makeText(context, t("Ignorada. Podés volver a vigilarla desde «Apps ignoradas».", "Ignored. You can watch it again from “Ignored apps”."), android.widget.Toast.LENGTH_LONG).show()
+                }) { Text(t("Ignorar (no es un problema)", "Ignore (not a problem)")) }
                 Text(t("Hydra nunca borra nada sola: decidís vos.", "Hydra never removes anything by itself: you decide."), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // ---- Ignored apps
+        if (ignoredList.isNotEmpty()) {
+            ModernCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(t("Apps ignoradas (${ignoredList.size})", "Ignored apps (${ignoredList.size})"), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { showIgnored = !showIgnored }) { Text(if (showIgnored) t("Ocultar", "Hide") else t("Ver", "Show")) }
+                }
+                if (showIgnored) {
+                    ignoredList.forEach { f ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(f.label, fontWeight = FontWeight.Bold)
+                            Text(f.packageName + " • " + f.matches.take(2).joinToString(", ") { it.name }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { AppThreatScanner.unignore(context, f.packageName); tick++ }) {
+                                Text(t("Volver a vigilar", "Watch again"))
+                            }
+                        }
+                    }
+                }
             }
         }
 
