@@ -239,6 +239,16 @@ object AppUpdater {
         } finally { c.disconnect() }
     }
 
+    /** First 12 hex chars of the installed app's signing-certificate SHA-256 (to compare with the release key). */
+    fun ownCertShort(context: Context): String = runCatching {
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
+        certs(context.packageManager.getPackageInfo(context.packageName, flags)).firstOrNull()?.take(12)
+    }.getOrNull() ?: "?"
+
+    /** True if this install is a debug/test build (those can never be updated by the release APK). */
+    fun isDebugBuild(context: Context): Boolean =
+        (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
     internal fun sha256Hex(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

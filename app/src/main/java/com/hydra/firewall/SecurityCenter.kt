@@ -83,6 +83,32 @@ fun SecurityCenterTab(context: Context, language: AppLanguage) {
 }
 
 
+@Composable
+private fun LayerRow(
+    title: String, sub: String, ok: Boolean?, checked: Boolean?, onChecked: ((Boolean) -> Unit)?,
+    content: @Composable ColumnScope.() -> Unit = {}
+) {
+    SmallCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(
+                    when (ok) { true -> Color(0xFF34D399); false -> Color(0xFFF87171); null -> Color(0xFF8A8A99) }
+                )
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(sub, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (checked != null && onChecked != null) {
+                Spacer(Modifier.width(8.dp))
+                Switch(checked = checked, onCheckedChange = onChecked)
+            }
+        }
+        content()
+    }
+}
+
 /** The single place to switch on/off and update each protection layer. Nothing here is repeated elsewhere. */
 @Composable
 private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger: Int) {
@@ -92,167 +118,169 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     var vpnOn by remember(refreshTrigger) { mutableStateOf(FirewallVpnService.isRunning) }
     var vpnMsg by remember { mutableStateOf("") }
     var packOn by remember(refreshTrigger) { mutableStateOf(ThreatSignatureStore.isEnabled(context)) }
+    var packDetails by remember { mutableStateOf(false) }
     var listMsg by remember { mutableStateOf("") }
     var listBusy by remember { mutableStateOf(false) }
     var avOn by remember(refreshTrigger) { mutableStateOf(AppThreatScanner.isAutoEnabled(context)) }
     var avBusy by remember { mutableStateOf(AppThreatScanner.isFullScanRunning()) }
     var avMsg by remember { mutableStateOf("") }
+    var allBusy by remember { mutableStateOf(false) }
     var found by remember(tick, refreshTrigger) { mutableStateOf(AppThreatScanner.findings(context)) }
     var updAuto by remember { mutableStateOf(AppUpdater.isAutoEnabled(context)) }
     var updBusy by remember { mutableStateOf(false) }
     var updMsg by remember { mutableStateOf("") }
+    var updOk by remember { mutableStateOf<Boolean?>(null) }
     var updRelease by remember { mutableStateOf<AppUpdater.Release?>(null) }
+    val lastFull = AppThreatScanner.lastFullScan(context)
+    val dateFmt = java.text.DateFormat.getDateTimeInstance()
+    val debugBuild = remember { AppUpdater.isDebugBuild(context) }
+
+    fun friendly(err: String): String = when {
+        err.contains("signature_differs") -> t("La firma del APK nuevo no coincide con la de esta instalación. Hay que instalar UNA vez la versión release firmada con tu clave (desinstalando esta); desde ahí se actualiza sola.", "The new APK's signature differs from this install. Install the signed release build ONCE (uninstall this one); after that it updates itself.")
+        err.contains("sha256") -> t("La descarga no coincide con el SHA‑256 publicado: se descartó.", "The download does not match the published SHA‑256: discarded.")
+        err.contains("not_newer") -> t("Esa versión no es más nueva que la instalada.", "That version is not newer than the installed one.")
+        else -> err
+    }
 
     SectionCard {
-        Text(t("Control y actualizaciones", "Control and updates"), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Text(t("Todo lo que se activa o se actualiza está acá, una sola vez.", "Everything you switch on or update is here, once."), fontSize = 11.sp)
-
-        // --- Hydra itself
+        // ---- status header
+        val attention = found.size
+        val headline = when {
+            attention > 0 -> t("$attention app(s) requieren atención", "$attention app(s) need attention")
+            lastFull == 0L -> t("Todavía no se revisaron las apps", "Apps not checked yet")
+            else -> t("Estás protegido", "You are protected")
+        }
+        val headColor = if (attention > 0) Color(0xFFF87171) else if (lastFull == 0L) Color(0xFFFBBF24) else Color(0xFF34D399)
         SmallCard {
-            Text(t("Actualización de Hydra", "Hydra update"), fontWeight = FontWeight.Bold)
-            Text(t("Versión instalada: ", "Installed version: ") + AppUpdater.currentVersion(), fontSize = 12.sp)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = updAuto, onCheckedChange = { updAuto = it; AppUpdater.setAutoEnabled(context, it) })
-                Spacer(Modifier.width(8.dp))
-                Text(t("Buscar y descargar solo (Wi‑Fi/sin datos medidos)", "Check and download automatically (unmetered)"), fontSize = 12.sp)
-            }
-            Button(enabled = !updBusy, onClick = {
-                updBusy = true; updMsg = t("Buscando…", "Checking…"); updRelease = null
-                AppUpdater.check(context) { r ->
-                    main.post {
-                        updBusy = false
-                        when (r) {
-                            is AppUpdater.CheckResult.UpToDate -> updMsg = t("✅ Ya está actualizado (versión ${r.current}). No hay versiones nuevas.", "✅ Already up to date (version ${r.current}). No new versions.")
-                            is AppUpdater.CheckResult.Available -> { updRelease = r.release; updMsg = t("Hay una versión nueva: ${r.release.version}", "New version available: ${r.release.version}") }
-                            is AppUpdater.CheckResult.Error -> updMsg = t("No se pudo buscar: ", "Could not check: ") + r.message
-                        }
-                    }
-                }
-            }) { Text(t("Buscar actualización", "Check for update")) }
-            updRelease?.let { rel ->
-                Button(enabled = !updBusy, onClick = {
-                    updBusy = true; updMsg = t("Descargando y verificando…", "Downloading and verifying…")
-                    AppUpdater.downloadAndInstall(context, rel, background = false) { err ->
+            Text(headline, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = headColor)
+            Text(
+                (if (attention > 0) t("Coinciden con amenazas conocidas", "Match known threats") else t("0 amenazas conocidas", "0 known threats")) +
+                    " • " + (if (lastFull == 0L) t("sin revisión completa", "no full check yet") else t("última revisión ", "last check ") + dateFmt.format(java.util.Date(lastFull))),
+                fontSize = 12.sp
+            )
+            Text(
+                (if (vpnOn) t("VPN activa", "VPN on") else t("VPN apagada", "VPN off")) + " • " +
+                    t("Pack ", "Pack ") + ThreatSignatureStore.activePackVersion() + " • Hydra " + AppUpdater.currentVersion(),
+                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(modifier = Modifier.fillMaxWidth(), enabled = !allBusy && !avBusy, onClick = {
+                allBusy = true; avMsg = t("Revisando…", "Checking…")
+                ThreatSignatureUpdater.updateIfDue(context, force = true) { _ ->
+                    val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
                         main.post {
-                            updBusy = false
-                            updMsg = if (err == null) t("Verificada. Android te pedirá confirmar la instalación.", "Verified. Android will ask you to confirm the install.")
-                            else t("Falló: ", "Failed: ") + err
+                            allBusy = false; tick++
+                            avMsg = if (list.isEmpty()) t("✅ Todo revisado: sin amenazas conocidas.", "✅ All checked: no known threats.")
+                            else t("Amenazas encontradas: ${list.size}", "Threats found: ${list.size}")
                         }
-                    }
-                }) { Text(t("Descargar e instalar ${rel.version}", "Download and install ${rel.version}")) }
-            }
-            if (updMsg.isEmpty()) {
-                val last = AppUpdater.lastCheck(context)
-                if (last > 0L) Text(t("Última búsqueda: ", "Last check: ") + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last)), fontSize = 11.sp)
-            } else Text(updMsg, fontSize = 12.sp)
-            Text(t("Solo instala versiones firmadas con la misma clave que la app actual; Android siempre te pide confirmar.", "Only installs versions signed with the same key as the current app; Android always asks you to confirm."), fontSize = 10.sp)
+                    })
+                    if (!started) main.post { allBusy = false }
+                }
+            }) { Text(if (allBusy) t("Revisando…", "Checking…") else t("Revisar todo ahora", "Check everything now")) }
         }
 
-        // --- Firewall (VPN)
-        SmallCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = vpnOn, onCheckedChange = { want ->
-                    runCatching {
-                        if (want) {
-                            if (android.net.VpnService.prepare(context) != null) {
-                                vpnMsg = t("Android necesita tu permiso de VPN: iniciá el firewall una vez desde la pestaña principal.", "Android needs your VPN permission: start the firewall once from the main tab.")
-                            } else {
-                                val i = android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_START }
-                                androidx.core.content.ContextCompat.startForegroundService(context, i)
-                                vpnOn = true; vpnMsg = ""
+        // ---- findings first (what needs action)
+        found.forEach { f ->
+            SmallCard {
+                Text((if (f.definitive) "⚠ " else "? ") + f.label, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(f.packageName, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    f.matches.take(3).joinToString(", ") { it.name } +
+                        if (f.definitive) t(" — hash exacto de malware conocido", " — exact known-malware hash")
+                        else t(" — solo patrón, puede ser falso positivo", " — pattern only, may be a false positive"),
+                    fontSize = 12.sp
+                )
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171), contentColor = Color(0xFF3B0B0B)),
+                    onClick = {
+                        runCatching {
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE, Uri.parse("package:" + f.packageName))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                    }
+                ) { Text(t("Desinstalar…", "Uninstall…")) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(modifier = Modifier.weight(1f), onClick = {
+                        Thread {
+                            val text = runCatching { AppThreatScanner.detailsText(context, f) }.getOrDefault(f.packageName)
+                            main.post {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra app report", text))
+                                android.widget.Toast.makeText(context, t("Datos copiados", "Details copied"), android.widget.Toast.LENGTH_SHORT).show()
                             }
-                        } else {
-                            context.startService(android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_STOP })
-                            vpnOn = false
+                        }.start()
+                    }) { Text(t("Copiar datos", "Copy details"), fontSize = 12.sp, maxLines = 1) }
+                    OutlinedButton(modifier = Modifier.weight(1f), onClick = {
+                        runCatching {
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(AppThreatScanner.googleQuery(f)))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                         }
+                    }) { Text(t("Buscar en Google", "Search Google"), fontSize = 12.sp, maxLines = 1) }
+                }
+                Text(t("Hydra nunca borra nada sola: decidís vos.", "Hydra never removes anything by itself: you decide."), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // ---- Firewall (VPN)
+        LayerRow(
+            "Firewall (VPN)", if (vpnOn) t("Activo", "On") else t("Apagado", "Off"), vpnOn, vpnOn,
+            { want ->
+                runCatching {
+                    if (want) {
+                        if (android.net.VpnService.prepare(context) != null) {
+                            vpnMsg = t("Android necesita tu permiso de VPN: iniciá el firewall una vez desde la pestaña principal.", "Android needs your VPN permission: start the firewall once from the main tab.")
+                        } else {
+                            val i = android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_START }
+                            androidx.core.content.ContextCompat.startForegroundService(context, i)
+                            vpnOn = true; vpnMsg = ""
+                        }
+                    } else {
+                        context.startService(android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_STOP })
+                        vpnOn = false
                     }
-                })
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text("Firewall (VPN)", fontWeight = FontWeight.Bold)
-                    Text(if (vpnOn) t("Activo", "On") else t("Apagado", "Off"), fontSize = 11.sp)
                 }
             }
-            if (vpnMsg.isNotEmpty()) Text(vpnMsg, fontSize = 11.sp)
-        }
+        ) { if (vpnMsg.isNotEmpty()) Text(vpnMsg, fontSize = 11.sp) }
 
-        // --- Threat pack (status + manual update live in ThreatPackCard)
-        SmallCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = packOn, onCheckedChange = { packOn = it; ThreatSignatureStore.setEnabled(context, it) })
-                Spacer(Modifier.width(8.dp))
-                Text(t("Pack de amenazas (se actualiza solo cada ~24 h)", "Threat pack (updates itself every ~24 h)"), fontWeight = FontWeight.Bold)
-            }
-            ThreatPackCard(english, refreshTrigger + tick)
-        }
-
-        // --- Antivirus
-        SmallCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = avOn, onCheckedChange = { avOn = it; AppThreatScanner.setAutoEnabled(context, it) })
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(t("Antivirus (revisión automática de apps)", "Antivirus (automatic app checks)"), fontWeight = FontWeight.Bold)
-                    val last = AppThreatScanner.lastFullScan(context)
-                    Text(t("Última revisión completa: ", "Last full check: ") + (if (last == 0L) "-" else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last))), fontSize = 11.sp)
-                }
-            }
-            Button(enabled = !avBusy, onClick = {
+        // ---- Antivirus
+        LayerRow(
+            t("Antivirus", "Antivirus"),
+            t("Revisa apps nuevas solo • última completa: ", "Checks new apps by itself • last full: ") + (if (lastFull == 0L) "-" else dateFmt.format(java.util.Date(lastFull))),
+            if (found.isEmpty()) true else false, avOn, { avOn = it; AppThreatScanner.setAutoEnabled(context, it) }
+        ) {
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !avBusy && !allBusy, onClick = {
                 avBusy = true; avMsg = t("Revisando…", "Checking…")
                 val started = AppThreatScanner.scanAll(context, force = true, onDone = { list ->
                     main.post {
                         avBusy = false; tick++
-                        avMsg = if (list.isEmpty()) t("✅ Ya está todo revisado: no se encontraron amenazas conocidas.", "✅ All checked: no known threats found.")
+                        avMsg = if (list.isEmpty()) t("✅ Ya está todo revisado: sin amenazas conocidas.", "✅ All checked: no known threats.")
                         else t("Amenazas encontradas: ${list.size}", "Threats found: ${list.size}")
                     }
                 })
                 if (!started) avBusy = false
-            }) { Text(t("Revisar todas las apps ahora", "Check all apps now")) }
+            }) { Text(t("Revisar apps ahora", "Check apps now")) }
             if (avMsg.isNotEmpty()) Text(avMsg, fontSize = 12.sp)
-            else if (found.isEmpty() && AppThreatScanner.lastFullScan(context) > 0L) Text(t("✅ Sin amenazas conocidas.", "✅ No known threats."), fontSize = 12.sp)
-            found.forEach { f ->
-                SmallCard {
-                    Text((if (f.definitive) "⚠ " else "? ") + f.label, fontWeight = FontWeight.Bold)
-                    Text(f.packageName, fontSize = 11.sp)
-                    Text(
-                        f.matches.take(3).joinToString(", ") { it.name } +
-                            if (f.definitive) t(" — hash exacto de malware conocido", " — exact known-malware hash")
-                            else t(" — solo patrón, puede ser falso positivo", " — pattern only, may be a false positive"),
-                        fontSize = 12.sp
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val small = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                        TextButton(contentPadding = small, onClick = {
-                            Thread {
-                                val text = runCatching { AppThreatScanner.detailsText(context, f) }.getOrDefault(f.packageName)
-                                main.post {
-                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra app report", text))
-                                    android.widget.Toast.makeText(context, t("Datos copiados", "Details copied"), android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            }.start()
-                        }) { Text(t("Copiar datos", "Copy details"), fontSize = 11.sp) }
-                        TextButton(contentPadding = small, onClick = {
-                            runCatching {
-                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(AppThreatScanner.googleQuery(f)))
-                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-                            }
-                        }) { Text("🔍 Google", fontSize = 11.sp) }
-                        TextButton(contentPadding = small, onClick = {
-                            runCatching {
-                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE, Uri.parse("package:" + f.packageName))
-                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-                            }
-                        }) { Text(t("Desinstalar…", "Uninstall…"), fontSize = 11.sp) }
-                    }
-                }
-            }
         }
 
-        // --- Domain blocklists
-        SmallCard {
-            Text(t("Listas de dominios bloqueados", "Domain blocklists"), fontWeight = FontWeight.Bold)
-            Button(enabled = !listBusy, onClick = {
+        // ---- Threat pack
+        LayerRow(
+            t("Pack de amenazas", "Threat pack"),
+            t("Versión ", "Version ") + ThreatSignatureStore.activePackVersion() + t(" • se actualiza solo cada ~24 h", " • updates itself every ~24 h"),
+            true, packOn, { packOn = it; ThreatSignatureStore.setEnabled(context, it) }
+        ) {
+            TextButton(onClick = { packDetails = !packDetails }) {
+                Text(if (packDetails) t("Ocultar detalles y actualizar", "Hide details and update") else t("Ver detalles y actualizar", "Details and update"), fontSize = 12.sp)
+            }
+            if (packDetails) ThreatPackCard(english, refreshTrigger + tick)
+        }
+
+        // ---- Domain blocklists
+        LayerRow(
+            t("Listas de dominios", "Domain blocklists"),
+            if (listMsg.isEmpty()) t("Bloqueo de anuncios, rastreadores y malware", "Ads, trackers and malware blocking") else listMsg,
+            null, null, null
+        ) {
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !listBusy, onClick = {
                 listBusy = true; listMsg = t("Buscando…", "Checking…")
                 BlocklistUpdater.checkForUpdate(context) { c ->
                     if (c.error == null && !c.newAvailable) {
@@ -268,7 +296,49 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                     }
                 }
             }) { Text(t("Actualizar listas", "Update blocklists")) }
-            if (listMsg.isNotEmpty()) Text(listMsg, fontSize = 11.sp)
+        }
+
+        // ---- Hydra itself
+        LayerRow(
+            t("Actualización de Hydra", "Hydra update"),
+            when {
+                updMsg.isNotEmpty() -> updMsg
+                else -> t("Versión ${AppUpdater.currentVersion()}", "Version ${AppUpdater.currentVersion()}") +
+                    (AppUpdater.lastCheck(context).takeIf { it > 0L }?.let { " • " + t("última búsqueda ", "last check ") + dateFmt.format(java.util.Date(it)) } ?: "")
+            },
+            updOk, updAuto, { updAuto = it; AppUpdater.setAutoEnabled(context, it) }
+        ) {
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !updBusy, onClick = {
+                updBusy = true; updMsg = t("Buscando…", "Checking…"); updRelease = null; updOk = null
+                AppUpdater.check(context) { r ->
+                    main.post {
+                        updBusy = false
+                        when (r) {
+                            is AppUpdater.CheckResult.UpToDate -> { updOk = true; updMsg = t("✅ Ya está actualizado (versión ${r.current}). No hay versiones nuevas.", "✅ Already up to date (version ${r.current}). No new versions.") }
+                            is AppUpdater.CheckResult.Available -> { updOk = false; updRelease = r.release; updMsg = t("Hay una versión nueva: ${r.release.version}", "New version available: ${r.release.version}") }
+                            is AppUpdater.CheckResult.Error -> { updOk = false; updMsg = t("No se pudo buscar: ", "Could not check: ") + friendly(r.message) }
+                        }
+                    }
+                }
+            }) { Text(t("Buscar actualización", "Check for update")) }
+            updRelease?.let { rel ->
+                Button(modifier = Modifier.fillMaxWidth(), enabled = !updBusy, onClick = {
+                    updBusy = true; updMsg = t("Descargando y verificando…", "Downloading and verifying…")
+                    AppUpdater.downloadAndInstall(context, rel, background = false) { err ->
+                        main.post {
+                            updBusy = false
+                            updMsg = if (err == null) t("Verificada. Android te pedirá confirmar la instalación.", "Verified. Android will ask you to confirm the install.")
+                            else t("Falló: ", "Failed: ") + friendly(err)
+                        }
+                    }
+                }) { Text(t("Descargar e instalar ${rel.version}", "Download and install ${rel.version}")) }
+            }
+            Text(
+                (if (debugBuild) t("Esta instalación es una compilación de PRUEBA (debug): no se puede actualizar con el APK release; instalá una vez hydra-release-apk.", "This install is a TEST (debug) build: it cannot be updated by the release APK; install hydra-release-apk once.")
+                else t("Compilación release", "Release build")) + " • " + t("firma ", "signature ") + AppUpdater.ownCertShort(context),
+                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(t("Solo instala versiones con la misma firma; Android siempre pide confirmar.", "Only installs same-signature versions; Android always asks to confirm."), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
