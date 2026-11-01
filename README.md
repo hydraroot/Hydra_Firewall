@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (version `1.2.2`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (version `1.2.3`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -186,7 +186,7 @@ Hydra includes three very small models that run **entirely on your phone** (no c
 
 Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful, 90–100 suspicious** (the higher, the more suspicious), based on how often the model was right at that score in testing. If too little of the app's code could be analyzed, the result is **no conclusion**.
 
-**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update, and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus, blocklists, TLS fingerprint) in one place.
+**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus, blocklists, TLS fingerprint) in one place.
 
 Together with the YARA‑Lite rules, the signed threat pack and the per-app behavior baseline (learned locally once you enable traffic recording), they feed **Security Center** so you can decide with more information. The decision is always yours.
 

@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (versión `1.2.2`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
+> **Estado: candidata para prueba cerrada** (versión `1.2.3`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -123,7 +123,7 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 Cada puntaje viene con un resultado simple: **0–49 parece normal, 50–89 dudosa, 90–100 sospechosa** (cuanto más alto, más sospechosa), según cuán acertado fue el modelo con ese puntaje en las pruebas. Si se pudo analizar muy poco código de la app, el resultado es **sin conclusión**.
 
-**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack, y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus, listas, huella TLS) en un solo lugar.
+**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus, listas, huella TLS) en un solo lugar.
 
 Junto con las reglas YARA‑Lite, el pack de amenazas firmado y la línea base de comportamiento por app (se aprende localmente cuando activás el registro de tráfico), alimentan el **Centro de seguridad** para que decidas con más información. La decisión siempre es tuya.
 

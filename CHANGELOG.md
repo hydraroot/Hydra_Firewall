@@ -1,3 +1,6 @@
+## 1.2.3 (versionCode 10203)
+- Antivirus: la revisión de apps nuevas/modificadas ahora también corre al abrir Hydra y tras cada intento de actualización diaria del pack (aunque no haya pack nuevo o falle la red), así que funciona con el firewall apagado. La detección instantánea al instalar/actualizar una app sigue requiriendo el firewall (VPN) activo (Android no permite recibir esos avisos de otra forma). Ayuda actualizada.
+
 ## 1.2.2 (versionCode 10202)
 - Documentación: README (EN/ES), docs/FEATURES.md y la ayuda dentro de la app (EN/ES) ahora explican la protección tipo antivirus y la tarjeta «Control y actualizaciones», con sus límites.
 

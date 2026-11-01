@@ -58,8 +58,6 @@ object ThreatSignatureUpdater {
                     if (!ThreatSignatureStore.installVerifiedPack(context, payload)) {
                         throw IllegalStateException("pack_install_failed")
                     }
-                    // New pack = maybe new known-malware hashes: check the installed apps again.
-                    runCatching { AppThreatScanner.onPackUpdated(context.applicationContext) }
                     Result(true, ThreatSignatureStore.activePackVersion())
                 } else {
                     throw IllegalStateException("signature_invalid")
@@ -69,6 +67,9 @@ object ThreatSignatureUpdater {
                 ThreatSignatureStore.markUpdateError(context, e.message ?: e.javaClass.simpleName)
                 Result(false, error = e.message ?: e.javaClass.simpleName)
             }
+            // Whatever happened (new pack, same pack, or no network), check apps that are new or changed
+            // since the last check. Works from the daily alarm even when the VPN is off.
+            runCatching { AppThreatScanner.onPackUpdated(context.applicationContext) }
             callback?.invoke(result)
         }
     }
