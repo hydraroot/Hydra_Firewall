@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (version `1.3.3`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (version `1.4.0`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -114,13 +114,13 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 
 ## Updates and network activity
 
-Hydra has **no telemetry**. Since 1.3.0 it can check for (and download) new versions of itself from this repository's GitHub Releases; **Android always asks you to confirm the install**, and Hydra only accepts an APK whose SHA‑256 matches the published one and which is signed with the same key as the installed app. You can turn the automatic check off in Security → Overview. The only connections the app makes on its own are:
+Hydra has **no telemetry**. Since 1.3.0 it can check for (and download) new versions of itself from this repository's GitHub Releases; **Android always asks you to confirm the install**, and Hydra only accepts an APK whose SHA‑256 matches the published one and which is signed with the same key as the installed app. You can turn the automatic check off in Protection → Security → Overview. The only connections the app makes on its own are:
 
 | What | When | Where |
 |---|---|---|
 | **Signed threat pack** | Automatically about once every 24 h (inexact alarm), or on demand with *Update now* in Security Center. The default build points to this repository's `threat-pack` branch. | `raw.githubusercontent.com` |
 | **Hydra updates** | About once a day (and when you tap *Check for update*): asks the GitHub API for the latest release; downloads the APK only on unmetered networks. | `api.github.com`, `github.com` releases |
-| **Antivirus app checks** | Local only, no network: when an app is installed/updated and after each pack update, installed apps are compared with the downloaded pack. Can be turned off in Security → Overview. | — |
+| **Antivirus app checks** | Local only, no network: when an app is installed/updated and after each pack update, installed apps are compared with the downloaded pack. Can be turned off in Protection → Security → Overview. | — |
 | **Domain blocklists** | Only when **you** tap *Update lists* / *Check for update* in the blocklist screen. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) and, if enabled, `big.oisd.nl` |
 | **Encrypted DNS** | Continuously, to resolve names. | Cloudflare / Google / Quad9 (your choice) |
 
@@ -186,7 +186,7 @@ Hydra includes three very small models that run **entirely on your phone** (no c
 
 Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful, 90–100 suspicious** (the higher, the more suspicious), based on how often the model was right at that score in testing. If too little of the app's code could be analyzed, the result is **no conclusion**.
 
-**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus, blocklists, TLS fingerprint) in one place.
+**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Protection → Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus, blocklists, TLS fingerprint) in one place.
 
 Together with the YARA‑Lite rules, the signed threat pack and the per-app behavior baseline (learned locally once you enable traffic recording), they feed **Security Center** so you can decide with more information. The decision is always yours.
 
@@ -196,7 +196,7 @@ Together with the YARA‑Lite rules, the signed threat pack and the per-app beha
 2. Tap the **Firewall VPN** switch on the PROTECTION tab and accept Android's VPN prompt.
 3. Allow notifications and exclude Hydra from battery optimization (otherwise Android may stop the service).
 4. Use your phone normally. Each app that connects for the first time triggers the **first-connection prompt** — choose *Allow*, *Block*, or *Details* to see why it connects.
-5. Open **RULES** to review per-app Wi‑Fi/mobile switches, **CONNECTIONS** to see history, and **SECURITY** for the threat pack and app scanning.
+5. Open **RULES** to review per-app Wi‑Fi/mobile switches, **CONNECTIONS** to see history, and **PROTECTION → SECURITY** for the threat pack and app scanning.
 6. Optional: set a **PIN**, enable **Always-on VPN** in Android settings, and run **Self-test** (Advanced mode) to validate DNS/SNI/TCP on your phone.
 
 Before reinstalling Hydra, use **Export** (Settings/Profiles) to save your configuration, then **Import** it afterwards.

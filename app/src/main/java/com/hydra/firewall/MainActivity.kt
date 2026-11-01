@@ -265,7 +265,8 @@ fun FirewallScreen(
     var selectedTab by remember { mutableStateOf(MainTab.PROTECTION) }
     var advancedMode by remember { mutableStateOf(settingsStore.advancedMode) }
     val advancedOnlyTabs = setOf(MainTab.IP_PORTS, MainTab.ANALYZER, MainTab.PROFILES, MainTab.SELFTEST)
-    val visibleTabs = MainTab.values().filter { advancedMode || it !in advancedOnlyTabs }
+    // SECURITY is now a section inside the PROTECTION tab (one place, no duplicated controls).
+    val visibleTabs = MainTab.values().filter { it != MainTab.SECURITY && (advancedMode || it !in advancedOnlyTabs) }
     if (selectedTab !in visibleTabs) selectedTab = MainTab.PROTECTION
     var search by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(settingsStore.showSystemApps) }
@@ -475,7 +476,17 @@ fun FirewallScreen(
 
                 when (selectedTab) {
                     MainTab.PROTECTION -> {
-                        ProtectionTabContent(
+                      var protectionView by remember { mutableStateOf(0) }
+                      Column(Modifier.fillMaxSize()) {
+                        HydraHorizontalRow(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(40.dp)) {
+                            HydraChoiceButton(protectionView == 0, "FIREWALL", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { protectionView = 0 })
+                            Spacer(Modifier.width(8.dp))
+                            HydraChoiceButton(protectionView == 1, if (language.isEnglish()) "SECURITY" else "SEGURIDAD", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { protectionView = 1 })
+                        }
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                        if (protectionView == 1) {
+                            SecurityCenterTab(context, language)
+                        } else ProtectionTabContent(
                             advancedMode = advancedMode,
                             onAdvancedModeChange = { advancedMode = it; settingsStore.advancedMode = it },
                             context = context,
@@ -541,6 +552,8 @@ fun FirewallScreen(
                             },
                             onKillSwitch = onKillSwitch
                         )
+                        }
+                      }
                     }
                     MainTab.RULES -> {
                         Column(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
@@ -2783,8 +2796,14 @@ private fun ProtectionTabContent(
         }
         Spacer(Modifier.height(6.dp))
 
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+        Card(
+            Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isOn) Color(0xFF34D399).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2793,7 +2812,8 @@ private fun ProtectionTabContent(
                     Column(Modifier.weight(1f).padding(end = 8.dp)) {
                         Text(
                             if (language.isEnglish()) "Firewall VPN" else "VPN del firewall",
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
                         )
                         Text(
                             if (language.isEnglish())

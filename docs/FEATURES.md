@@ -116,9 +116,9 @@ with the DNS answer the same app resolved earlier. QUIC protection can be switch
 
 ## 5. Threat intelligence
 
-**Self-update (1.3.0).** Security → Overview → "Hydra update": automatic daily check + manual *Check for update*, shows "already up to date" when there is nothing new. The APK is installed only if its SHA‑256 matches the release's `.apk.sha256`, it is the same package, newer, and signed with the same certificate; Android still asks for confirmation. Releases are produced by tagging `vX.Y.Z` (see VERSIONING). **Suspicious apps** show *Copy details* (package, version, installer, APK/cert hashes, permissions, matching rules) and a small *Google* search button.
+**Self-update (1.3.0).** Protection → Security → Overview → "Hydra update": automatic daily check + manual *Check for update*, shows "already up to date" when there is nothing new. The APK is installed only if its SHA‑256 matches the release's `.apk.sha256`, it is the same package, newer, and signed with the same certificate; Android still asks for confirmation. Releases are produced by tagging `vX.Y.Z` (see VERSIONING). **Suspicious apps** show *Copy details* (package, version, installer, APK/cert hashes, permissions, matching rules) and a small *Google* search button.
 
-**Antivirus-style app checks (1.2.0).** Installed apps are compared with the signed pack (SHA‑256 hashes + YARA‑Lite) when installed/updated and after each pack update; matches raise a security event and a notification. Known threats only; nothing is removed automatically. **Control and updates card (1.2.1)** in Security → Overview: one place to switch/update VPN, threat pack, antivirus, blocklists and TLS fingerprint.
+**Antivirus-style app checks (1.2.0).** Installed apps are compared with the signed pack (SHA‑256 hashes + YARA‑Lite) when installed/updated and after each pack update; matches raise a security event and a notification. Known threats only; nothing is removed automatically. **Control and updates card (1.2.1)** in Protection → Security → Overview: one place to switch/update VPN, threat pack, antivirus, blocklists and TLS fingerprint.
 
 Hydra can load a **signed threat pack** with malicious IPs, domains and **YARA‑Lite** rules. Sources
 include abuse.ch (Feodo Tracker, URLhaus, ThreatFox).

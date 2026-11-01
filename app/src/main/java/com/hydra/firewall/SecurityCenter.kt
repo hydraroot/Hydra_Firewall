@@ -248,13 +248,6 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             }
         }
 
-        // ---- Firewall (VPN): status only. The on/off switch lives in the PROTECTION tab (not repeated here).
-        LayerRow(
-            "Firewall (VPN)",
-            (if (vpnOn) t("Activo", "On") else t("Apagado", "Off")) + " • " + t("se enciende y apaga en la pestaña PROTECCIÓN", "switch it on/off in the PROTECTION tab"),
-            vpnOn, null, null
-        )
-
         // ---- Antivirus
         LayerRow(
             t("Antivirus", "Antivirus"),
@@ -286,13 +279,6 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             }
             if (packDetails) ThreatPackCard(english, refreshTrigger + tick)
         }
-
-        // ---- Domain blocklists: status only. Update/Check buttons live in the PROTECTION tab (not repeated here).
-        LayerRow(
-            t("Listas de dominios", "Domain blocklists"),
-            t("Anuncios, rastreadores y malware • se actualizan desde la pestaña PROTECCIÓN", "Ads, trackers and malware • update them from the PROTECTION tab"),
-            null, null, null
-        )
 
         // ---- Hydra itself
         LayerRow(

@@ -1,3 +1,7 @@
+## 1.4.0 (versionCode 10400)
+- **Seguridad dentro de Protección:** la pestaña SEGURIDAD desaparece de la barra; ahora es una sección de PROTECCIÓN (selector FIREWALL / SEGURIDAD arriba). Todo el control de protección está en un solo lugar y no hay controles repetidos: de «Control y actualizaciones» se quitaron las filas de VPN y listas (ya están en el selector FIREWALL; el estado de la VPN se ve en el encabezado).
+- Tarjeta principal de la VPN rediseñada (más grande, esquinas redondeadas y fondo verde cuando está activa). Sin cambios de funcionamiento.
+
 ## 1.3.3 (versionCode 10303)
 - **Aspecto moderno en TODA la app:** nueva paleta (violeta, superficies oscuras/claras más limpias) y esquinas más redondeadas aplicadas desde el tema, así que todas las pestañas (Protección, Reglas, Conexiones, Estadísticas, Ajustes, Ayuda…) lo reciben. Solo colores y formas: sin cambios de funcionamiento.
 - **Sin botones repetidos entre pestañas:** el interruptor del firewall y los botones de actualizar listas viven solo en PROTECCIÓN; en Seguridad → Resumen ahora son solo estado (con la indicación de dónde se manejan). Quedan en Seguridad únicamente las acciones propias: pack de amenazas, antivirus y actualización de Hydra.
