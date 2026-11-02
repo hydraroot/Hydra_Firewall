@@ -24,5 +24,5 @@
 - New apps start blocked: at first you will see apps without internet until you approve them.
 
 ## Privacy
-- No telemetry. Hydra's own connections are: blocklists (GitHub/OISD, only when you ask), encrypted DNS, and the signed threat feed (about daily).
+- No telemetry. Hydra's own connections are: blocklists (GitHub/OISD, only when you ask), encrypted DNS, the signed threat feed (about daily) and the check for new Hydra versions on GitHub Releases (can be turned off in Security).
 - Sensitive permissions: `QUERY_ALL_PACKAGES` (app names/icons) and `PACKAGE_USAGE_STATS` (local statistics). `allowBackup=false`.

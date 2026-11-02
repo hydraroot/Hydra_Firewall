@@ -125,7 +125,8 @@ object AppUpdater {
         if (System.currentTimeMillis() - lastCheck(app) < CHECK_INTERVAL_MS) return
         check(app) { r ->
             if (r is CheckResult.Available) {
-                if (isMetered(app)) {
+                // A debug/test build has a different signature: a release APK can never replace it, so do not download.
+                if (isMetered(app) || isDebugBuild(app)) {
                     com.hydra.firewall.vpn.NotificationHelper.notifyAppUpdate(app, r.release.version, readyToInstall = false)
                 } else {
                     downloadAndInstall(app, r.release, background = true) { }

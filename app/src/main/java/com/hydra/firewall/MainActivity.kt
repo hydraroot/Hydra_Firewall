@@ -386,7 +386,7 @@ fun FirewallScreen(
         NavGroup("security", 3, listOf(MainTab.SECURITY)),
         NavGroup("more", 4, listOf(MainTab.SETTINGS, MainTab.HELP, MainTab.ABOUT, MainTab.SELFTEST))
     )
-    val lastInGroup = remember { mutableStateMapOf<String, MainTab>() }
+    val lastInGroup = remember { HashMap<String, MainTab>() }  // plain map: only read in onClick, written during composition
     val currentGroup = navGroups.first { selectedTab in it.tabs }
     fun groupLabel(g: NavGroup): String = when (g.id) {
         "home" -> if (language.isEnglish()) "Home" else "Inicio"

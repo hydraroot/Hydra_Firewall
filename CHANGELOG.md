@@ -1,3 +1,6 @@
+## 2.0.2 (versionCode 20002)
+- Auditoría de 2.0.1 (revisión estática: llaves/paréntesis balanceados en los 100+ archivos Kotlin, YAML válido, tests de Python OK, dependencias de test de `org.json` presentes). Dos ajustes: la navegación ya no escribe un `mutableStateMapOf` durante la composición (ahora un `HashMap` simple, solo se lee al tocar), y la descarga automática de actualizaciones se omite en compilaciones debug/de prueba (nunca podrían instalarse por la firma distinta) para no gastar datos.
+
 ## 2.0.1 (versionCode 20001)
 - **Inicio igual a la opción 1:** el Inicio se reordena como en el diseño elegido: primero la tarjeta grande del firewall (VPN), luego tres mosaicos (bloqueos hoy, dominios en la lista, amenazas), una tarjeta «Seguridad: protegido / N apps requieren atención / sin revisar» que lleva a Seguridad al tocarla, y los interruptores «Bloquear todo el tráfico» y «Amenazas + publicidad» como tarjetas. Se quitó el título «Controles básicos de protección»; el selector de modo Normal/Avanzado pasó más abajo. Solo cambia la presentación: todas las funciones siguen igual.
 
