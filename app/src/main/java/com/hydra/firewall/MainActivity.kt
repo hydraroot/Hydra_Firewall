@@ -563,7 +563,8 @@ fun FirewallScreen(
                                     }
                                 }
                             },
-                            onKillSwitch = onKillSwitch
+                            onKillSwitch = onKillSwitch,
+                            onOpenSecurity = { selectedTab = MainTab.SECURITY }
                         )
                     }
                     MainTab.RULES -> {
@@ -2765,7 +2766,8 @@ private fun ProtectionTabContent(
     onThreatProtectionChange: (Boolean) -> Unit,
     onCheckBlocklist: () -> Unit,
     onUpdateBlocklist: () -> Unit,
-    onKillSwitch: () -> Unit
+    onKillSwitch: () -> Unit,
+    onOpenSecurity: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -2773,40 +2775,7 @@ private fun ProtectionTabContent(
             .padding(horizontal = 10.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            if (language.isEnglish()) "Core protection controls" else "Controles básicos de protección",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            if (language.isEnglish())
-                "The essential protection switches are managed here. Advanced configuration remains in Settings."
-            else
-                "Los interruptores esenciales de protección se administran aquí. La configuración avanzada queda en Ajustes.",
-            style = MaterialTheme.typography.bodySmall
-        )
         Spacer(Modifier.height(6.dp))
-
-        Card(Modifier.fillMaxWidth()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        if (language.isEnglish()) "Mode: ${if (advancedMode) "ADVANCED" else "NORMAL"}" else "Modo: ${if (advancedMode) "AVANZADO" else "NORMAL"}",
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        if (language.isEnglish()) "Advanced shows extra tabs (IP/Ports, Analyzer, Profiles, Test)." else "Avanzado muestra pestañas extra (IP/Puertos, Analizador, Perfiles, Prueba).",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Switch(checked = advancedMode, onCheckedChange = onAdvancedModeChange)
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-
         Card(
             Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -2852,8 +2821,43 @@ private fun ProtectionTabContent(
             }
         }
 
+        Spacer(Modifier.height(10.dp))
+        val homeThreats = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.findings(context).size }
+        val homeLastScan = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.lastFullScan(context) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HomeStatTile(Modifier.weight(1f), blockAdsBlockedToday.toString(), if (language.isEnglish()) "blocked today" else "bloqueos hoy")
+            HomeStatTile(Modifier.weight(1f), blockAdsListInfo.domainCount.toString(), if (language.isEnglish()) "domains in list" else "dominios en lista")
+            HomeStatTile(Modifier.weight(1f), homeThreats.toString(), if (language.isEnglish()) "threats" else "amenazas")
+        }
+        Spacer(Modifier.height(10.dp))
+        Card(
+            Modifier.fillMaxWidth().clickable { onOpenSecurity() },
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(10.dp).clip(CircleShape).background(
+                        when {
+                            homeThreats > 0 -> Color(0xFFF87171)
+                            homeLastScan == 0L -> Color(0xFFFBBF24)
+                            else -> Color(0xFF34D399)
+                        }
+                    )
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    when {
+                        homeThreats > 0 -> if (language.isEnglish()) "Security: $homeThreats app(s) need attention" else "Seguridad: $homeThreats app(s) requieren atención"
+                        homeLastScan == 0L -> if (language.isEnglish()) "Security: apps not checked yet" else "Seguridad: todavía sin revisar las apps"
+                        else -> if (language.isEnglish()) "Security: protected" else "Seguridad: protegido"
+                    },
+                    fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
+                )
+                Text(if (language.isEnglish()) "View" else "Ver", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+        }
         Spacer(Modifier.height(8.dp))
-        SettingSwitchRow(
+        SettingSwitchCard(
             if (language.isEnglish()) "Block all traffic" else "Bloquear todo el tráfico",
             if (language.isEnglish())
                 "Stops normal traffic decisions globally while enabled."
@@ -2864,7 +2868,7 @@ private fun ProtectionTabContent(
         )
 
         Spacer(Modifier.height(4.dp))
-        SettingSwitchRow(
+        SettingSwitchCard(
             if (language.isEnglish()) "Threats + ads" else "Amenazas + publicidad",
             if (language.isEnglish())
                 "Uses the local blocklist to block ads and trackers. Secure DNS is configured separately in Settings."
@@ -2932,6 +2936,28 @@ private fun ProtectionTabContent(
         Button(onClick = onKillSwitch) {
             Text(if (language.isEnglish()) "OPEN VPN SETTINGS" else "ABRIR AJUSTES VPN")
         }
+
+        Spacer(Modifier.height(10.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        if (language.isEnglish()) "Mode: ${if (advancedMode) "ADVANCED" else "NORMAL"}" else "Modo: ${if (advancedMode) "AVANZADO" else "NORMAL"}",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (language.isEnglish()) "Advanced shows extra tabs (IP/Ports, Analyzer, Profiles, Test)." else "Avanzado muestra pestañas extra (IP/Puertos, Analizador, Perfiles, Prueba).",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Switch(checked = advancedMode, onCheckedChange = onAdvancedModeChange)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
 
         Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(10.dp))
         Text(if (language.isEnglish()) "Current protection status" else "Estado actual de protección", style = MaterialTheme.typography.titleMedium)
@@ -4377,6 +4403,30 @@ private fun NavGlyph(kind: Int, color: Color) {
             else -> listOf(5f, 12f, 19f).forEach { x ->
                 drawCircle(color, radius = 1.8f * s, center = androidx.compose.ui.geometry.Offset(x * s, 12f * s))
             }
+        }
+    }
+}
+
+
+@Composable
+private fun SettingSwitchCard(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked, onCheckedChange)
+        }
+    }
+}
+
+@Composable
+private fun HomeStatTile(modifier: Modifier, value: String, label: String) {
+    Card(modifier, shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 20.sp, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
         }
     }
 }

@@ -1,3 +1,6 @@
+## 2.0.1 (versionCode 20001)
+- **Inicio igual a la opción 1:** el Inicio se reordena como en el diseño elegido: primero la tarjeta grande del firewall (VPN), luego tres mosaicos (bloqueos hoy, dominios en la lista, amenazas), una tarjeta «Seguridad: protegido / N apps requieren atención / sin revisar» que lleva a Seguridad al tocarla, y los interruptores «Bloquear todo el tráfico» y «Amenazas + publicidad» como tarjetas. Se quitó el título «Controles básicos de protección»; el selector de modo Normal/Avanzado pasó más abajo. Solo cambia la presentación: todas las funciones siguen igual.
+
 ## 2.0.0 (versionCode 20000)
 - **Navegación rehecha (opción 1: barra inferior):** 5 destinos — Inicio (firewall y protección básica), Apps (Reglas · IP y puertos · Perfiles), Actividad (Conexiones · Estadísticas · Analizador), Seguridad (antivirus, pack, actualizaciones, analizador de APK) y Más (Ajustes · Ayuda · Acerca de · Prueba). Donde un destino tiene varias pantallas, una fila de botones arriba cambia entre ellas; los destinos «Avanzados» siguen apareciendo solo en modo Avanzado. Reemplaza la fila de 11 pestañas con scroll.
 - **Sin cambios de funcionamiento:** las pantallas y su lógica son las mismas; solo cambia dónde se llega a ellas. La sección Seguridad vuelve a ser un destino propio (ya no está dentro de Protección).
