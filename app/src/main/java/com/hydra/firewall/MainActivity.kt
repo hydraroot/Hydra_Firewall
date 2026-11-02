@@ -265,8 +265,7 @@ fun FirewallScreen(
     var selectedTab by remember { mutableStateOf(MainTab.PROTECTION) }
     var advancedMode by remember { mutableStateOf(settingsStore.advancedMode) }
     val advancedOnlyTabs = setOf(MainTab.IP_PORTS, MainTab.ANALYZER, MainTab.PROFILES, MainTab.SELFTEST)
-    // SECURITY is now a section inside the PROTECTION tab (one place, no duplicated controls).
-    val visibleTabs = MainTab.values().filter { it != MainTab.SECURITY && (advancedMode || it !in advancedOnlyTabs) }
+    val visibleTabs = MainTab.values().filter { advancedMode || it !in advancedOnlyTabs }
     if (selectedTab !in visibleTabs) selectedTab = MainTab.PROTECTION
     var search by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(settingsStore.showSystemApps) }
@@ -379,8 +378,59 @@ fun FirewallScreen(
         ProtectionStatus.read(context)
     }
 
+    // 2.0.0 navigation: 5 bottom destinations; each one groups the former tabs (same screens, same functions).
+    val navGroups = listOf(
+        NavGroup("home", 0, listOf(MainTab.PROTECTION)),
+        NavGroup("apps", 1, listOf(MainTab.RULES, MainTab.IP_PORTS, MainTab.PROFILES)),
+        NavGroup("activity", 2, listOf(MainTab.CONNECTIONS, MainTab.STATS, MainTab.ANALYZER)),
+        NavGroup("security", 3, listOf(MainTab.SECURITY)),
+        NavGroup("more", 4, listOf(MainTab.SETTINGS, MainTab.HELP, MainTab.ABOUT, MainTab.SELFTEST))
+    )
+    val lastInGroup = remember { mutableStateMapOf<String, MainTab>() }
+    val currentGroup = navGroups.first { selectedTab in it.tabs }
+    fun groupLabel(g: NavGroup): String = when (g.id) {
+        "home" -> if (language.isEnglish()) "Home" else "Inicio"
+        "apps" -> "Apps"
+        "activity" -> if (language.isEnglish()) "Activity" else "Actividad"
+        "security" -> if (language.isEnglish()) "Security" else "Seguridad"
+        else -> if (language.isEnglish()) "More" else "Más"
+    }
+    fun tabTitle(tab: MainTab): String = when (tab) {
+        MainTab.PROTECTION -> if (language.isEnglish()) "PROTECTION" else "PROTECCIÓN"
+        MainTab.RULES -> tr(context,"rules")
+        MainTab.IP_PORTS -> tr(context,"ip_ports")
+        MainTab.CONNECTIONS -> tr(context,"connections")
+        MainTab.ANALYZER -> if (language.isEnglish()) "ANALYZER" else "ANALIZADOR"
+        MainTab.STATS -> tr(context,"stats")
+        MainTab.PROFILES -> tr(context,"profiles")
+        MainTab.SECURITY -> if (language.isEnglish()) "SECURITY" else "SEGURIDAD"
+        MainTab.SELFTEST -> if (language.isEnglish()) "TEST" else "PRUEBA"
+        MainTab.SETTINGS -> tr(context,"settings")
+        MainTab.HELP -> tr(context,"help")
+        MainTab.ABOUT -> tr(context,"about")
+    }.uppercase()
+
     FirewallLocalTheme(darkTheme = darkTheme) {
-        Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
+        Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
+            bottomBar = {
+                NavigationBar {
+                    navGroups.forEach { g ->
+                        val shown = g.tabs.filter { it in visibleTabs }
+                        if (shown.isEmpty()) return@forEach
+                        val selected = g === currentGroup
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                selectedTab = lastInGroup[g.id]?.takeIf { it in shown } ?: shown.first()
+                            },
+                            icon = { NavGlyph(g.glyph, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                            label = { Text(groupLabel(g), fontSize = 11.sp, maxLines = 1) }
+                        )
+                    }
+                }
+            }
+        ) { padding ->
             Column(modifier = modifier.fillMaxSize().padding(padding)) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
@@ -434,59 +484,22 @@ fun FirewallScreen(
                         drawCircle(toggleBorder, radius = r - 1f, style = Stroke(width = 2f))
                     }
                 }
-                ScrollableTabRow(selectedTabIndex = visibleTabs.indexOf(selectedTab).coerceAtLeast(0), edgePadding = 4.dp) {
-                    visibleTabs.forEachIndexed { index, tab ->
-                        Tab(
-                            index == visibleTabs.indexOf(selectedTab),
-                            { selectedTab = tab },
-                            text = {
-                                Text(
-                                    when (tab) {
-                                        MainTab.PROTECTION -> if (language.isEnglish()) "PROTECTION" else "PROTECCIÓN"
-                                        MainTab.RULES -> tr(context,"rules")
-                                        MainTab.IP_PORTS -> tr(context,"ip_ports")
-                                        MainTab.CONNECTIONS -> tr(context,"connections")
-                                        MainTab.ANALYZER -> if (language.isEnglish()) "ANALYZER" else "ANALIZADOR"
-                                        MainTab.STATS -> tr(context,"stats")
-                                        MainTab.PROFILES -> tr(context,"profiles")
-                                        MainTab.SECURITY -> if (language.isEnglish()) "SECURITY" else "SEGURIDAD"
-                                        MainTab.SELFTEST -> if (language.isEnglish()) "TEST" else "PRUEBA"
-                                        MainTab.SETTINGS -> tr(context,"settings")
-                                        MainTab.HELP -> tr(context,"help")
-                                        MainTab.ABOUT -> tr(context,"about")
-                                    }.uppercase(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1
-                                )
+                run {
+                    lastInGroup[currentGroup.id] = selectedTab
+                    val shown = currentGroup.tabs.filter { it in visibleTabs }
+                    if (shown.size > 1) {
+                        HydraHorizontalRow(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(40.dp)) {
+                            shown.forEachIndexed { idx, tab ->
+                                if (idx > 0) Spacer(Modifier.width(8.dp))
+                                HydraChoiceButton(tab == selectedTab, tabTitle(tab), Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { selectedTab = tab })
                             }
-                        )
+                        }
                     }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(18.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        if (AppSettings(context).language.isEnglish()) "← more tabs →" else "← más pestañas →",
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
                 when (selectedTab) {
                     MainTab.PROTECTION -> {
-                      var protectionView by remember { mutableStateOf(0) }
-                      Column(Modifier.fillMaxSize()) {
-                        HydraHorizontalRow(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(40.dp)) {
-                            HydraChoiceButton(protectionView == 0, "FIREWALL", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { protectionView = 0 })
-                            Spacer(Modifier.width(8.dp))
-                            HydraChoiceButton(protectionView == 1, if (language.isEnglish()) "SECURITY" else "SEGURIDAD", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { protectionView = 1 })
-                        }
-                        Box(Modifier.weight(1f).fillMaxWidth()) {
-                        if (protectionView == 1) {
-                            SecurityCenterTab(context, language)
-                        } else ProtectionTabContent(
+                        ProtectionTabContent(
                             advancedMode = advancedMode,
                             onAdvancedModeChange = { advancedMode = it; settingsStore.advancedMode = it },
                             context = context,
@@ -552,8 +565,6 @@ fun FirewallScreen(
                             },
                             onKillSwitch = onKillSwitch
                         )
-                        }
-                      }
                     }
                     MainTab.RULES -> {
                         Column(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
@@ -4323,6 +4334,48 @@ private fun TimeStepper(context: Context, label: String, minutes: Int, onChange:
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.size(30.dp)
                 ) { Text("+", fontSize = 18.sp) }
+            }
+        }
+    }
+}
+
+
+private data class NavGroup(val id: String, val glyph: Int, val tabs: List<MainTab>)
+
+/** Tiny vector icons for the bottom bar (drawn, so no icon library is needed). */
+@Composable
+private fun NavGlyph(kind: Int, color: Color) {
+    Canvas(Modifier.size(24.dp)) {
+        val s = size.minDimension / 24f
+        val st = Stroke(width = 2f * s, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        val path = androidx.compose.ui.graphics.Path()
+        when (kind) {
+            0 -> {
+                path.moveTo(3f * s, 11f * s); path.lineTo(12f * s, 4f * s); path.lineTo(21f * s, 11f * s)
+                path.moveTo(5f * s, 10f * s); path.lineTo(5f * s, 20f * s); path.lineTo(19f * s, 20f * s); path.lineTo(19f * s, 10f * s)
+                drawPath(path, color, style = st)
+            }
+            1 -> listOf(4f to 4f, 14f to 4f, 4f to 14f, 14f to 14f).forEach { (x, y) ->
+                drawRoundRect(
+                    color, topLeft = androidx.compose.ui.geometry.Offset(x * s, y * s),
+                    size = androidx.compose.ui.geometry.Size(6f * s, 6f * s),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5f * s), style = st
+                )
+            }
+            2 -> {
+                path.moveTo(2f * s, 12f * s); path.lineTo(7f * s, 12f * s); path.lineTo(10f * s, 5f * s)
+                path.lineTo(14f * s, 19f * s); path.lineTo(17f * s, 12f * s); path.lineTo(22f * s, 12f * s)
+                drawPath(path, color, style = st)
+            }
+            3 -> {
+                path.moveTo(12f * s, 3f * s); path.lineTo(20f * s, 6f * s); path.lineTo(20f * s, 12f * s)
+                path.cubicTo(20f * s, 17f * s, 16f * s, 20f * s, 12f * s, 21f * s)
+                path.cubicTo(8f * s, 20f * s, 4f * s, 17f * s, 4f * s, 12f * s)
+                path.lineTo(4f * s, 6f * s); path.close()
+                drawPath(path, color, style = st)
+            }
+            else -> listOf(5f, 12f, 19f).forEach { x ->
+                drawCircle(color, radius = 1.8f * s, center = androidx.compose.ui.geometry.Offset(x * s, 12f * s))
             }
         }
     }

@@ -1,3 +1,8 @@
+## 2.0.0 (versionCode 20000)
+- **Navegación rehecha (opción 1: barra inferior):** 5 destinos — Inicio (firewall y protección básica), Apps (Reglas · IP y puertos · Perfiles), Actividad (Conexiones · Estadísticas · Analizador), Seguridad (antivirus, pack, actualizaciones, analizador de APK) y Más (Ajustes · Ayuda · Acerca de · Prueba). Donde un destino tiene varias pantallas, una fila de botones arriba cambia entre ellas; los destinos «Avanzados» siguen apareciendo solo en modo Avanzado. Reemplaza la fila de 11 pestañas con scroll.
+- **Sin cambios de funcionamiento:** las pantallas y su lógica son las mismas; solo cambia dónde se llega a ellas. La sección Seguridad vuelve a ser un destino propio (ya no está dentro de Protección).
+- Ayuda actualizada con la nueva navegación.
+
 ## 1.5.1 (versionCode 10501)
 - Seguridad: mientras se descarga el pack o se revisan las apps (por ejemplo, justo después de instalar), la tarjeta de estado muestra «Preparando la protección…» con lo que está pasando («Descargando y verificando el pack…» / «Revisando tus apps: X de Y») y explica por qué «Revisar todo ahora» y «Revisar apps ahora» están deshabilitados; se activan cuando aparece «Estás protegido». Antes los botones quedaban apagados sin explicación hasta que terminaba la primera revisión automática.
 

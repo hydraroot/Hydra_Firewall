@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (versión `1.5.1`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
+> **Estado: candidata para prueba cerrada** (versión `2.0.0`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -123,19 +123,19 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 Cada puntaje viene con un resultado simple: **0–49 parece normal, 50–89 dudosa, 90–100 sospechosa** (cuanto más alto, más sospechosa), según cuán acertado fue el modelo con ese puntaje en las pruebas. Si se pudo analizar muy poco código de la app, el resultado es **sin conclusión**.
 
-**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Protección → Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus, listas, huella TLS) en un solo lugar.
+**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus, listas, huella TLS) en un solo lugar.
 
 Junto con las reglas YARA‑Lite, el pack de amenazas firmado y la línea base de comportamiento por app (se aprende localmente cuando activás el registro de tráfico), alimentan el **Centro de seguridad** para que decidas con más información. La decisión siempre es tuya.
 
 ## Actualizaciones y actividad de red
 
-Hydra **no tiene telemetría**. Desde la 1.3.0 puede buscar (y descargar) versiones nuevas de sí misma en los Releases de GitHub de este repositorio; **Android siempre te pide confirmar la instalación**, y Hydra solo acepta un APK cuyo SHA‑256 coincide con el publicado y que está firmado con la misma clave que la app instalada. Podés apagar la búsqueda automática en Protección → Seguridad → Resumen. Las únicas conexiones que la app hace por su cuenta son:
+Hydra **no tiene telemetría**. Desde la 1.3.0 puede buscar (y descargar) versiones nuevas de sí misma en los Releases de GitHub de este repositorio; **Android siempre te pide confirmar la instalación**, y Hydra solo acepta un APK cuyo SHA‑256 coincide con el publicado y que está firmado con la misma clave que la app instalada. Podés apagar la búsqueda automática en Seguridad → Resumen. Las únicas conexiones que la app hace por su cuenta son:
 
 | Qué | Cuándo | A dónde |
 |---|---|---|
 | **Pack de amenazas firmado** | Automáticamente cada ~24 h (alarma inexacta), o a pedido con *Actualizar ahora* en el Centro de seguridad. La compilación por defecto apunta a la rama `threat-pack` de este repositorio. | `raw.githubusercontent.com` |
 | **Actualización de Hydra** | Cada ~24 h (y cuando tocás *Buscar actualización*): consulta la API de GitHub por el último release; descarga el APK solo en redes sin datos medidos. | `api.github.com`, releases de `github.com` |
-| **Revisión antivirus de apps** | Solo local, sin red: cuando se instala o actualiza una app y después de cada actualización del pack, las apps instaladas se comparan con el pack descargado. Se puede apagar en Protección → Seguridad → Resumen. | — |
+| **Revisión antivirus de apps** | Solo local, sin red: cuando se instala o actualiza una app y después de cada actualización del pack, las apps instaladas se comparan con el pack descargado. Se puede apagar en Seguridad → Resumen. | — |
 | **Listas de dominios** | Solo cuando **vos** tocás *Actualizar listas* / *Buscar actualización* en la pantalla de listas. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) y, si lo activás, `big.oisd.nl` |
 | **DNS cifrado** | De forma continua, para resolver nombres. | Cloudflare / Google / Quad9 (a tu elección) |
 
@@ -192,10 +192,10 @@ en la pestaña Analizador y reabrís el Centro de seguridad tras algo de uso rea
 ## Inicio rápido
 
 1. **Instalá** el APK (ver abajo) y abrí Hydra.
-2. Tocá el interruptor **Firewall VPN** en la pestaña PROTECCIÓN y aceptá el aviso de VPN de Android.
+2. Tocá el interruptor **Firewall VPN** en Inicio y aceptá el aviso de VPN de Android.
 3. Permití las notificaciones y excluí a Hydra de la optimización de batería (si no, Android puede detener el servicio).
 4. Usá el teléfono normalmente. Cada app que se conecta por primera vez muestra el **aviso de primera conexión**: elegí *Permitir*, *Bloquear* o *Detalles* para ver por qué se conecta.
-5. Abrí **REGLAS** para revisar los interruptores Wi‑Fi/datos por app, **CONEXIONES** para ver el historial y **PROTECCIÓN → SEGURIDAD** para el pack de amenazas y el escaneo de apps.
+5. Abrí **REGLAS** para revisar los interruptores Wi‑Fi/datos por app, **CONEXIONES** para ver el historial y **SEGURIDAD** para el pack de amenazas y el escaneo de apps.
 6. Opcional: poné un **PIN** (5 a 8 dígitos), activá **VPN siempre activa** en los ajustes de Android, activá la **Cuarentena** si querés revisar las apps nuevas y corré el **Autotest** (modo Avanzado) para validar DNS/SNI/TCP en tu teléfono.
 
 Antes de reinstalar Hydra, usá **Exportar** (Ajustes/Perfiles) para guardar tu configuración y **Importar** después.
