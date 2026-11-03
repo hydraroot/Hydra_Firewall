@@ -1028,6 +1028,16 @@ private data class BulkScanRow(
     val verdict: String = ""
 )
 
+/** State of the "scan installed apps" run, kept outside the composable so it survives navigating away. */
+private object BulkScanState {
+    val running = mutableStateOf(false)
+    val done = mutableStateOf(0)
+    val total = mutableStateOf(0)
+    val current = mutableStateOf("")
+    val rows = mutableStateOf<List<BulkScanRow>>(emptyList())
+    val cancel = java.util.concurrent.atomic.AtomicBoolean(false)
+}
+
 private fun apkScannerSection(
     scope: androidx.compose.foundation.lazy.LazyListScope,
     context: Context,
@@ -1037,12 +1047,14 @@ private fun apkScannerSection(
     item {
         var report by remember { mutableStateOf<ApkScanReport?>(null) }
         var scanning by remember { mutableStateOf(false) }
-        var bulkRunning by remember { mutableStateOf(false) }
-        var bulkDone by remember { mutableStateOf(0) }
-        var bulkTotal by remember { mutableStateOf(0) }
-        var bulkCurrent by remember { mutableStateOf("") }
-        var bulkRows by remember { mutableStateOf<List<BulkScanRow>>(emptyList()) }
-        val bulkCancel = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+        // The bulk scan lives in a process-wide holder, so leaving this screen and coming back keeps showing the same
+        // running scan (progress and results) instead of starting from zero.
+        var bulkRunning by BulkScanState.running
+        var bulkDone by BulkScanState.done
+        var bulkTotal by BulkScanState.total
+        var bulkCurrent by BulkScanState.current
+        var bulkRows by BulkScanState.rows
+        val bulkCancel = BulkScanState.cancel
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             if (uri == null) return@rememberLauncherForActivityResult
             scanning = true

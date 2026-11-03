@@ -1,3 +1,7 @@
+## 2.2.3 (versionCode 20203)
+- **Reglas que volvían a preguntar:** al abrir la app, la cuarentena volvía a bloquear y a «marcar como sin decidir» a toda app que siguiera en su lista de pendientes, aunque ya le hubieras fijado una regla en Reglas; por eso Hydra preguntaba otra vez. Ahora, si la app ya tiene una regla tuya, se la saca de pendientes y no se toca la regla.
+- **El escaneo de apps ya no se reinicia al cambiar de pantalla:** el progreso y los resultados de «Escanear apps instaladas» (analizador MH-100K) viven fuera de la pantalla; si salís de Seguridad y volvés, seguís viendo el mismo escaneo en curso.
+
 ## 2.2.2 (versionCode 20202)
 - **Arreglo de la actualización desde la app:** el chequeo previo de firma fallaba con «la firma no coincide» aunque el APK del Release estuviera bien firmado (en algunos teléfonos Android no puede leer la firma de un APK que todavía no está instalado). Ahora, si no se puede leer, Hydra no bloquea y deja que Android decida (es quien realmente rechaza una firma distinta); si las firmas se pueden leer y no coinciden, el mensaje muestra las dos huellas (instalada → nueva) para diagnosticar. Nuevo test de la regla.
 

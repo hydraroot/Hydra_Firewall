@@ -36,6 +36,10 @@ class QuarantineManager(context: Context) {
         // Migrate any still-pending quarantine entries created by older builds so
         // their BLOCK/BLOCK rule does not masquerade as a user decision.
         val migratedRuleStore = RuleStore(context)
+        // An app the user already decided about (a rule set from the Rules tab clears the quarantine flag) must NOT be
+        // put back in quarantine: that wiped the rule and made Hydra ask again. Those entries are simply dropped.
+        val decided = readEntries().filter { it.uid >= android.os.Process.FIRST_APPLICATION_UID && migratedRuleStore.hasExplicitRule(it.uid) }
+        if (decided.isNotEmpty()) writeEntries(readEntries().filterNot { e -> decided.any { it.packageName == e.packageName } })
         readEntries().forEach { pending ->
             if (pending.uid >= android.os.Process.FIRST_APPLICATION_UID) {
                 migratedRuleStore.setQuarantineDefault(pending.uid)
