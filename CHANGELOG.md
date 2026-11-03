@@ -1,3 +1,10 @@
+## 2.2.0 (versionCode 20200)
+- **Más cobertura del antivirus (permisos delicados):** para apps instaladas fuera de una tienda conocida, Hydra marca combinaciones de permisos típicas de malware (accesibilidad + superposición + SMS, escucha de notificaciones + SMS, instalar paquetes, administrador de dispositivo, etc.). Son indicios, no pruebas: aparecen en una tarjeta aparte, sin notificaciones, con Google e Ignorar. Las apps de tienda y del sistema no se marcan.
+- **Motivo en lenguaje simple:** cada hallazgo explica por qué se marcó («idéntico a malware conocido» o «patrón típico, puede ser falso positivo»); «Copiar datos» incluye el origen y los indicios.
+- **Apps ignoradas con fecha y vigilancia de firma:** la lista muestra cuándo se ignoró cada app (amenazas y permisos delicados). Si una app ignorada cambia su firma de desarrollador, Hydra deja de ignorarla, registra un evento y avisa con una notificación.
+- **Calibración del escáner MH-100K:** «Copiar resultados» ahora incluye versión, fecha y el origen de cada app (store/sideload/system). Nuevo `tools/analyze_scan_results.py` calcula la distribución de puntajes por origen y sugiere un umbral que marque a lo sumo el 1 % de las apps de tienda.
+- MalwareBazaar (hashes de abuse.ch) sigue pendiente: requiere tu propia clave de abuse.ch.
+
 ## 2.1.0 (versionCode 20100)
 - **Inicio más limpio:** el kill switch del sistema y el estado detallado (DNS, lista, integridad) pasan a una tarjeta plegable «Detalles del sistema». El selector Normal/Avanzado queda siempre visible debajo.
 - **Mismo estilo en Apps, Actividad y Más:** filas de apps (Reglas), entradas del historial de conexiones, interruptores y bloques de reglas de Ajustes ahora son tarjetas redondeadas con más aire. Solo presentación.

@@ -148,6 +148,8 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     var updRelease by remember { mutableStateOf<AppUpdater.Release?>(null) }
     var ignoredList by remember(tick, refreshTrigger) { mutableStateOf(AppThreatScanner.ignoredFindings(context)) }
     var showIgnored by remember { mutableStateOf(false) }
+    var behavior by remember(tick, refreshTrigger) { mutableStateOf(AppThreatScanner.behaviorFindings(context)) }
+    var ignoredBehavior by remember(tick, refreshTrigger) { mutableStateOf(AppThreatScanner.ignoredBehavior(context)) }
     // The scan can also be started in the background (on app open, after a pack update): follow its real state so the
     // button is enabled again as soon as it ends (the old value was read once and could stay disabled forever).
     var uiTick by remember { mutableStateOf(0) }
@@ -255,6 +257,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                         else t(" — solo patrón, puede ser falso positivo", " — pattern only, may be a false positive"),
                     fontSize = 12.sp
                 )
+                Text(AppThreatScanner.plainReason(f, english), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171), contentColor = Color(0xFF3B0B0B)),
@@ -303,9 +306,48 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(f.label, fontWeight = FontWeight.Bold)
                             Text(f.packageName + " • " + f.matches.take(2).joinToString(", ") { it.name }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(t("Ignorada el ", "Ignored on ") + dateFmt.format(java.util.Date(f.time)), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { AppThreatScanner.unignore(context, f.packageName); tick++ }) {
                                 Text(t("Volver a vigilar", "Watch again"))
                             }
+                        }
+                    }
+                    Text(t("Si una app ignorada cambia su firma de desarrollador, Hydra la vuelve a vigilar y te avisa.", "If an ignored app changes its developer signature, Hydra watches it again and notifies you."), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // ---- Sensitive-permission indications (sideloaded apps only)
+        behavior.forEach { b ->
+            ModernCard {
+                Text("🔎 " + b.label, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(b.packageName, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                b.indicators.forEach { i ->
+                    Text("• " + (if (english) i.en else i.es), fontSize = 12.sp)
+                }
+                Text(t("No es una prueba de malware: muchas apps legítimas piden estos permisos. Revisá si la instalaste vos y si la necesitás.", "This is not proof of malware: many legitimate apps request these permissions. Check that you installed it and still need it."), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(modifier = Modifier.weight(1f), onClick = {
+                        runCatching {
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(b.label + " " + b.packageName + " android permissions safe")))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                    }) { Text(t("Buscar en Google", "Search Google"), fontSize = 12.sp, maxLines = 1) }
+                    OutlinedButton(modifier = Modifier.weight(1f), onClick = {
+                        AppThreatScanner.ignoreBehavior(context, b); tick++
+                    }) { Text(t("Ignorar", "Ignore"), fontSize = 12.sp, maxLines = 1) }
+                }
+            }
+        }
+        if (ignoredBehavior.isNotEmpty()) {
+            ModernCard {
+                Text(t("Permisos delicados ignorados (${ignoredBehavior.size})", "Ignored sensitive-permission apps (${ignoredBehavior.size})"), fontWeight = FontWeight.Bold)
+                ignoredBehavior.forEach { b ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(b.label, fontWeight = FontWeight.Bold)
+                        Text(b.packageName + " • " + t("ignorada el ", "ignored on ") + dateFmt.format(java.util.Date(b.time)), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { AppThreatScanner.unignoreBehavior(context, b.packageName); tick++ }) {
+                            Text(t("Volver a vigilar", "Watch again"))
                         }
                     }
                 }
@@ -1136,8 +1178,14 @@ private fun apkScannerSection(
                 )
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(onClick = {
-                    val text = bulkRows.sortedByDescending { it.ai ?: -1 }
-                        .joinToString("\n") { "${it.ai ?: "-"}\t${it.label}\t${it.pkg}\trisk=${it.riskScore}\t${it.seconds}s\t${it.verdict}\t${it.note}" }
+                    val header = "# Hydra MH-100K scan | v${com.hydra.firewall.BuildConfig.VERSION_NAME} | " +
+                        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date()) +
+                        "\n# score\tlabel\tpackage\tsource\trisk\tseconds\tverdict\tnote\n"
+                    val text = header + bulkRows.sortedByDescending { it.ai ?: -1 }
+                        .joinToString("\n") { r ->
+                            val src = runCatching { AppBehaviorRules.factsFor(context, r.pkg)?.let { AppBehaviorRules.source(it) } }.getOrNull() ?: "unknown"
+                            "${r.ai ?: "-"}\t${r.label}\t${r.pkg}\t$src\trisk=${r.riskScore}\t${r.seconds}s\t${r.verdict}\t${r.note}"
+                        }
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra MH-100K", text))
                 }) { Text(if (english) "Copy results" else "Copiar resultados") }

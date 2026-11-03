@@ -35,6 +35,10 @@ object AppThreatScanner {
     private const val KEY_LAST_PACK = "last_full_scan_pack"
     private const val KEY_FINDINGS = "findings"
     private const val KEY_IGNORED = "ignored"
+    private const val KEY_BEHAVIOR = "behavior"
+    private const val KEY_BEHAVIOR_IGNORED = "behavior_ignored"
+    private const val SIGNER_PREFIX = "ignsig_"
+    private const val MAX_BEHAVIOR = 100
     private const val SEEN_PREFIX = "seen_"
     private const val MAX_FINDINGS = 100
     private const val MAX_APK_BYTES = 512L * 1024L * 1024L
@@ -64,6 +68,111 @@ object AppThreatScanner {
     fun findings(context: Context): List<Finding> =
         decodeFindings(prefs(context).getString(KEY_FINDINGS, "[]").orEmpty())
 
+    // ---- behavior indications (permission combinations on sideloaded apps) ------------------------------
+
+    data class BehaviorFinding(
+        val packageName: String,
+        val label: String,
+        val indicators: List<AppBehaviorRules.Indicator>,
+        val time: Long
+    )
+
+    fun behaviorFindings(context: Context): List<BehaviorFinding> =
+        decodeBehavior(prefs(context).getString(KEY_BEHAVIOR, "[]").orEmpty())
+
+    fun ignoredBehavior(context: Context): List<BehaviorFinding> =
+        decodeBehavior(prefs(context).getString(KEY_BEHAVIOR_IGNORED, "[]").orEmpty())
+
+    @Synchronized
+    fun ignoreBehavior(context: Context, b: BehaviorFinding) {
+        val app = context.applicationContext
+        val ignored = listOf(b.copy(time = System.currentTimeMillis())) + ignoredBehavior(app).filterNot { it.packageName == b.packageName }
+        val kept = behaviorFindings(app).filterNot { it.packageName == b.packageName }
+        prefs(app).edit().putString(KEY_BEHAVIOR_IGNORED, encodeBehavior(ignored)).putString(KEY_BEHAVIOR, encodeBehavior(kept))
+            .putString(SIGNER_PREFIX + b.packageName, AppUpdater.signerSha(app, b.packageName)).apply()
+        SecurityEventStore.record(app, "APP_BEHAVIOR_IGNORED", "Ignored: ${b.label}", b.packageName, Severity.INFO)
+    }
+
+    @Synchronized
+    fun unignoreBehavior(context: Context, packageName: String) {
+        val app = context.applicationContext
+        prefs(app).edit().putString(KEY_BEHAVIOR_IGNORED, encodeBehavior(ignoredBehavior(app).filterNot { it.packageName == packageName })).apply()
+        executor.execute { runCatching { recordBehavior(app, packageName) } }
+    }
+
+    @Synchronized
+    private fun recordBehavior(context: Context, packageName: String) {
+        val facts = AppBehaviorRules.factsFor(context, packageName)
+        val inds = if (facts == null) emptyList() else AppBehaviorRules.evaluate(facts)
+        val ignored = inds.isNotEmpty() && ignoredBehavior(context).any {
+            it.packageName == packageName && AppBehaviorRules.key(it.indicators) == AppBehaviorRules.key(inds)
+        }
+        val rest = behaviorFindings(context).filterNot { it.packageName == packageName }
+        val updated = if (inds.isEmpty() || ignored) rest
+        else (listOf(BehaviorFinding(packageName, labelOf(context, packageName), inds, System.currentTimeMillis())) + rest).take(MAX_BEHAVIOR)
+        prefs(context).edit().putString(KEY_BEHAVIOR, encodeBehavior(updated)).apply()
+    }
+
+    private fun labelOf(context: Context, packageName: String): String = runCatching {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+    }.getOrDefault(packageName)
+
+    /** If an app the user chose to ignore now has a DIFFERENT signing certificate, stop ignoring it and warn. */
+    @Synchronized
+    private fun checkIgnoredSigner(context: Context, packageName: String) {
+        val p = prefs(context)
+        val saved = p.getString(SIGNER_PREFIX + packageName, null) ?: return
+        val now = AppUpdater.signerSha(context, packageName) ?: return
+        if (now == saved) return
+        p.edit()
+            .putString(KEY_IGNORED, encodeFindings(ignoredFindings(context).filterNot { it.packageName == packageName }))
+            .putString(KEY_BEHAVIOR_IGNORED, encodeBehavior(ignoredBehavior(context).filterNot { it.packageName == packageName }))
+            .remove(SIGNER_PREFIX + packageName).apply()
+        val label = labelOf(context, packageName)
+        SecurityEventStore.record(context, "APP_SIGNER_CHANGED", "Signature changed: $label", "$packageName • was ignored, now watched again", Severity.HIGH)
+        NotificationHelper.notifyIgnoredAppChanged(context, packageName, label)
+    }
+
+    internal fun encodeBehavior(list: List<BehaviorFinding>): String {
+        val arr = JSONArray()
+        for (b in list) arr.put(JSONObject().apply {
+            put("pkg", b.packageName); put("label", b.label); put("time", b.time)
+            put("ind", JSONArray().apply {
+                b.indicators.forEach { i -> put(JSONObject().apply { put("id", i.id); put("level", i.level.name); put("es", i.es); put("en", i.en) }) }
+            })
+        })
+        return arr.toString()
+    }
+
+    internal fun decodeBehavior(json: String): List<BehaviorFinding> = runCatching {
+        val arr = JSONArray(json)
+        (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val ia = o.optJSONArray("ind") ?: JSONArray()
+            val inds = (0 until ia.length()).mapNotNull { j ->
+                val x = ia.optJSONObject(j) ?: return@mapNotNull null
+                AppBehaviorRules.Indicator(
+                    x.optString("id"),
+                    runCatching { AppBehaviorRules.Level.valueOf(x.optString("level")) }.getOrDefault(AppBehaviorRules.Level.LOW),
+                    x.optString("es"), x.optString("en")
+                )
+            }
+            if (inds.isEmpty()) null else BehaviorFinding(o.optString("pkg"), o.optString("label"), inds, o.optLong("time"))
+        }
+    }.getOrDefault(emptyList())
+
+    /** One plain-language sentence on WHY an app was flagged (no rule jargon). */
+    fun plainReason(f: Finding, english: Boolean): String {
+        val name = f.matches.firstNotNullOfOrNull { it.family } ?: f.matches.first().name
+        return if (f.definitive) {
+            if (english) "This app's file is identical to known malware ($name)." else "El archivo de esta app es idéntico a malware conocido ($name)."
+        } else {
+            if (english) "It contains code patterns typical of $name. It may be a false positive: check it before deciding."
+            else "Contiene patrones de código típicos de $name. Puede ser un falso positivo: revisalo antes de decidir."
+        }
+    }
+
     // ---- ignore list ------------------------------------------------------------------------------------
 
     fun ignoredFindings(context: Context): List<Finding> =
@@ -79,9 +188,10 @@ object AppThreatScanner {
     @Synchronized
     fun ignore(context: Context, f: Finding) {
         val app = context.applicationContext
-        val ignored = listOf(f) + ignoredFindings(app).filterNot { it.packageName == f.packageName }
+        val ignored = listOf(f.copy(time = System.currentTimeMillis())) + ignoredFindings(app).filterNot { it.packageName == f.packageName }
         val kept = findings(app).filterNot { it.packageName == f.packageName }
-        prefs(app).edit().putString(KEY_IGNORED, encodeFindings(ignored)).putString(KEY_FINDINGS, encodeFindings(kept)).apply()
+        prefs(app).edit().putString(KEY_IGNORED, encodeFindings(ignored)).putString(KEY_FINDINGS, encodeFindings(kept))
+            .putString(SIGNER_PREFIX + f.packageName, AppUpdater.signerSha(app, f.packageName)).apply()
         SecurityEventStore.record(app, "APP_THREAT_IGNORED", "Ignored: ${f.label}", f.packageName, Severity.INFO)
     }
 
@@ -121,7 +231,9 @@ object AppThreatScanner {
                 val kept = findings(app).filterNot { it.packageName == packageName }
                 val keptIgnored = ignoredFindings(app).filterNot { it.packageName == packageName }
                 prefs(app).edit().putString(KEY_FINDINGS, encodeFindings(kept)).putString(KEY_IGNORED, encodeFindings(keptIgnored))
-                    .remove(SEEN_PREFIX + packageName).apply()
+                    .putString(KEY_BEHAVIOR, encodeBehavior(behaviorFindings(app).filterNot { it.packageName == packageName }))
+                    .putString(KEY_BEHAVIOR_IGNORED, encodeBehavior(ignoredBehavior(app).filterNot { it.packageName == packageName }))
+                    .remove(SIGNER_PREFIX + packageName).remove(SEEN_PREFIX + packageName).apply()
             }
         }
     }
@@ -214,6 +326,12 @@ object AppThreatScanner {
             if (m.detail.isNotBlank()) sb.appendLine("    ${m.detail}")
         }
         sb.appendLine(if (f.definitive) "Verdict: exact known-malware hash." else "Verdict: pattern only — may be a false positive.")
+        runCatching {
+            AppBehaviorRules.factsFor(context, f.packageName)?.let { facts ->
+                sb.appendLine("Source: " + AppBehaviorRules.source(facts))
+                AppBehaviorRules.evaluate(facts).forEach { sb.appendLine("Behavior [${it.level}]: ${it.en}") }
+            }
+        }
         return sb.toString()
     }
 
@@ -251,6 +369,8 @@ object AppThreatScanner {
 
     @Synchronized
     private fun recordResult(context: Context, packageName: String, raw: Finding?) {
+        checkIgnoredSigner(context, packageName)
+        runCatching { recordBehavior(context, packageName) }
         // Ignored by the user (same app, same rules): keep it out of the findings and do not notify again.
         val finding = if (raw != null && isIgnored(context, raw)) null else raw
         val current = findings(context)

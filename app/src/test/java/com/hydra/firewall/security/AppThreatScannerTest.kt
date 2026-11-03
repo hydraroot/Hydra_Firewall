@@ -25,3 +25,15 @@ class AppThreatScannerTest {
         assertTrue(AppThreatScanner.isNewFinding(f("a", "x"), f("a", "x", "y")))
     }
 }
+
+class AppThreatScannerReasonTest {
+    private fun m(kind: ThreatSignatureMatch.Kind, name: String) = ThreatSignatureMatch(kind, name, null, "src", Severity.HIGH, 90, "d")
+
+    @Test fun plainReasonDiffersForHashAndPattern() {
+        val hash = AppThreatScanner.Finding("a", "A", listOf(m(ThreatSignatureMatch.Kind.SHA256, "Evil")), 1L)
+        val yara = AppThreatScanner.Finding("a", "A", listOf(m(ThreatSignatureMatch.Kind.YARA, "Pat")), 1L)
+        assertTrue(AppThreatScanner.plainReason(hash, true).contains("identical"))
+        assertTrue(AppThreatScanner.plainReason(yara, true).contains("false positive"))
+        assertTrue(AppThreatScanner.plainReason(hash, false).contains("idéntico"))
+    }
+}

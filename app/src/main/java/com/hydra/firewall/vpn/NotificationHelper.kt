@@ -319,6 +319,24 @@ object NotificationHelper {
         (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(APP_UPDATE_NOTIFICATION_ID, n)
     }
 
+    /** An app the user chose to ignore now has a different signing certificate. */
+    fun notifyIgnoredAppChanged(context: Context, packageName: String, label: String) {
+        ensureSecurityChannel(context)
+        val english = AppSettings(context).language.isEnglish() ||
+            (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+        val pending = PendingIntent.getActivity(context, 5, Intent(context, MainActivity::class.java), flags)
+        val title = if (english) "An ignored app changed its signature" else "Una app ignorada cambió su firma"
+        val text = if (english) "$label is no longer signed by the same developer. Hydra is watching it again."
+        else "$label ya no está firmada por el mismo desarrollador. Hydra volvió a vigilarla."
+        val n = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert).setContentTitle(title).setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(pending).setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH).build()
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .notify(APP_THREAT_NOTIFICATION_BASE_ID + 0x400 + (packageName.hashCode() and 0x3FF), n)
+    }
+
     /** An installed app matched the signed threat pack. [definitive] = exact known-malware hash. */
     fun notifyAppThreat(context: Context, packageName: String, label: String, definitive: Boolean, matchName: String) {
         ensureSecurityChannel(context)

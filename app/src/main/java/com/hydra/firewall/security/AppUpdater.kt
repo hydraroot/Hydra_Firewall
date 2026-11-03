@@ -246,6 +246,12 @@ object AppUpdater {
         certs(context.packageManager.getPackageInfo(context.packageName, flags)).firstOrNull()?.take(12)
     }.getOrNull() ?: "?"
 
+    /** SHA-256 of the signing certificate(s) of an installed package (sorted, comma-joined), or null. */
+    internal fun signerSha(context: Context, packageName: String): String? = runCatching {
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
+        certs(context.packageManager.getPackageInfo(packageName, flags)).sorted().joinToString(",")
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
+
     /** True if this install is a debug/test build (those can never be updated by the release APK). */
     fun isDebugBuild(context: Context): Boolean =
         (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
