@@ -37,3 +37,36 @@ class AppThreatScannerReasonTest {
         assertTrue(AppThreatScanner.plainReason(hash, false).contains("idéntico"))
     }
 }
+
+class AppThreatScannerIgnoreTest {
+    private fun ind(id: String, lvl: AppBehaviorRules.Level) = AppBehaviorRules.Indicator(id, lvl, "es $id", "en $id")
+
+    @Test fun signerChangedOnlyWhenBothKnownAndDifferent() {
+        assertFalse(AppThreatScanner.signerChanged("aa", "aa"))
+        assertTrue(AppThreatScanner.signerChanged("aa", "bb"))
+        assertFalse(AppThreatScanner.signerChanged(null, "bb"))
+        assertFalse(AppThreatScanner.signerChanged("aa", null))
+    }
+
+    @Test fun behaviorRoundTripKeepsIndicatorsAndLevels() {
+        val list = listOf(
+            AppThreatScanner.BehaviorFinding("p.a", "A", listOf(ind("X", AppBehaviorRules.Level.HIGH), ind("Y", AppBehaviorRules.Level.LOW)), 5L),
+            AppThreatScanner.BehaviorFinding("p.b", "B", listOf(ind("Z", AppBehaviorRules.Level.MEDIUM)), 6L)
+        )
+        val back = AppThreatScanner.decodeBehavior(AppThreatScanner.encodeBehavior(list))
+        assertEquals(list, back)
+    }
+
+    @Test fun decodeBehaviorSurvivesGarbageAndDropsEmptyIndicators() {
+        assertTrue(AppThreatScanner.decodeBehavior("not json").isEmpty())
+        assertTrue(AppThreatScanner.decodeBehavior("""[{"pkg":"p","label":"L","time":1,"ind":[]}]""").isEmpty())
+    }
+
+    @Test fun ignoreDateIsPreservedByCopy() {
+        val m = ThreatSignatureMatch(ThreatSignatureMatch.Kind.YARA, "x", null, "s", Severity.MEDIUM, 50, "d")
+        val f = AppThreatScanner.Finding("a", "A", listOf(m), 1L)
+        val ignored = f.copy(time = 999L)
+        assertEquals(999L, AppThreatScanner.decodeFindings(AppThreatScanner.encodeFindings(listOf(ignored))).first().time)
+        assertEquals(AppThreatScanner.ruleKey(f), AppThreatScanner.ruleKey(ignored))
+    }
+}

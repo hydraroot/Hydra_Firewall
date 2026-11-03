@@ -31,3 +31,39 @@ class AppUpdaterTest {
         assertNull(AppUpdater.parseReleases(json))
     }
 }
+
+class AppUpdaterMoreTest {
+    @Test fun parseVersionHandlesPrefixesAndGarbage() {
+        assertEquals(listOf(2, 2, 0), AppUpdater.parseVersion("v2.2.0"))
+        assertEquals(listOf(2, 2, 0), AppUpdater.parseVersion("Hydra-Firewall-2.2.0-rc"))
+        assertNull(AppUpdater.parseVersion("latest"))
+        assertNull(AppUpdater.parseVersion("2.2"))
+    }
+
+    @Test fun newerIsNotFooledByStringOrder() {
+        assertTrue(AppUpdater.isNewer("v2.10.0", "2.9.0"))
+        assertFalse(AppUpdater.isNewer("v2.9.0", "2.10.0"))
+    }
+
+    @Test fun picksSha256AssetAndKeepsSizeAndNotes() {
+        val json = """[{"tag_name":"v2.2.0","body":"notes","assets":[
+          {"name":"Hydra-Firewall-v2.2.0.apk","browser_download_url":"https://e/h.apk","size":123},
+          {"name":"Hydra-Firewall-v2.2.0.apk.sha256","browser_download_url":"https://e/h.apk.sha256"}]}]"""
+        val r = AppUpdater.parseReleases(json)!!
+        assertEquals(123L, r.sizeBytes)
+        assertEquals("https://e/h.apk.sha256", r.sha256Url)
+        assertNull(r.sha256)
+        assertEquals("notes", r.notes)
+    }
+
+    @Test fun ignoresReleaseWithoutApkAndBadDigestLength() {
+        val json = """[{"tag_name":"v3.0.0","assets":[{"name":"a.apk","browser_download_url":"https://e/a.apk","digest":"sha256:abc"}]}]"""
+        val r = AppUpdater.parseReleases(json)!!
+        assertNull(r.sha256)
+        assertNull(AppUpdater.parseReleases("[]"))
+    }
+
+    @Test fun sha256HexMatchesKnownVector() {
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AppUpdater.sha256Hex("abc".toByteArray()))
+    }
+}

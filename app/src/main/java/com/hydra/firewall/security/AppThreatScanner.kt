@@ -118,13 +118,16 @@ object AppThreatScanner {
         pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
     }.getOrDefault(packageName)
 
+    /** Pure decision used by [checkIgnoredSigner]: only a known, different certificate counts as a change. */
+    internal fun signerChanged(saved: String?, now: String?): Boolean = saved != null && now != null && saved != now
+
     /** If an app the user chose to ignore now has a DIFFERENT signing certificate, stop ignoring it and warn. */
     @Synchronized
     private fun checkIgnoredSigner(context: Context, packageName: String) {
         val p = prefs(context)
         val saved = p.getString(SIGNER_PREFIX + packageName, null) ?: return
         val now = AppUpdater.signerSha(context, packageName) ?: return
-        if (now == saved) return
+        if (!signerChanged(saved, now)) return
         p.edit()
             .putString(KEY_IGNORED, encodeFindings(ignoredFindings(context).filterNot { it.packageName == packageName }))
             .putString(KEY_BEHAVIOR_IGNORED, encodeBehavior(ignoredBehavior(context).filterNot { it.packageName == packageName }))

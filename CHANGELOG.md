@@ -1,3 +1,6 @@
+## 2.2.1 (versionCode 20201)
+- **Más tests en el CI:** el actualizador (orden de versiones, selección del Release, archivo `.apk.sha256`, hash SHA-256 con vector conocido, rechazo de URLs no HTTPS) y la lógica de ignorar (decisión de cambio de firma, guardado y lectura de apps con permisos delicados, fecha de ignorado, datos corruptos). La decisión «¿cambió la firma?» pasó a una función pura (`signerChanged`) para poder probarla; el comportamiento es el mismo. Sin cambios visibles.
+
 ## 2.2.0 (versionCode 20200)
 - **Más cobertura del antivirus (permisos delicados):** para apps instaladas fuera de una tienda conocida, Hydra marca combinaciones de permisos típicas de malware (accesibilidad + superposición + SMS, escucha de notificaciones + SMS, instalar paquetes, administrador de dispositivo, etc.). Son indicios, no pruebas: aparecen en una tarjeta aparte, sin notificaciones, con Google e Ignorar. Las apps de tienda y del sistema no se marcan.
 - **Motivo en lenguaje simple:** cada hallazgo explica por qué se marcó («idéntico a malware conocido» o «patrón típico, puede ser falso positivo»); «Copiar datos» incluye el origen y los indicios.
