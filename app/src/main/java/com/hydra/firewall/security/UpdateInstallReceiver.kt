@@ -17,14 +17,18 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                 @Suppress("DEPRECATION")
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                AppUpdater.setPhase(AppUpdater.Phase.CONFIRM)
                 AppUpdater.setMessage(context, "CONFIRM:$version")
                 NotificationHelper.notifyAppUpdate(context, version, readyToInstall = true, confirmIntent = confirm)
                 runCatching { context.startActivity(confirm) }
             }
-            PackageInstaller.STATUS_SUCCESS -> AppUpdater.setMessage(context, "UP_TO_DATE")
-            else -> AppUpdater.setMessage(
-                context, "ERROR:install_" + (intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: status.toString())
-            )
+            PackageInstaller.STATUS_SUCCESS -> { AppUpdater.setPhase(AppUpdater.Phase.IDLE); AppUpdater.setMessage(context, "UP_TO_DATE") }
+            else -> {
+                AppUpdater.setPhase(AppUpdater.Phase.IDLE)
+                AppUpdater.setMessage(
+                    context, "ERROR:install_" + (intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: status.toString())
+                )
+            }
         }
     }
 }

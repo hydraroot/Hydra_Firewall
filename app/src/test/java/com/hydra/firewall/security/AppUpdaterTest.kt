@@ -75,3 +75,13 @@ class AppUpdaterMoreTest {
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AppUpdater.sha256Hex("abc".toByteArray()))
     }
 }
+
+class AppUpdaterProgressTest {
+    @Test fun fractionIsClampedAndNullWhenSizeUnknown() {
+        assertEquals(0.5f, AppUpdater.fraction(50, 100)!!, 0.0001f)
+        assertEquals(1f, AppUpdater.fraction(150, 100)!!, 0.0001f)
+        assertEquals(0f, AppUpdater.fraction(0, 100)!!, 0.0001f)
+        assertNull(AppUpdater.fraction(10, 0))
+        assertNull(AppUpdater.fraction(10, -1))
+    }
+}

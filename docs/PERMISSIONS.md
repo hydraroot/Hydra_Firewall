@@ -1,6 +1,6 @@
 # Permissions: what each one is for
 
-Review of every permission in `AndroidManifest.xml` (version 2.2.4). Nothing is requested "just in case".
+Review of every permission in `AndroidManifest.xml` (version 2.2.5). Nothing is requested "just in case".
 
 | Permission | Needed for | Sensitive for Google Play? | Notes |
 |---|---|---|---|

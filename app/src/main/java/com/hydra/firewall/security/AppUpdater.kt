@@ -55,6 +55,54 @@ object AppUpdater {
     fun setMessage(c: Context, m: String) { prefs(c).edit().putString(KEY_LAST_MSG, m).apply() }
     fun currentVersion(): String = BuildConfig.VERSION_NAME
 
+    // ---- live progress of an update (read by the UI) ----------------------------------------------------------
+
+    enum class Phase { IDLE, DOWNLOADING, VERIFYING, INSTALLING, CONFIRM }
+
+    @Volatile private var phaseValue = Phase.IDLE
+    @Volatile private var phaseSince = 0L
+    @Volatile private var downloadedBytes = 0L
+    @Volatile private var expectedBytes = 0L
+    private const val STUCK_AFTER_MS = 3L * 60L * 1000L
+
+    fun phase(): Phase {
+        // Android may restart Hydra mid-install; never leave the UI stuck on a stale phase.
+        if (phaseValue != Phase.IDLE && System.currentTimeMillis() - phaseSince > STUCK_AFTER_MS) phaseValue = Phase.IDLE
+        return phaseValue
+    }
+    fun downloaded(): Long = downloadedBytes
+    fun expected(): Long = expectedBytes
+    internal fun setPhase(p: Phase) { phaseValue = p; phaseSince = System.currentTimeMillis() }
+
+    /** Pure helper for the progress bar: 0f..1f, or null when the size is unknown. */
+    internal fun fraction(done: Long, total: Long): Float? =
+        if (total <= 0L) null else (done.toDouble() / total.toDouble()).toFloat().coerceIn(0f, 1f)
+
+    // ---- "Hydra was just updated" (the process restarts, so the next start tells the user) --------------------
+
+    private const val KEY_LAST_VERSION = "last_seen_version"
+    private const val KEY_UPDATED_AT = "updated_at"
+    private const val KEY_UPDATED_FROM = "updated_from"
+    private const val RECENT_UPDATE_MS = 15L * 60L * 1000L
+
+    /** Call once per app start: returns the previous version if Hydra was updated since the last start, else null. */
+    fun consumeJustUpdated(context: Context): String? {
+        val p = prefs(context)
+        val previous = p.getString(KEY_LAST_VERSION, null)
+        val now = currentVersion()
+        p.edit().putString(KEY_LAST_VERSION, now).apply()
+        if (previous.isNullOrEmpty() || previous == now) return null
+        p.edit().putLong(KEY_UPDATED_AT, System.currentTimeMillis()).putString(KEY_UPDATED_FROM, previous).apply()
+        return previous
+    }
+
+    /** The version Hydra was updated from, if that happened in the last few minutes (for the Security card). */
+    fun recentUpdateFrom(context: Context): String? {
+        val p = prefs(context)
+        val at = p.getLong(KEY_UPDATED_AT, 0L)
+        return if (at > 0L && System.currentTimeMillis() - at < RECENT_UPDATE_MS) p.getString(KEY_UPDATED_FROM, null) else null
+    }
+
     // ---- version helpers (pure, unit-tested) ------------------------------------------------------------
 
     internal fun parseVersion(raw: String): List<Int>? {
@@ -138,10 +186,13 @@ object AppUpdater {
     fun downloadAndInstall(context: Context, release: Release, background: Boolean, onDone: (String?) -> Unit) {
         val app = context.applicationContext
         executor.execute {
+            downloadedBytes = 0L; expectedBytes = release.sizeBytes
+            setPhase(Phase.DOWNLOADING)
             val error = runCatching {
                 val dir = File(app.cacheDir, "update").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
                 val file = File(dir, "Hydra-Firewall-${release.version}.apk")
                 val actual = download(app, release.apkUrl, file)
+                setPhase(Phase.VERIFYING)
                 val expected = release.sha256
                     ?: release.sha256Url?.let { httpText(app, it).trim().split(Regex("\\s+")).firstOrNull()?.lowercase() }
                 require(expected != null && expected.length == 64) { "no_published_sha256" }
@@ -150,7 +201,7 @@ object AppUpdater {
                 commitInstall(app, file, background, release.version)
                 null
             }.getOrElse { it.message ?: it.javaClass.simpleName }
-            if (error != null) setMessage(app, "ERROR:$error")
+            if (error != null) { setMessage(app, "ERROR:$error"); setPhase(Phase.IDLE) }
             onDone(error)
         }
     }
@@ -200,6 +251,7 @@ object AppUpdater {
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
             session.commit(PendingIntent.getBroadcast(context, id, intent, flags).intentSender)
         }
+        setPhase(Phase.INSTALLING)
         setMessage(context, "INSTALLING:$version")
     }
 
@@ -236,6 +288,7 @@ object AppUpdater {
             if (c.responseCode !in 200..299) error("http_${c.responseCode}")
             if (!c.url.protocol.equals("https", true)) error("downgraded_to_http")
             if (c.contentLengthLong > MAX_APK_BYTES) error("apk_too_large")
+            if (c.contentLengthLong > 0L) expectedBytes = c.contentLengthLong
             val md = MessageDigest.getInstance("SHA-256")
             var total = 0L
             c.inputStream.use { input -> dest.outputStream().use { out ->
@@ -243,6 +296,7 @@ object AppUpdater {
                 while (true) {
                     val n = input.read(buf); if (n < 0) break
                     total += n; if (total > MAX_APK_BYTES) error("apk_too_large")
+                    downloadedBytes = total
                     md.update(buf, 0, n); out.write(buf, 0, n)
                 }
             } }

@@ -166,6 +166,16 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
         }
     }
     @Suppress("UNUSED_VARIABLE") val redraw = uiTick
+    // Update progress (download %, verifying, installing): redraw quickly while an update is in progress.
+    var updTick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (AppUpdater.phase() != AppUpdater.Phase.IDLE) updTick++
+            kotlinx.coroutines.delay(300)
+        }
+    }
+    @Suppress("UNUSED_VARIABLE") val redrawUpd = updTick
+    val updPhase = AppUpdater.phase()
     val packUpdating = ThreatSignatureUpdater.isUpdating()
     val scanning = AppThreatScanner.isFullScanRunning()
     val (scanDone, scanTotal) = AppThreatScanner.progress()
@@ -392,6 +402,8 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
             t("Actualización de Hydra", "Hydra update"),
             when {
                 updMsg.isNotEmpty() -> updMsg
+                AppUpdater.recentUpdateFrom(context) != null ->
+                    t("✅ Hydra se actualizó (${AppUpdater.recentUpdateFrom(context)} → ${AppUpdater.currentVersion()})", "✅ Hydra was updated (${AppUpdater.recentUpdateFrom(context)} → ${AppUpdater.currentVersion()})")
                 else -> t("Versión ${AppUpdater.currentVersion()}", "Version ${AppUpdater.currentVersion()}") +
                     (AppUpdater.lastCheck(context).takeIf { it > 0L }?.let { " • " + t("última búsqueda ", "last check ") + dateFmt.format(java.util.Date(it)) } ?: "")
             },
@@ -410,8 +422,30 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
                     }
                 }
             }) { Text(t("Buscar actualización", "Check for update")) }
+            if (updPhase != AppUpdater.Phase.IDLE) {
+                val done = AppUpdater.downloaded(); val total = AppUpdater.expected()
+                val frac = AppUpdater.fraction(done, total)
+                fun mb(b: Long) = String.format(java.util.Locale.US, "%.1f", b / 1048576.0)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        when (updPhase) {
+                            AppUpdater.Phase.DOWNLOADING ->
+                                t("⬇ Descargando", "⬇ Downloading") + (if (frac != null) " ${(frac * 100).toInt()}% (${mb(done)} / ${mb(total)} MB)" else " ${mb(done)} MB")
+                            AppUpdater.Phase.VERIFYING -> t("🔍 Verificando la descarga y la firma…", "🔍 Verifying the download and signature…")
+                            AppUpdater.Phase.INSTALLING -> t("⚙ Instalando… Hydra se va a reiniciar sola y la VPN vuelve a arrancar. No la cierres.", "⚙ Installing… Hydra will restart by itself and the VPN comes back. Do not close it.")
+                            else -> t("👆 Android espera tu confirmación para instalar", "👆 Android is waiting for your confirmation to install")
+                        },
+                        fontWeight = FontWeight.Bold, fontSize = 13.sp
+                    )
+                    if (updPhase == AppUpdater.Phase.DOWNLOADING && frac != null) {
+                        LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
+                    } else if (updPhase != AppUpdater.Phase.CONFIRM) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
             updRelease?.let { rel ->
-                Button(modifier = Modifier.fillMaxWidth(), enabled = !updBusy, onClick = {
+                Button(modifier = Modifier.fillMaxWidth(), enabled = !updBusy && updPhase == AppUpdater.Phase.IDLE, onClick = {
                     updBusy = true; updMsg = t("Descargando y verificando…", "Downloading and verifying…")
                     AppUpdater.downloadAndInstall(context, rel, background = false) { err ->
                         main.post {

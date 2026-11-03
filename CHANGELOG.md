@@ -1,3 +1,7 @@
+## 2.2.5 (versionCode 20205)
+- **Se ve que la actualización está en marcha:** en Seguridad → Actualización de Hydra aparece una barra con la fase actual: «Descargando 45 % (1,1 / 2,5 MB)», «Verificando la descarga y la firma…», «Instalando… Hydra se va a reiniciar sola y la VPN vuelve a arrancar», o «Android espera tu confirmación». También se muestra cuando la descarga empezó sola en segundo plano.
+- **Aviso después del reinicio:** al volver a abrirse tras actualizarse, Hydra muestra «✅ Hydra se actualizó: 2.2.4 → 2.2.5» y la tarjeta de actualización lo recuerda unos minutos, para que el reinicio no parezca un cierre inesperado.
+
 ## 2.2.4 (versionCode 20204)
 - **Menos falsos positivos del antivirus:** las reglas de patrón del pack (p. ej. «SMS + superposición + administrador» o «patrón de stalkerware») miran solo permisos del manifiesto y coincidían con apps legítimas (Servicios de Google Play, Galaxy Wearable, apps de domótica o de bolsa). Ahora, para apps de una tienda conocida o del sistema, una coincidencia solo de patrón ya no se informa como amenaza; un hash exacto de malware conocido se informa siempre, venga de donde venga. Las apps instaladas fuera de tienda siguen igual. Al actualizar se limpian los avisos viejos de ese tipo.
 - **Última lista de escaneo con puntajes guardada:** los resultados de «Escanear apps instaladas» (con el puntaje de cada app y la fecha del último escaneo) se guardan y reaparecen al volver a abrir la app.

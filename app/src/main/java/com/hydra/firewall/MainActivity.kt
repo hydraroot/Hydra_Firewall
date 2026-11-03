@@ -107,6 +107,16 @@ class MainActivity : AppCompatActivity() {
         // Material 3 Scaffold below applies safe system-bar insets to its content.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // After a self-update Android restarts Hydra: say so, so the restart does not look like a crash.
+        com.hydra.firewall.security.AppUpdater.consumeJustUpdated(this)?.let { from ->
+            val en = AppSettings(this).language.let { it.isEnglish() || (it == AppLanguage.SYSTEM && java.util.Locale.getDefault().language.equals("en", true)) }
+            android.widget.Toast.makeText(
+                this,
+                if (en) "✅ Hydra was updated: $from → ${com.hydra.firewall.security.AppUpdater.currentVersion()}"
+                else "✅ Hydra se actualizó: $from → ${com.hydra.firewall.security.AppUpdater.currentVersion()}",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
         ConnectionHistory.init(this)
         TrafficAnalyzerStore.init(this)
         TlsFingerprintStore.init(this)
