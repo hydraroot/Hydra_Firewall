@@ -980,7 +980,10 @@ fun FirewallScreen(
                                         val host = extractHost(item.destination)
                                         val domain = DomainResolver.cached(host)
                                         val isBlocked = ipBlockStore.isBlocked(host)
-                                        Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+                                        Column(
+                                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(10.dp)
+                                        ) {
                                             Text("${item.time}  ${item.packageName ?: "UID ${item.uid}"}", style = MaterialTheme.typography.titleSmall)
                                             Text("${item.protocol} • ${item.network.displayName} • ${if (item.allowed) tr(context,"allow") else tr(context,"block")}", style = MaterialTheme.typography.bodySmall)
                                             Text("${item.source} → ${item.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
@@ -2889,6 +2892,21 @@ private fun ProtectionTabContent(
             )
         }
 
+        var showDiag by remember { mutableStateOf(false) }
+        Spacer(Modifier.height(10.dp))
+        Card(Modifier.fillMaxWidth().clickable { showDiag = !showDiag }, shape = RoundedCornerShape(16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (language.isEnglish()) "System details" else "Detalles del sistema", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (language.isEnglish()) "Kill switch, DNS, blocklist and integrity status" else "Kill switch, DNS, lista e integridad",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(if (showDiag) "▲" else "▼", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        if (showDiag) {
         Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(10.dp))
         Text(if (language.isEnglish()) "System kill switch" else "Kill switch del sistema", style = MaterialTheme.typography.titleMedium)
         Text(
@@ -2937,6 +2955,7 @@ private fun ProtectionTabContent(
             Text(if (language.isEnglish()) "OPEN VPN SETTINGS" else "ABRIR AJUSTES VPN")
         }
 
+        }
         Spacer(Modifier.height(10.dp))
         Card(Modifier.fillMaxWidth()) {
             Row(
@@ -2959,6 +2978,7 @@ private fun ProtectionTabContent(
         }
         Spacer(Modifier.height(6.dp))
 
+        if (showDiag) {
         Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(10.dp))
         Text(if (language.isEnglish()) "Current protection status" else "Estado actual de protección", style = MaterialTheme.typography.titleMedium)
         Text(
@@ -3041,13 +3061,18 @@ private fun ProtectionTabContent(
                 color = Color(0xFF2E8B57)
             )
         }
+        }
         Spacer(Modifier.height(16.dp))
     }
 }
 
 @Composable
 private fun SettingSwitchRow(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean)->Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical=6.dp), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f).padding(end=8.dp)) { Text(title); Text(subtitle, style=MaterialTheme.typography.bodySmall) }
         Switch(checked, onCheckedChange)
     }
@@ -3061,7 +3086,10 @@ private fun AllowBlockRow(
     promptInfo: String,
     onChanged: (Boolean)->Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(12.dp)
+    ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Text(info, style = MaterialTheme.typography.bodySmall)
         Text(promptInfo, style = MaterialTheme.typography.bodySmall)
@@ -3656,7 +3684,11 @@ private fun AppRuleRow(
 ) {
     val context = LocalContext.current
     val policyColor = appRulePolicyColor(compatibilityExcluded, wifiAllowed, mobileAllowed)
-    Column(Modifier.fillMaxWidth().clickable(onClick = onDetails).padding(vertical = 4.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .clickable(onClick = onDetails).padding(10.dp)
+    ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AppIcon(app, Modifier.size(32.dp))
             Spacer(Modifier.width(7.dp))

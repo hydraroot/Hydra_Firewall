@@ -1,3 +1,8 @@
+## 2.1.0 (versionCode 20100)
+- **Inicio más limpio:** el kill switch del sistema y el estado detallado (DNS, lista, integridad) pasan a una tarjeta plegable «Detalles del sistema». El selector Normal/Avanzado queda siempre visible debajo.
+- **Mismo estilo en Apps, Actividad y Más:** filas de apps (Reglas), entradas del historial de conexiones, interruptores y bloques de reglas de Ajustes ahora son tarjetas redondeadas con más aire. Solo presentación.
+- **Permisos revisados** (nuevo `docs/PERMISSIONS.md` y `docs/es/PERMISSIONS.md`, con textos sugeridos para las declaraciones de Google Play): `USE_FINGERPRINT` limitado a Android 9 o menos; tablas de permisos de los README completadas con `REQUEST_INSTALL_PACKAGES`. Se recomienda NO incluir `REQUEST_INSTALL_PACKAGES` ni el actualizador en un build de Google Play.
+
 ## 2.0.2 (versionCode 20002)
 - Auditoría de 2.0.1 (revisión estática: llaves/paréntesis balanceados en los 100+ archivos Kotlin, YAML válido, tests de Python OK, dependencias de test de `org.json` presentes). Dos ajustes: la navegación ya no escribe un `mutableStateMapOf` durante la composición (ahora un `HashMap` simple, solo se lee al tocar), y la descarga automática de actualizaciones se omite en compilaciones debug/de prueba (nunca podrían instalarse por la firma distinta) para no gastar datos.
 

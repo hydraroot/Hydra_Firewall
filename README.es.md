@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (versión `2.0.2`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
+> **Estado: candidata para prueba cerrada** (versión `2.1.0`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -160,7 +160,8 @@ Permisos que pide la app:
 | `PACKAGE_USAGE_STATS` | Solo estadísticas de uso locales |
 | `POST_NOTIFICATIONS` | Avisos de primera conexión y alertas |
 | `RECEIVE_BOOT_COMPLETED` | Reiniciar la protección cuando el teléfono arranca |
-| `USE_BIOMETRIC`, `USE_FINGERPRINT` | Desbloqueo con huella |
+| `USE_BIOMETRIC` (`USE_FINGERPRINT` solo hasta Android 9) | Desbloqueo con huella |
+| `REQUEST_INSTALL_PACKAGES` | Instalar una versión nueva de Hydra que descargaste con la actualización de la app (Android igual te pide confirmar). Solo lo usa esa función |
 
 ## Lo que Hydra NO hace
 

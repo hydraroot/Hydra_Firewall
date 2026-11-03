@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (version `2.0.2`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (version `2.1.0`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -145,7 +145,8 @@ Permissions requested:
 | `PACKAGE_USAGE_STATS` | Local usage statistics only |
 | `POST_NOTIFICATIONS` | First-connection prompts and alerts |
 | `RECEIVE_BOOT_COMPLETED` | Restart protection after the phone boots |
-| `USE_BIOMETRIC`, `USE_FINGERPRINT` | Fingerprint unlock |
+| `USE_BIOMETRIC` (`USE_FINGERPRINT` only up to Android 9) | Fingerprint unlock |
+| `REQUEST_INSTALL_PACKAGES` | Install a new Hydra version you downloaded through the in-app update (Android still asks you to confirm). Only used by that feature |
 
 
 ## What Hydra does NOT do
