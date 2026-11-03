@@ -1,3 +1,6 @@
+## 2.2.2 (versionCode 20202)
+- **Arreglo de la actualización desde la app:** el chequeo previo de firma fallaba con «la firma no coincide» aunque el APK del Release estuviera bien firmado (en algunos teléfonos Android no puede leer la firma de un APK que todavía no está instalado). Ahora, si no se puede leer, Hydra no bloquea y deja que Android decida (es quien realmente rechaza una firma distinta); si las firmas se pueden leer y no coinciden, el mensaje muestra las dos huellas (instalada → nueva) para diagnosticar. Nuevo test de la regla.
+
 ## 2.2.1 (versionCode 20201)
 - **Más tests en el CI:** el actualizador (orden de versiones, selección del Release, archivo `.apk.sha256`, hash SHA-256 con vector conocido, rechazo de URLs no HTTPS) y la lógica de ignorar (decisión de cambio de firma, guardado y lectura de apps con permisos delicados, fecha de ignorado, datos corruptos). La decisión «¿cambió la firma?» pasó a una función pura (`signerChanged`) para poder probarla; el comportamiento es el mismo. Sin cambios visibles.
 

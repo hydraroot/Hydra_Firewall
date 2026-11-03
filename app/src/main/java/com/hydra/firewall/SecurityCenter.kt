@@ -175,7 +175,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     val debugBuild = remember { AppUpdater.isDebugBuild(context) }
 
     fun friendly(err: String): String = when {
-        err.contains("signature_differs") -> t("La firma del APK nuevo no coincide con la de esta instalación. Hay que instalar UNA vez la versión release firmada con tu clave (desinstalando esta); desde ahí se actualiza sola.", "The new APK's signature differs from this install. Install the signed release build ONCE (uninstall this one); after that it updates itself.")
+        err.contains("signature_differs") -> t("La firma del APK nuevo no coincide con la de esta instalación. Hay que instalar UNA vez la versión release firmada con tu clave (desinstalando esta); desde ahí se actualiza sola.", "The new APK's signature differs from this install. Install the signed release build ONCE (uninstall this one); after that it updates itself.") + " " + err.substringAfter("signature_differs", "").trim()
         err.contains("sha256") -> t("La descarga no coincide con el SHA‑256 publicado: se descartó.", "The download does not match the published SHA‑256: discarded.")
         err.contains("not_newer") -> t("Esa versión no es más nueva que la instalada.", "That version is not newer than the installed one.")
         else -> err

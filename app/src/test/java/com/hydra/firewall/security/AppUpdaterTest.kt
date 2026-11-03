@@ -63,6 +63,14 @@ class AppUpdaterMoreTest {
         assertNull(AppUpdater.parseReleases("[]"))
     }
 
+    @Test fun signatureRule() {
+        assertTrue(AppUpdater.signaturesCompatible(setOf("a"), setOf("a")))
+        assertTrue(AppUpdater.signaturesCompatible(setOf("a", "b"), setOf("b")))
+        assertTrue(AppUpdater.signaturesCompatible(setOf("a"), emptySet()))
+        assertFalse(AppUpdater.signaturesCompatible(setOf("a"), setOf("b")))
+        assertFalse(AppUpdater.signaturesCompatible(emptySet(), setOf("b")))
+    }
+
     @Test fun sha256HexMatchesKnownVector() {
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AppUpdater.sha256Hex("abc".toByteArray()))
     }

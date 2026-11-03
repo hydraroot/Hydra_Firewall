@@ -164,8 +164,18 @@ object AppUpdater {
         val newCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else @Suppress("DEPRECATION") archive.versionCode.toLong()
         val oldCode = if (Build.VERSION.SDK_INT >= 28) own.longVersionCode else @Suppress("DEPRECATION") own.versionCode.toLong()
         require(newCode > oldCode) { "not_newer" }
-        require(certs(archive).isNotEmpty() && certs(archive) == certs(own)) { "signature_differs" }
+        val newCerts = certs(archive)
+        val ownCerts = certs(own)
+        // If Android cannot read the signature of a file that is not installed yet (it happens on some devices) we do
+        // not block: the installer itself refuses an APK signed with a different key, so that is the real lock.
+        require(signaturesCompatible(ownCerts, newCerts)) {
+            "signature_differs (${ownCerts.firstOrNull()?.take(12) ?: "?"} → ${newCerts.firstOrNull()?.take(12) ?: "?"})"
+        }
     }
+
+    /** Pure rule: unreadable new signature = let Android decide; otherwise the sets must share a certificate. */
+    internal fun signaturesCompatible(own: Set<String>, new: Set<String>): Boolean =
+        new.isEmpty() || own.isEmpty().not() && own.intersect(new).isNotEmpty()
 
     @Suppress("DEPRECATION")
     private fun certs(info: android.content.pm.PackageInfo): Set<String> {
