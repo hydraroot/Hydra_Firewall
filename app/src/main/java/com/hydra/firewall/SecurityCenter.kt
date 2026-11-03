@@ -1036,6 +1036,41 @@ private object BulkScanState {
     val current = mutableStateOf("")
     val rows = mutableStateOf<List<BulkScanRow>>(emptyList())
     val cancel = java.util.concurrent.atomic.AtomicBoolean(false)
+    val savedAt = mutableStateOf(0L)
+    private const val PREFS = "hydra_bulk_scan"
+
+    /** Keep the last results on disk so the list (with each score) is still there after closing the app. */
+    fun save(context: Context) {
+        runCatching {
+            val arr = org.json.JSONArray()
+            rows.value.forEach { r ->
+                arr.put(org.json.JSONObject().apply {
+                    put("label", r.label); put("pkg", r.pkg); put("ai", r.ai ?: -1); put("risk", r.riskScore)
+                    put("note", r.note); put("sec", r.seconds); put("verdict", r.verdict)
+                })
+            }
+            val now = System.currentTimeMillis()
+            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString("rows", arr.toString()).putLong("at", now).apply()
+            savedAt.value = now
+        }
+    }
+
+    fun restore(context: Context) {
+        if (running.value || rows.value.isNotEmpty()) return
+        runCatching {
+            val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val arr = org.json.JSONArray(p.getString("rows", "[]").orEmpty())
+            rows.value = (0 until arr.length()).mapNotNull { i ->
+                val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                BulkScanRow(
+                    o.optString("label"), o.optString("pkg"), o.optInt("ai", -1).takeIf { it >= 0 },
+                    o.optInt("risk"), o.optString("note"), o.optInt("sec"), o.optString("verdict")
+                )
+            }
+            savedAt.value = p.getLong("at", 0L)
+        }
+    }
 }
 
 private fun apkScannerSection(
@@ -1055,6 +1090,8 @@ private fun apkScannerSection(
         var bulkCurrent by BulkScanState.current
         var bulkRows by BulkScanState.rows
         val bulkCancel = BulkScanState.cancel
+        val bulkSavedAt by BulkScanState.savedAt
+        LaunchedEffect(Unit) { BulkScanState.restore(context) }
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             if (uri == null) return@rememberLauncherForActivityResult
             scanning = true
@@ -1150,7 +1187,7 @@ private fun apkScannerSection(
                                 main.post { bulkRows = snapshot }
                             } finally {
                                 exec.shutdown()
-                                main.post { bulkRunning = false; bulkCurrent = "" }
+                                main.post { bulkRunning = false; bulkCurrent = ""; BulkScanState.save(appContext) }
                             }
                         }.start()
                     }
@@ -1173,6 +1210,12 @@ private fun apkScannerSection(
             if (bulkRows.isNotEmpty()) {
                 val scored = bulkRows.filter { it.ai != null }
                 Spacer(Modifier.height(8.dp))
+                if (bulkSavedAt > 0L && !bulkRunning) {
+                    Text(
+                        (if (english) "Last scan: " else "Último escaneo: ") + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(bulkSavedAt)),
+                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     if (english) "Scanned ${bulkRows.size} • with score: ${scored.size} • without score: ${bulkRows.size - scored.size}"
                     else "Escaneadas ${bulkRows.size} • con puntaje: ${scored.size} • sin puntaje: ${bulkRows.size - scored.size}",

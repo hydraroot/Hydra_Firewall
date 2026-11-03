@@ -70,3 +70,18 @@ class AppThreatScannerIgnoreTest {
         assertEquals(AppThreatScanner.ruleKey(f), AppThreatScanner.ruleKey(ignored))
     }
 }
+
+class AppThreatScannerSuppressTest {
+    private fun f(kind: ThreatSignatureMatch.Kind) = AppThreatScanner.Finding("a", "A", listOf(ThreatSignatureMatch(kind, "n", null, "s", Severity.MEDIUM, 50, "d")), 1L)
+
+    @Test fun patternOnlyIsSuppressedForStoreAndSystemApps() {
+        assertTrue(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.YARA), "store"))
+        assertTrue(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.YARA), "system"))
+        assertFalse(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.YARA), "sideload"))
+    }
+
+    @Test fun knownMalwareHashIsNeverSuppressed() {
+        assertFalse(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.SHA256), "store"))
+        assertFalse(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.SHA256), "system"))
+    }
+}

@@ -1,3 +1,7 @@
+## 2.2.4 (versionCode 20204)
+- **Menos falsos positivos del antivirus:** las reglas de patrón del pack (p. ej. «SMS + superposición + administrador» o «patrón de stalkerware») miran solo permisos del manifiesto y coincidían con apps legítimas (Servicios de Google Play, Galaxy Wearable, apps de domótica o de bolsa). Ahora, para apps de una tienda conocida o del sistema, una coincidencia solo de patrón ya no se informa como amenaza; un hash exacto de malware conocido se informa siempre, venga de donde venga. Las apps instaladas fuera de tienda siguen igual. Al actualizar se limpian los avisos viejos de ese tipo.
+- **Última lista de escaneo con puntajes guardada:** los resultados de «Escanear apps instaladas» (con el puntaje de cada app y la fecha del último escaneo) se guardan y reaparecen al volver a abrir la app.
+
 ## 2.2.3 (versionCode 20203)
 - **Reglas que volvían a preguntar:** al abrir la app, la cuarentena volvía a bloquear y a «marcar como sin decidir» a toda app que siguiera en su lista de pendientes, aunque ya le hubieras fijado una regla en Reglas; por eso Hydra preguntaba otra vez. Ahora, si la app ya tiene una regla tuya, se la saca de pendientes y no se toca la regla.
 - **El escaneo de apps ya no se reinicia al cambiar de pantalla:** el progreso y los resultados de «Escanear apps instaladas» (analizador MH-100K) viven fuera de la pantalla; si salís de Seguridad y volvés, seguís viendo el mismo escaneo en curso.

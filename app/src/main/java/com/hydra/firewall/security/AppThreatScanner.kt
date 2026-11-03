@@ -35,6 +35,9 @@ object AppThreatScanner {
     private const val KEY_LAST_PACK = "last_full_scan_pack"
     private const val KEY_FINDINGS = "findings"
     private const val KEY_IGNORED = "ignored"
+    private const val KEY_POLICY = "policy_version"
+    private const val POLICY_VERSION = 2
+    private val migrated = AtomicBoolean(false)
     private const val KEY_BEHAVIOR = "behavior"
     private const val KEY_BEHAVIOR_IGNORED = "behavior_ignored"
     private const val SIGNER_PREFIX = "ignsig_"
@@ -65,8 +68,37 @@ object AppThreatScanner {
     fun lastFullScan(context: Context): Long = prefs(context).getLong(KEY_LAST_FULL, 0L)
     fun lastFullScanPack(context: Context): String = prefs(context).getString(KEY_LAST_PACK, "").orEmpty()
 
-    fun findings(context: Context): List<Finding> =
-        decodeFindings(prefs(context).getString(KEY_FINDINGS, "[]").orEmpty())
+    fun findings(context: Context): List<Finding> {
+        migrateOnce(context)
+        return decodeFindings(prefs(context).getString(KEY_FINDINGS, "[]").orEmpty())
+    }
+
+    /**
+     * A pattern-only (YARA) match is a weak signal: the pack rules look at permission strings, which legitimate apps
+     * such as Google Play services, banking or smart-home apps also contain. For apps that come from a known store or
+     * from the system we do not report pattern-only matches. An exact known-malware hash is always reported.
+     */
+    internal fun suppressPatternOnly(f: Finding, source: String): Boolean = !f.definitive && source != "sideload"
+
+    private fun sourceOf(context: Context, packageName: String): String =
+        runCatching { AppBehaviorRules.factsFor(context, packageName)?.let { AppBehaviorRules.source(it) } }.getOrNull() ?: "sideload"
+
+    /** One-time cleanup of findings saved by earlier versions that the rule above would now suppress. */
+    private fun migrateOnce(context: Context) {
+        if (!migrated.compareAndSet(false, true)) return
+        runCatching {
+            val app = context.applicationContext
+            val p = prefs(app)
+            if (p.getInt(KEY_POLICY, 0) >= POLICY_VERSION) return@runCatching
+            synchronized(this) {
+                val keep = { l: List<Finding> -> l.filterNot { suppressPatternOnly(it, sourceOf(app, it.packageName)) } }
+                p.edit()
+                    .putString(KEY_FINDINGS, encodeFindings(keep(decodeFindings(p.getString(KEY_FINDINGS, "[]").orEmpty()))))
+                    .putString(KEY_IGNORED, encodeFindings(keep(decodeFindings(p.getString(KEY_IGNORED, "[]").orEmpty()))))
+                    .putInt(KEY_POLICY, POLICY_VERSION).apply()
+            }
+        }
+    }
 
     // ---- behavior indications (permission combinations on sideloaded apps) ------------------------------
 
@@ -375,7 +407,7 @@ object AppThreatScanner {
         checkIgnoredSigner(context, packageName)
         runCatching { recordBehavior(context, packageName) }
         // Ignored by the user (same app, same rules): keep it out of the findings and do not notify again.
-        val finding = if (raw != null && isIgnored(context, raw)) null else raw
+        val finding = if (raw != null && (suppressPatternOnly(raw, sourceOf(context, packageName)) || isIgnored(context, raw))) null else raw
         val current = findings(context)
         val previous = current.firstOrNull { it.packageName == packageName }
         val rest = current.filterNot { it.packageName == packageName }
