@@ -1,3 +1,6 @@
+## 2.4.1 (versionCode 20401)
+- **Estilo de tarjetas unificado:** todas las pantallas (Inicio, Apps, Actividad, Seguridad, Ayuda, Ajustes, avisos) usan el mismo componente `HydraCard`: esquinas de 16 dp, fondo de superficie, borde fino y sombra leve. Antes se mezclaban tarjetas de Material con otras hechas a mano.
+
 ## 2.4.0 (versionCode 20400)
 - **Pausar Hydra 15 min / 1 h:** desde Inicio (o el atajo del panel de Android). Muestra cuenta regresiva, «Reanudar ahora» y se reactiva sola; sobrevive a reinicios y, si Android no deja arrancar en segundo plano, avisa con una notificación.
 - **Atajo en el panel de Android (Quick Settings):** un toque pausa 15 min, reanuda o enciende Hydra.

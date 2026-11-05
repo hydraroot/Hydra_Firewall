@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.os.Bundle
+import com.hydra.firewall.ui.theme.HydraCard
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -236,7 +237,7 @@ private fun AppAccessRequestScreen(
             .then(if (showDetails || showCustom || showMore) Modifier.verticalScroll(scrollState) else Modifier),
         verticalArrangement = Arrangement.Center
     ) {
-        Card(modifier = Modifier.fillMaxWidth()) {
+        HydraCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -353,7 +354,7 @@ private fun AppAccessRequestScreen(
                 }
 
                 if (showCustom) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    HydraCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(
                                 if (english) "Custom protections" else "Protecciones personalizadas",

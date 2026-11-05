@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.content.Context
+import com.hydra.firewall.ui.theme.HydraCard
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -189,7 +190,7 @@ fun ConfigTransferCard(context: Context = LocalContext.current, english: Boolean
         }
     }
 
-    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             Text(t("Exportar / importar configuración", "Export / import configuration"), style = MaterialTheme.typography.titleSmall)
             Text(

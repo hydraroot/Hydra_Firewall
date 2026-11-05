@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.content.Context
+import com.hydra.firewall.ui.theme.HydraCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,7 +45,7 @@ fun PauseCard(context: Context, english: Boolean, isOn: Boolean, onResume: () ->
     if (isOn) {
         // A pause that is still stored while the firewall is already on (started by hand): forget it.
         if (remaining > 0L) PauseManager.clear(context)
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(t("¿Una app no anda?", "An app is not working?"), fontWeight = FontWeight.Bold)
                 Text(
@@ -62,7 +63,7 @@ fun PauseCard(context: Context, english: Boolean, isOn: Boolean, onResume: () ->
             }
         }
     } else if (remaining > 0L) {
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     t("⏸ En pausa: vuelve en ", "⏸ Paused: back in ") + PauseManager.formatRemaining(remaining),
@@ -90,7 +91,7 @@ fun WeeklySummaryCard(context: Context, english: Boolean) {
         val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
         "$label (${n(count)})"
     }
-    Card(Modifier.fillMaxWidth()) {
+    HydraCard(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(t("📊 Últimos 7 días", "📊 Last 7 days"), fontWeight = FontWeight.Bold)
             Text(t("🛡 ${n(summary.blocked)} intentos bloqueados", "🛡 ${n(summary.blocked)} blocked attempts"), fontSize = 13.sp)

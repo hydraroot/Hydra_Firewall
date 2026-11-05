@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.Manifest
+import com.hydra.firewall.ui.theme.HydraCard
 import android.app.ActivityManager
 import android.app.usage.UsageStatsManager
 import android.content.ClipData
@@ -1103,7 +1104,7 @@ fun FirewallScreen(
                                         )
                                         if (!record.allowed && !isIpBlocked && matches.none { !it.allowed }) {
                                             val en = language.isEnglish()
-                                            Card(Modifier.fillMaxWidth()) {
+                                            HydraCard(Modifier.fillMaxWidth()) {
                                                 Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                     Text(if (en) "Is this app not working?" else "¿Esta app no funciona?", style = MaterialTheme.typography.titleSmall)
                                                     Text(
@@ -1138,7 +1139,7 @@ fun FirewallScreen(
                                             Text(if (language.isEnglish()) "No explicit port rule matches this connection." else "No hay una regla de puerto explícita que coincida con esta conexión.", style = MaterialTheme.typography.bodySmall)
                                         } else {
                                             matches.forEach { rule ->
-                                                Card(Modifier.fillMaxWidth()) {
+                                                HydraCard(Modifier.fillMaxWidth()) {
                                                     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                                         Column(Modifier.weight(1f)) {
                                                             Text("${rule.protocol} ${rule.startPort}${if (rule.endPort != rule.startPort) "-${rule.endPort}" else ""}", fontFamily = FontFamily.Monospace)
@@ -1176,7 +1177,7 @@ fun FirewallScreen(
                                 LiveTrafficChart(trafficHistory)
                                 TrafficTotalsBarChart(trafficTotals.allowedBytes, trafficTotals.blockedBytes)
                                 Spacer(Modifier.height(6.dp))
-                                Card(Modifier.fillMaxWidth()) {
+                                HydraCard(Modifier.fillMaxWidth()) {
                                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
                                         Text(
                                             if (language.isEnglish()) "Ads / tracker blocks today" else "Bloqueos de anuncios / rastreadores hoy",
@@ -1264,7 +1265,7 @@ fun FirewallScreen(
                                 }
                             }
                             items(stats, key = { it.uid }) { s ->
-                                Card(Modifier.fillMaxWidth()) {
+                                HydraCard(Modifier.fillMaxWidth()) {
                                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                         Text(s.packageName ?: "UID ${s.uid}", style = MaterialTheme.typography.titleSmall)
                                         Text("${tr(context,"connections_word")}: ${s.connections} • ${tr(context,"blocked_word")}: ${s.blocked}", style = MaterialTheme.typography.bodySmall)
@@ -1292,7 +1293,7 @@ fun FirewallScreen(
                                 Button({ val n=profileName.trim(); if(n.isNotEmpty()){ profilesStore.save(n, exportRuleSnapshot(ruleStore, advancedRuleStore)); profileName=""; profileVersion++ } }) { Text(if (language.isEnglish()) "Save" else "Guardar") }
                             }
                             Spacer(Modifier.height(10.dp))
-                            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(Modifier.size(10.dp).background(if (loadedProfileName != null) Color(0xFF2E7D32) else Color(0xFFD32F2F), CircleShape))
@@ -1331,7 +1332,7 @@ fun FirewallScreen(
                                 names.forEach { name ->
                                     val snapshot = profilesStore.load(name)
                                     val summary = snapshot?.let { runCatching { profileSummary(it) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: "UID $uid" } }.getOrNull() }
-                                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                         Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                             val isLoaded = snapshot != null && snapshot == currentSnapshot
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2285,7 +2286,7 @@ private fun IpRulesPanel(context: Context, english: Boolean, store: IpBlockStore
         } else {
             LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                 items(rules, key = { it }) { rule ->
-                    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { selected = rule }) {
+                    HydraCard(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { selected = rule }) {
                         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("🌐", fontSize = 22.sp, modifier = Modifier.padding(end = 10.dp))
                             Text(rule, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
@@ -2499,7 +2500,7 @@ private fun PortRulesPanel(
                     } else {
                         app?.label ?: "UID ${rule.uid}"
                     }
-                    Card(
+                    HydraCard(
                         Modifier
                             .fillMaxWidth()
                             .padding(vertical = 3.dp)
@@ -2756,7 +2757,7 @@ private fun AdvancedRulesEditor(context: Context, apps: List<AppEntry>, store: A
         rules.forEach { r ->
             key(r.uid, r.protocol, r.startPort, r.endPort, r.allowed) {
                 val appLabel = apps.firstOrNull { it.uid == r.uid }?.label ?: "UID ${r.uid}"
-                Card(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { selectedRule = r }) {
+                HydraCard(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { selectedRule = r }) {
                     Row(Modifier.fillMaxWidth().padding(9.dp),verticalAlignment=Alignment.CenterVertically){
                         AppIcon(apps.firstOrNull { it.uid == r.uid }, Modifier.size(40.dp).padding(end = 8.dp))
                         Column(Modifier.weight(1f)){
@@ -2825,12 +2826,10 @@ private fun ProtectionTabContent(
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(Modifier.height(6.dp))
-        Card(
+        HydraCard(
             Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isOn) Color(0xFF34D399).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant
-            )
+            containerColor = if (isOn) Color(0xFF34D399).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(
@@ -2880,7 +2879,7 @@ private fun ProtectionTabContent(
             HomeStatTile(Modifier.weight(1f), homeThreats.toString(), if (language.isEnglish()) "threats" else "amenazas")
         }
         Spacer(Modifier.height(10.dp))
-        Card(
+        HydraCard(
             Modifier.fillMaxWidth().clickable { onOpenSecurity() },
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -2941,7 +2940,7 @@ private fun ProtectionTabContent(
 
         var showDiag by remember { mutableStateOf(false) }
         Spacer(Modifier.height(10.dp))
-        Card(Modifier.fillMaxWidth().clickable { showDiag = !showDiag }, shape = RoundedCornerShape(16.dp)) {
+        HydraCard(Modifier.fillMaxWidth().clickable { showDiag = !showDiag }, shape = RoundedCornerShape(16.dp)) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(if (language.isEnglish()) "System details" else "Detalles del sistema", fontWeight = FontWeight.SemiBold)
@@ -4133,14 +4132,14 @@ private fun AboutScreen(context: Context) {
         Spacer(Modifier.height(6.dp))
         Text(tr(context, "creator"), style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(tr(context, "about_summary"), style = MaterialTheme.typography.bodyMedium)
                 Text(tr(context, "about_features"), style = MaterialTheme.typography.bodySmall)
             }
         }
         Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(tr(context, "license"), style = MaterialTheme.typography.titleSmall)
                 Text(tr(context, "license_gpl"), style = MaterialTheme.typography.bodySmall)
@@ -4150,7 +4149,7 @@ private fun AboutScreen(context: Context) {
             }
         }
         Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(tr(context, "repository"), style = MaterialTheme.typography.titleSmall)
                 Text(HYDRA_REPOSITORY_URL, style = MaterialTheme.typography.bodySmall)
@@ -4160,7 +4159,7 @@ private fun AboutScreen(context: Context) {
             }
         }
         Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(tr(context, "block_ads_title"), style = MaterialTheme.typography.titleSmall)
                 Text(tr(context, "block_ads_attribution"), style = MaterialTheme.typography.bodySmall)
@@ -4170,7 +4169,7 @@ private fun AboutScreen(context: Context) {
             }
         }
         Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(tr(context, "donate"), style = MaterialTheme.typography.titleSmall)
                 Text(tr(context, "donate_pending"), style = MaterialTheme.typography.bodySmall)
@@ -4472,7 +4471,7 @@ private fun NavGlyph(kind: Int, color: Color) {
 
 @Composable
 private fun SettingSwitchCard(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp)) {
+    HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(title, fontWeight = FontWeight.SemiBold)
@@ -4485,7 +4484,7 @@ private fun SettingSwitchCard(title: String, subtitle: String, checked: Boolean,
 
 @Composable
 private fun HomeStatTile(modifier: Modifier, value: String, label: String) {
-    Card(modifier, shape = RoundedCornerShape(16.dp)) {
+    HydraCard(modifier, shape = RoundedCornerShape(16.dp)) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             Text(value, fontWeight = FontWeight.Bold, fontSize = 20.sp, maxLines = 1)
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)

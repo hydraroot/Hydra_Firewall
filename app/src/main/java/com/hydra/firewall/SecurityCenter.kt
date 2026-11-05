@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.content.Context
+import com.hydra.firewall.ui.theme.HydraCard
 import android.net.Uri
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -114,12 +115,9 @@ fun SecurityCenterTab(context: Context, language: AppLanguage, advancedMode: Boo
 
 @Composable
 private fun ModernCard(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        content = content
-    )
+    HydraCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    }
 }
 
 @Composable

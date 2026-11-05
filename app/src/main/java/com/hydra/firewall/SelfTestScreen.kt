@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.content.Context
+import com.hydra.firewall.ui.theme.HydraCard
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -188,7 +189,7 @@ private fun SelfTestRow(result: HydraSelfTest.CheckResult) {
         HydraSelfTest.Status.WARN -> Color(0xFFD98E1F) to "WARN"
         HydraSelfTest.Status.FAIL -> Color(0xFFC62828) to "FAIL"
     }
-    Card(Modifier.fillMaxWidth()) {
+    HydraCard(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(10.dp)) {
             Box(
                 modifier = Modifier

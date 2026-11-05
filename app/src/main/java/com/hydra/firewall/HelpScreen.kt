@@ -1,6 +1,7 @@
 package com.hydra.firewall
 
 import android.content.Context
+import com.hydra.firewall.ui.theme.HydraCard
 import java.util.Locale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -102,7 +103,7 @@ fun HelpScreen(context: Context, language: AppLanguage) {
     ) {
         Text("HYDRA HELP", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth()) {
+        HydraCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(intro, style = MaterialTheme.typography.bodyMedium)
                 Text(if (en) "Quick start: turn VPN ON → configure the default policy → review app rules → inspect Connections/Analyzer when troubleshooting." else "Inicio rápido: activá la VPN → configurá la política predeterminada → revisá las reglas de las apps → consultá Conexiones/Analizador cuando quieras investigar un bloqueo.", style = MaterialTheme.typography.bodySmall)
@@ -111,7 +112,7 @@ fun HelpScreen(context: Context, language: AppLanguage) {
         sections.mapIndexed { i, sec ->
             sec.copy(title = "${i + 1}. " + sec.title.replace(Regex("^\\d+\\.\\s*"), ""))
         }.forEach { section ->
-            Card(Modifier.fillMaxWidth()) {
+            HydraCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(section.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text(section.body, style = MaterialTheme.typography.bodySmall)
