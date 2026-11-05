@@ -1101,6 +1101,29 @@ fun FirewallScreen(
                                             },
                                             style = MaterialTheme.typography.bodySmall
                                         )
+                                        if (!record.allowed && !isIpBlocked && matches.none { !it.allowed }) {
+                                            val en = language.isEnglish()
+                                            Card(Modifier.fillMaxWidth()) {
+                                                Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Text(if (en) "Is this app not working?" else "¿Esta app no funciona?", style = MaterialTheme.typography.titleSmall)
+                                                    Text(
+                                                        if (en) "Hydra blocked this app's internet access by its app/network rule. Allowing it lets it connect on Wi-Fi and mobile data."
+                                                        else "Hydra bloqueó el acceso a Internet de esta app por su regla de app/red. Permitirla le deja conectarse por Wi-Fi y datos móviles.",
+                                                        style = MaterialTheme.typography.bodySmall
+                                                    )
+                                                    Button(
+                                                        onClick = {
+                                                            ruleStore.setWifiAllowed(record.uid, true)
+                                                            ruleStore.setMobileAllowed(record.uid, true)
+                                                            ruleVersion++
+                                                            notifyRulesChanged(context)
+                                                            selectedHistoryDetail = null
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text(if (en) "ALLOW THIS APP" else "PERMITIR ESTA APP") }
+                                                }
+                                            }
+                                        }
                                         Spacer(Modifier.height(5.dp))
                                         val whyReasons = remember(record.id) {
                                             ConnectionContext.explain(
@@ -2848,6 +2871,7 @@ private fun ProtectionTabContent(
         }
 
         Spacer(Modifier.height(10.dp))
+        PauseCard(context, language.isEnglish(), isOn) { onToggleVpn(true) }
         val homeThreats = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.findings(context).size }
         val homeLastScan = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.lastFullScan(context) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2980,25 +3004,8 @@ private fun ProtectionTabContent(
 
         }
         Spacer(Modifier.height(10.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        if (language.isEnglish()) "Mode: ${if (advancedMode) "ADVANCED" else "NORMAL"}" else "Modo: ${if (advancedMode) "AVANZADO" else "NORMAL"}",
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        if (language.isEnglish()) "Advanced shows extra tabs (IP/Ports, Analyzer, Profiles, Test)." else "Avanzado muestra pestañas extra (IP/Puertos, Analizador, Perfiles, Prueba).",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Switch(checked = advancedMode, onCheckedChange = onAdvancedModeChange)
-            }
-        }
+        // Weekly summary (replaces the Mode card: the Normal/Advanced switch now lives only in Settings).
+        WeeklySummaryCard(context, language.isEnglish())
         Spacer(Modifier.height(6.dp))
 
         if (showDiag) {

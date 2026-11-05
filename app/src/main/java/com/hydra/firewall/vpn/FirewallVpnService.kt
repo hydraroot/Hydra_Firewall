@@ -253,6 +253,7 @@ class FirewallVpnService : VpnService() {
                 START_STICKY
             }
             else -> {
+                PauseManager.clear(this)
                 setDesiredRunning(true)
                 startVpn()
                 START_STICKY

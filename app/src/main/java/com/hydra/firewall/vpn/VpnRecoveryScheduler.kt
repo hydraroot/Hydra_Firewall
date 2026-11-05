@@ -54,8 +54,15 @@ object VpnRecoveryScheduler {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
         val pending = PendingIntent.getBroadcast(app, requestCode, intent, flags)
         val trigger = System.currentTimeMillis() + delayMs.coerceAtLeast(1000L)
-        if (Build.VERSION.SDK_INT >= 23) alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pending)
-        else alarm.setExact(AlarmManager.RTC_WAKEUP, trigger, pending)
+        val exactOk = Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()
+        try {
+            if (!exactOk) throw SecurityException("exact alarms not allowed")
+            if (Build.VERSION.SDK_INT >= 23) alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pending)
+            else alarm.setExact(AlarmManager.RTC_WAKEUP, trigger, pending)
+        } catch (_: SecurityException) {
+            if (Build.VERSION.SDK_INT >= 23) alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pending)
+            else alarm.set(AlarmManager.RTC_WAKEUP, trigger, pending)
+        }
     }
 
     private fun cancelAction(app: Context, alarm: AlarmManager, action: String, requestCode: Int) {

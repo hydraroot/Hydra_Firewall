@@ -372,6 +372,28 @@ object NotificationHelper {
             .notify(APP_THREAT_NOTIFICATION_BASE_ID + (packageName.hashCode() and 0x3FF), notification)
     }
 
+    /** The pause timer ended but Android did not let Hydra restart the firewall by itself. */
+    fun notifyPauseEnded(context: Context) {
+        ensureSecurityChannel(context)
+        val english = AppSettings(context).language.isEnglish() ||
+            (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        val pendingIntent = PendingIntent.getActivity(
+            context, 3,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+        val notification = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setContentTitle(if (english) "Pause ended" else "La pausa terminó")
+            .setContentText(if (english) "Tap to turn Hydra Firewall back on." else "Tocá para reactivar Hydra Firewall.")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .notify(TAMPER_NOTIFICATION_ID + 1, notification)
+    }
+
     /** The VPN service stopped without a matching intentional-stop marker. */
     fun notifyTamper(context: Context) {
         ensureSecurityChannel(context)

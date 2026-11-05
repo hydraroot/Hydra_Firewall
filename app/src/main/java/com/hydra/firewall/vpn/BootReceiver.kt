@@ -21,6 +21,10 @@ class BootReceiver : BroadcastReceiver() {
             ThreatSignatureUpdater.scheduleDaily(context)
             return
         }
+        if (action == PauseManager.ACTION_PAUSE_END) {
+            PauseManager.onAlarm(context)
+            return
+        }
         if (action == VpnRecoveryScheduler.ACTION_RECOVER) {
             recoverVpn(context, "ALARM_RECOVERY")
             return
@@ -54,6 +58,7 @@ class BootReceiver : BroadcastReceiver() {
 
         ThreatSignatureUpdater.scheduleDaily(context)
         if (action == Intent.ACTION_USER_UNLOCKED) DirectBootState.markUnlocked(context)
+        if (PauseManager.handleBoot(context)) return
         recoverVpn(context, action)
     }
 

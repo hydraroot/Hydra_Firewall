@@ -167,6 +167,7 @@ object DomainBlockStore {
                 if (prefs != null && prefs.getString(KEY_BLOCKED_TODAY_DATE, "") != today) refreshTodayCounterIfNewDay()
                 val updated = blockedTodayCount.get() + 1
                 blockedTodayCount.set(updated)
+                WeeklyStats.recordAdBlock()
                 prefs?.edit()?.putLong(KEY_BLOCKED_TODAY_COUNT, updated)?.apply()
                 return true
             }

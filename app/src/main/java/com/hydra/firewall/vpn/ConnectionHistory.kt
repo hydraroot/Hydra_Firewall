@@ -35,6 +35,7 @@ object ConnectionHistory {
     fun init(context: Context) {
         if (initialized) return
         initialized = true
+        WeeklyStats.init(context)
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val uiPrefs = context.applicationContext.getSharedPreferences("firewall_settings", Context.MODE_PRIVATE)
         maxRecords = uiPrefs.getInt("history_max", prefs.getInt(KEY_MAX_RECORDS, 500)).coerceIn(100, 1000)
@@ -70,6 +71,7 @@ object ConnectionHistory {
     @Synchronized
     fun add(uid: Int, pkg: String?, protocol: String, network: NetworkKind, source: String, destination: String, allowed: Boolean, event: String) {
         val now = System.currentTimeMillis()
+        WeeklyStats.recordConnection(pkg, allowed, now)
 
         // BLOCKED reconnect storms can generate hundreds of nearly identical records
         // in a few seconds. Keep a single representative record and aggregate the

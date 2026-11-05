@@ -51,6 +51,13 @@ Exceptions: Hydra itself and apps set to *No firewall* (compatibility mode) are 
 are **not** blocked. It is not a full kill switch — for a hard cutoff use Android's *Always-on VPN* plus
 *Block connections without VPN*.
 
+## 1b. Pause, Quick Settings tile and weekly summary
+
+- **Pause 15 min / 1 h** (Home): stops the firewall and turns it back on by itself; countdown and "Resume now" on Home. If Android blocks the automatic restart, a notification asks you to tap to resume.
+- **Quick Settings tile:** add "Hydra Firewall" from the Android panel; one tap pauses 15 min, resumes, or turns Hydra on (it opens the app if VPN permission is needed).
+- **Last 7 days** (Home): blocked attempts, ads/trackers blocked, allowed connections and the apps with most blocks. Stored locally as per-day counters only.
+- **"Is this app not working?"** in a blocked connection's details: one button to allow the app.
+
 ## 2. First-connection prompt
 
 When an app with no rule connects for the first time, Hydra shows a prompt (and a notification if the

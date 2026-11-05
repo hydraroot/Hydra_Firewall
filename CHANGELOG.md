@@ -1,3 +1,10 @@
+## 2.4.0 (versionCode 20400)
+- **Pausar Hydra 15 min / 1 h:** desde Inicio (o el atajo del panel de Android). Muestra cuenta regresiva, «Reanudar ahora» y se reactiva sola; sobrevive a reinicios y, si Android no deja arrancar en segundo plano, avisa con una notificación.
+- **Atajo en el panel de Android (Quick Settings):** un toque pausa 15 min, reanuda o enciende Hydra.
+- **Resumen de 7 días en Inicio:** intentos bloqueados, anuncios/rastreadores bloqueados, conexiones permitidas y apps con más bloqueos (solo contadores locales, sin destinos).
+- **«¿Esta app no funciona?»:** en el detalle de una conexión bloqueada por regla de app/red, un botón «Permitir esta app».
+- **Orden:** se quitó de Inicio el interruptor duplicado de modo Avanzado (queda en Ajustes). Las alarmas exactas ahora tienen alternativa si Android no concede el permiso.
+
 ## 2.3.0 (versionCode 20300)
 - **Modo Normal más simple:**
   - **Seguridad es una sola pantalla:** estado, apps sospechosas (con el motivo en lenguaje simple), cuarentena, vigilancia de updates e historial de seguridad, más un botón «Activar modo Avanzado». El selector de secciones y la lista técnica de capas quedan solo en Avanzado.
