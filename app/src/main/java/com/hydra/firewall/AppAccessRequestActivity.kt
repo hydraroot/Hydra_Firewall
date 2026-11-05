@@ -186,6 +186,9 @@ private fun AppAccessRequestScreen(
     var groupedAttempts by remember { mutableStateOf<List<DecisionRequestManager.Attempt>>(emptyList()) }
     var showDetails by remember { mutableStateOf(false) }
     var showCustom by remember { mutableStateOf(false) }
+    // Normal mode: two simple choices (Allow / Block). Everything else sits behind "More options".
+    val advancedUser = remember { runCatching { AppSettings(context).advancedMode }.getOrDefault(false) }
+    var showMore by remember { mutableStateOf(advancedUser) }
     var customProfile by remember { mutableStateOf(CustomProtectionProfileStore.defaults()) }
 
     LaunchedEffect(token) {
@@ -230,7 +233,7 @@ private fun AppAccessRequestScreen(
     Column(
         modifier = Modifier
             .padding(16.dp)
-            .then(if (showDetails || showCustom) Modifier.verticalScroll(scrollState) else Modifier),
+            .then(if (showDetails || showCustom || showMore) Modifier.verticalScroll(scrollState) else Modifier),
         verticalArrangement = Arrangement.Center
     ) {
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -262,6 +265,35 @@ private fun AppAccessRequestScreen(
 
                 Spacer(Modifier.size(10.dp))
 
+                if (!showMore) {
+                    Text(
+                        if (english) "Should this app be able to use the Internet?" else "¿Esta app puede usar Internet?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        PromptAction(
+                            buttonText = if (english) "ALLOW" else "PERMITIR",
+                            description = if (english) "It can connect, with Hydra's protection." else "Puede conectarse, con la protección de Hydra.",
+                            modifier = Modifier.weight(1f),
+                            onClick = { onDecision(wifi, mobile, DecisionRequestManager.Persistence.ALWAYS) }
+                        )
+                        PromptAction(
+                            buttonText = if (english) "BLOCK" else "BLOQUEAR",
+                            description = if (english) "It cannot use the Internet." else "No puede usar Internet.",
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                wifi = false
+                                mobile = false
+                                onCancel()
+                            }
+                        )
+                    }
+                    TextButton(onClick = { showMore = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (english) "More options ▼" else "Más opciones ▼")
+                    }
+                }
+                if (showMore) {
                 // Four clear actions. The descriptions remain simple so the
                 // user can choose without opening Details.
                 Row(
@@ -468,6 +500,7 @@ private fun AppAccessRequestScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
                 }
             }
         }

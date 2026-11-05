@@ -46,7 +46,7 @@ flowchart TD
 1. **TUN reader** reads one IP packet at a time from the VPN interface.
 2. **Parser** decodes IPv4/IPv6 and the transport header (TCP, UDP, ICMP). IPv6 fragments are reassembled; unsupported extension headers and ESP are rejected.
 3. **UID resolver** finds which app owns the flow. On newer Android it asks the system; on Android 7–9 it reads `/proc/net`, which can fail transiently. Hydra retries briefly in the packet thread, and the rest of the retries happen in the background. **If the owner cannot be determined, the connection is dropped.** Hydra does not infer the app from the destination IP, because an IP can be shared by many apps and CDNs.
-4. **Rule engine** produces *allow* or *block* combining the app's mode, the network type, global mode, schedules, advanced IP/port rules, blocklists, threat pack, SNI/JA3 and QUIC protection.
+4. **Rule engine** produces *allow* or *block* combining the app's mode, the network type, global mode, schedules, advanced IP/port rules, blocklists, threat pack, SNI and QUIC protection.
 5. **Forwarding engines** implement a small TCP/UDP stack in user space: they keep a session table, handle TCP sequence numbers and reassembly, open real sockets that are *protected* (they bypass the VPN so they do not loop), and rebuild reply packets with correct checksums.
 
 ### Backpressure
@@ -64,7 +64,7 @@ sessions (TCP 128+128, UDP 256+256).
 
 ## 4. TLS and QUIC inspection
 
-- **TLS over TCP:** Hydra parses the TLS ClientHello to extract the server name (SNI) and, optionally, compute JA3 / JA3N / HYDRA-lite fingerprints. It does not decrypt.
+- **TLS over TCP:** Hydra parses the TLS ClientHello to extract the server name (SNI). It does not decrypt.
 - **QUIC / HTTP3:** the handshake is encrypted differently, so inspection is best effort: Hydra correlates QUIC flows with the DNS answer the same app got earlier and applies domain rules to that.
 - Things that hide names from Hydra: apps with their own DoH, Encrypted Client Hello (ECH) and hard-coded IPs.
 

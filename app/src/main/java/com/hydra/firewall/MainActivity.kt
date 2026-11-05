@@ -878,9 +878,12 @@ fun FirewallScreen(
                                 HydraChoiceButton(networkRuleSubTab == 0, "IP'S", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 0 }, modifier = Modifier.height(30.dp))
                                 Spacer(Modifier.width(8.dp))
                                 HydraChoiceButton(networkRuleSubTab == 1, "PUERTOS", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 1 }, modifier = Modifier.height(30.dp))
+                                Spacer(Modifier.width(8.dp))
+                                HydraChoiceButton(networkRuleSubTab == 2, if (language.isEnglish()) "CLEANUP" else "LIMPIEZA", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 2 }, modifier = Modifier.height(30.dp))
                             }
                             when (networkRuleSubTab) {
                                 0 -> IpRulesPanel(context, language.isEnglish(), ipBlockStore, ipVersion, { ipVersion++; notifyRulesChanged(context) })
+                                2 -> RuleCleanupPanel(language.isEnglish(), ipBlockStore, advancedRuleStore, ipVersion + advancedVersion, { ipVersion++; advancedVersion++; notifyRulesChanged(context) })
                                 else -> PortRulesPanel(context, language.isEnglish(), apps, advancedRuleStore, advancedVersion, { advancedVersion++; notifyRulesChanged(context) })
                             }
                         }
@@ -1362,7 +1365,7 @@ fun FirewallScreen(
                         }
                     }
                     MainTab.SECURITY -> {
-                        SecurityCenterTab(context, language)
+                        SecurityCenterTab(context, language, advancedMode) { advancedMode = true; settingsStore.advancedMode = true }
                     }
                     MainTab.SELFTEST -> {
                         SelfTestScreen(context, language)
@@ -1375,6 +1378,7 @@ fun FirewallScreen(
                     }
                     MainTab.SETTINGS -> {
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            if (advancedMode) {
                             Text("Firewall", style = MaterialTheme.typography.titleSmall)
                             Text(if (language.isEnglish()) "Global mode" else "Modo global", style = MaterialTheme.typography.labelLarge)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
@@ -1404,7 +1408,9 @@ fun FirewallScreen(
                                 ruleStore.defaultMobileAllowed = it
                             }
                             Spacer(Modifier.height(10.dp))
+                            }
                             SettingSwitchRow(tr(context,"ask_first"), tr(context,"ask_first_sub"), askFirst) { askFirst=it; ruleStore.askOnFirstConnection=it; notifyRulesChanged(context) }
+                            if (advancedMode) {
                             SettingSwitchRow(
                                 if (language.isEnglish()) "Learning analysis" else "Análisis de aprendizaje",
                                 if (language.isEnglish()) "Analysis only: builds traffic suggestions without changing firewall decisions." else "Solo análisis: genera sugerencias de tráfico sin cambiar las decisiones del firewall.",
@@ -1412,11 +1418,15 @@ fun FirewallScreen(
                             ) { learningMode = it; ruleStore.learningMode = it }
                             SettingSwitchRow(tr(context,"allow_unknown"), tr(context,"allow_unknown_sub"), invalidAllowed) { invalidAllowed=it; ruleStore.invalidUidAllowed=it; notifyRulesChanged(context) }
                             SettingSwitchRow(tr(context,"allow_local"), tr(context,"allow_local_sub"), allowLocal) { allowLocal=it; ruleStore.allowLocalNetwork=it; notifyRulesChanged(context) }
+                            }
                             SettingSwitchRow(tr(context,"advanced_mode"), tr(context,"advanced_mode_sub"), advancedMode) { advancedMode=it; settingsStore.advancedMode=it }
+                            if (advancedMode) {
                             SettingSwitchRow(tr(context,"block_ipv6"), tr(context,"block_ipv6_sub"), blockIpv6) { blockIpv6=it; ruleStore.blockIpv6=it; notifyRulesChanged(context) }
                             SettingSwitchRow(tr(context,"block_roaming"), tr(context,"block_roaming_sub"), blockRoaming) { blockRoaming=it; ruleStore.blockWhenRoaming=it; notifyRulesChanged(context) }
                             SettingSwitchRow(tr(context,"block_screen"), tr(context,"block_screen_sub"), blockScreenOff) { blockScreenOff=it; ruleStore.blockWhenScreenOff=it; notifyRulesChanged(context) }
+                            }
 
+                            if (advancedMode) {
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
                             Text(if (language.isEnglish()) "Secure DNS" else "DNS seguro", style = MaterialTheme.typography.titleMedium)
                             Text(
@@ -1503,6 +1513,7 @@ fun FirewallScreen(
                             if (essentialAppsStore.uids.isNotEmpty()) {
                                 Text(if (language.isEnglish()) "Selected: ${essentialAppsStore.uids.size}" else "Seleccionadas: ${essentialAppsStore.uids.size}", style = MaterialTheme.typography.labelSmall)
                             }
+                            }
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
                             Text(tr(context,"security"), style = MaterialTheme.typography.titleMedium)
                             SecuritySettingsSection(context, LockStore(context), onChanged = { })
@@ -1558,6 +1569,14 @@ fun FirewallScreen(
         }
     }
 
+    var showGuide by remember { mutableStateOf(!settingsStore.onboardingDone) }
+    if (showGuide) {
+        FirstRunGuide(language.isEnglish()) { chosenAdvanced ->
+            settingsStore.onboardingDone = true
+            if (chosenAdvanced) { advancedMode = true; settingsStore.advancedMode = true }
+            showGuide = false
+        }
+    }
     if (showAlwaysOnPrompt) {
         AlertDialog(
             containerColor = hydraDialogColors().first,
@@ -2662,11 +2681,6 @@ private fun CustomProtectionChecklist(
         profile.quicProtection
     ) { profile.copy(quicProtection = it) }
     row(
-        if (english) "TLS fingerprint protection" else "Protección por huella TLS",
-        if (english) "Enforce the optional JA3/JA3N known-bad list." else "Aplica la lista opcional de huellas JA3/JA3N conocidas.",
-        profile.tlsFingerprint
-    ) { profile.copy(tlsFingerprint = it) }
-    row(
         if (english) "Known-threat protection" else "Protección contra amenazas conocidas",
         if (english) "Block confirmed threat IPs and domains." else "Bloquea IP y dominios de amenazas confirmadas.",
         profile.threatProtection
@@ -2684,7 +2698,6 @@ private fun customProtectionSummary(profile: CustomProtectionProfileStore.Profil
     if (profile.secureDns) enabled += "DNS"
     if (profile.tlsSniFilter) enabled += "SNI"
     if (profile.quicProtection) enabled += "QUIC"
-    if (profile.tlsFingerprint) enabled += "TLS FP"
     if (profile.threatProtection) enabled += if (english) "threats" else "amenazas"
     if (profile.blockLocalNetwork) enabled += if (english) "local network block" else "bloqueo red local"
     return if (english) {

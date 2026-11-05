@@ -1,3 +1,19 @@
+## 2.3.0 (versionCode 20300)
+- **Modo Normal más simple:**
+  - **Seguridad es una sola pantalla:** estado, apps sospechosas (con el motivo en lenguaje simple), cuarentena, vigilancia de updates e historial de seguridad, más un botón «Activar modo Avanzado». El selector de secciones y la lista técnica de capas quedan solo en Avanzado.
+  - **Aviso de primera conexión:** solo *Permitir* / *Bloquear*; «Más opciones» muestra Permisivo, Sin firewall, Personalizado, los interruptores Wi‑Fi/Móvil y Detalles (el modo Avanzado abre el aviso completo).
+  - **Ajustes básicos:** el modo global, Wi‑Fi/móvil por defecto, DNS seguro, IPv6, roaming, pantalla apagada, rendimiento y apps permisivas pasan a Avanzado.
+  - **Guía inicial de 3 pasos** (qué hace Hydra, qué significa Permitir/Bloquear, qué hacer cuando Seguridad marca algo); termina eligiendo modo Normal o Avanzado.
+- **Se quitó lo que no servía:**
+  - *Huella TLS (JA3):* se retiran su sección, su lista de huellas, sus filas de estado y el interruptor por app de Perfiles. La captura y el corte por huella conocida se apagan una vez al actualizar.
+  - *Línea de tiempo:* pasa a «Historial de seguridad» (eventos del antivirus, ignoradas, cambios de firma y cuarentena) dentro de Seguridad.
+- **Fusionado o renombrado:**
+  - *Reglas* (limpieza de conflictos) pasa a Apps → IP y puertos → Limpieza.
+  - *Parada inesperada* queda como la notificación de siempre más una tarjeta en Seguridad cuando ocurre.
+  - *Comportamiento* se llama ahora «Correlación de tráfico», para no confundirla con los permisos delicados.
+- **Analizador APK marcado como experimental:** cartel que aclara que el puntaje MH‑100K es orientativo, no un veredicto, hasta calibrarlo con más apps reales.
+- **Documentación y ayuda (ES/EN) actualizadas** para reflejar todo lo anterior; sin menciones a pantallas que ya no existen.
+
 ## 2.2.5 (versionCode 20205)
 - **Se ve que la actualización está en marcha:** en Seguridad → Actualización de Hydra aparece una barra con la fase actual: «Descargando 45 % (1,1 / 2,5 MB)», «Verificando la descarga y la firma…», «Instalando… Hydra se va a reiniciar sola y la VPN vuelve a arrancar», o «Android espera tu confirmación». También se muestra cuando la descarga empezó sola en segundo plano.
 - **Aviso después del reinicio:** al volver a abrirse tras actualizarse, Hydra muestra «✅ Hydra se actualizó: 2.2.4 → 2.2.5» y la tarjeta de actualización lo recuerda unos minutos, para que el reinicio no parezca un cierre inesperado.

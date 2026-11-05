@@ -31,6 +31,7 @@ object TlsFingerprintStore {
 
     private const val PREFS = "tls_fingerprint_store"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_UI_REMOVED = "ui_removed_v230"
     private const val KEY_BLOCK_ON_MATCH = "block_on_match"
     private const val KEY_KNOWN_BAD = "known_bad_hashes"
     private const val MAX_SEEN = 1000
@@ -46,7 +47,12 @@ object TlsFingerprintStore {
     @Synchronized
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        enabled = prefs.getBoolean(KEY_ENABLED, true)
+        // 2.3.0: the TLS fingerprint screens were removed (nobody could act on the result), so the capture and the
+        // block-on-match option are turned off once; the code stays for the traffic analyzer's own use.
+        if (!prefs.getBoolean(KEY_UI_REMOVED, false)) {
+            prefs.edit().putBoolean(KEY_ENABLED, false).putBoolean(KEY_BLOCK_ON_MATCH, false).putBoolean(KEY_UI_REMOVED, true).apply()
+        }
+        enabled = prefs.getBoolean(KEY_ENABLED, false)
         blockOnMatch = prefs.getBoolean(KEY_BLOCK_ON_MATCH, false)
         knownBad = prefs.getStringSet(KEY_KNOWN_BAD, emptySet()).orEmpty().toSet()
     }

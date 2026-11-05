@@ -26,11 +26,11 @@ one of these *modes*:
 
 | Mode | What it means |
 |---|---|
-| **Allow** | The app goes through Hydra with the normal protections (domain blocklist, secure DNS, SNI/QUIC/JA3 filtering, threat protection). Wi‑Fi and mobile switches decide where it may connect. |
+| **Allow** | The app goes through Hydra with the normal protections (domain blocklist, secure DNS, SNI/QUIC filtering, threat protection). Wi‑Fi and mobile switches decide where it may connect. |
 | **Block** | No network access for the app. |
 | **Permissive** | The app stays inside Hydra, but compatibility layers are relaxed (optional domain and QUIC filtering) for apps that break under filtering. Strong threat/IP protection stays on. Wi‑Fi/mobile switches still apply, and Permissive does **not** exempt the app from *Block all*. |
 | **Permissive‑compat** | A temporary **diagnostic** variant of Permissive: the normal ad/tracker blocklist and QUIC domain filter are bypassed to find out whether filtering is what breaks an app. |
-| **Personalized** | You choose which protections apply to that app only: ad/tracker blocklist, secure DNS, HTTPS SNI filter, QUIC protection, TLS fingerprint protection, known-threat protection, block local network. Wi‑Fi/mobile stay separate switches. |
+| **Personalized** | You choose which protections apply to that app only: ad/tracker blocklist, secure DNS, HTTPS SNI filter, QUIC protection, known-threat protection, block local network. Wi‑Fi/mobile stay separate switches. |
 | **No firewall** | The app is **excluded from the VPN** and uses Android's normal network. Hydra does not filter or see its traffic, and the Wi‑Fi/mobile switches do not apply. Meant for banking or special apps that refuse to work through a filtered network. |
 | **System essential** | Some system components are allowed automatically so the phone keeps working. Threat/IP rules and global lockdown still apply. |
 
@@ -63,6 +63,9 @@ app is in the background) with these choices:
 - **Personalized** — pick protections for this app only, then apply.
 - **Details** — explains *why the app is connecting*: the resolved domain, matches in the blocklists or threat pack, what the port means, where the app was installed from and how old it is, and how often it retried.
 
+**Normal mode shows only *Allow* and *Block*.** A *More options* button reveals the rest (Permissive, No
+firewall, Personalized, the Wi‑Fi/mobile switches and *Details*). Advanced mode opens the full prompt.
+
 Wi‑Fi and mobile start ON when you allow. Turn the prompt off with *Ask on first connection* in Settings
 (new apps then follow the global default).
 
@@ -94,11 +97,6 @@ An app that uses DoH *inside its own HTTPS connection* hides the queried name fr
 Hydra reads the TLS ClientHello to learn the server name and applies domain rules to it. Nothing is
 decrypted.
 
-### TLS fingerprints (JA3 / JA3N / HYDRA-lite)
-Optionally, Hydra computes a fingerprint of the TLS client and checks it against a known-bad list. It
-can reveal a client stack even when the domain changes or is behind a CDN. A match is an *indicator*:
-legitimate apps that use the same library or WebView can share a fingerprint.
-
 ### QUIC / HTTP3
 QUIC cannot be read like TLS-over-TCP, so Hydra works on a best-effort basis by correlating the traffic
 with the DNS answer the same app resolved earlier. QUIC protection can be switched per app.
@@ -106,7 +104,7 @@ with the DNS answer the same app resolved earlier. QUIC protection can be switch
 ### IP blocking and port rules (Advanced mode)
 - **IP blocking** stops traffic to specific destinations.
 - **Advanced rules** control TCP/UDP by protocol and port. Rules you created stay active even when the tab is hidden.
-- A **rule-conflict analyzer** reports rules that contradict or duplicate each other.
+- **Cleanup** (*Apps → IP and ports → Cleanup*) reports IP and port rules that duplicate each other or are already covered by a broader rule, and removes the redundant entry on request.
 
 ### IPv6, local network and special cases
 - **Block IPv6** drops all IPv6 immediately and apps fall back to IPv4, where every filter applies.
@@ -118,7 +116,13 @@ with the DNS answer the same app resolved earlier. QUIC protection can be switch
 
 **Self-update (1.3.0).** Security → Overview → "Hydra update": automatic daily check + manual *Check for update*, shows "already up to date" when there is nothing new. The APK is installed only if its SHA‑256 matches the release's `.apk.sha256`, it is the same package, newer, and signed with the same certificate; Android still asks for confirmation. Releases are produced by tagging `vX.Y.Z` (see VERSIONING). **Suspicious apps** show *Copy details* (package, version, installer, APK/cert hashes, permissions, matching rules) and a small *Google* search button.
 
-**Antivirus-style app checks (1.2.0).** Installed apps are compared with the signed pack (SHA‑256 hashes + YARA‑Lite) when installed/updated and after each pack update; matches raise a security event and a notification. Known threats only; nothing is removed automatically. **Control and updates card (1.2.1)** in Security → Overview: one place to switch/update VPN, threat pack, antivirus, blocklists and TLS fingerprint.
+**Antivirus-style app checks (1.2.0).** Installed apps are compared with the signed pack (SHA‑256 hashes + YARA‑Lite) when installed/updated and after each pack update; matches raise a security event and a notification. Known threats only; nothing is removed automatically. **Control and updates card (1.2.1)** in Security → Overview: one place to switch/update VPN, threat pack, antivirus and blocklists.
+
+**Fewer false positives (2.2.4).** The pack's YARA‑Lite rules only look at patterns such as permission strings, which legitimate apps (Google Play services, banking or smart-home apps) also contain. For apps installed from a known store or that belong to the system, a *pattern-only* match is not reported; an *exact known-malware hash* is always reported, wherever the app came from. Apps installed outside a store are checked as before.
+
+**Sensitive-permission indications (2.2.0).** For apps installed outside a known store, Hydra flags risky permission combinations (Accessibility + overlay + SMS, notification listener + SMS, install packages, device admin, and so on). They are indications, not proof: they appear in their own card, with a plain-language explanation, *Search Google* and *Ignore*, and never raise notifications.
+
+**Plain-language reasons and ignore list (2.2.0).** Every finding explains why it was flagged (identical to known malware, or a typical pattern that may be a false positive). *Ignore* moves an app to *Ignored apps* with the date; if an ignored app later changes its developer signature, Hydra stops ignoring it, records an event and notifies you.
 
 Hydra can load a **signed threat pack** with malicious IPs, domains and **YARA‑Lite** rules. Sources
 include abuse.ch (Feodo Tracker, URLhaus, ThreatFox).
@@ -143,7 +147,9 @@ Accessibility services, Device Admin receivers, overlay and package-install capa
 native `.so` libraries and DEX files, plus YARA‑Lite rules. Everything is analyzed **locally**; no APK is
 uploaded.
 
-The **Scan installed apps** button (Security → APK scanner) runs the scanner over every user-installed app and lists each MH‑100K score with a summary, so you can check how the model behaves on apps you trust. Results are not stored in the security log and are only copied to the clipboard if you tap *Copy results*.
+**Experimental (Advanced mode only).** The score is a guide, not a verdict: it has not been calibrated against enough real apps yet.
+
+The **Scan installed apps** button (Security → APK scanner, Advanced) runs the scanner over every user-installed app and lists each MH‑100K score with a summary, so you can check how the model behaves on apps you trust. The scan keeps running if you leave the screen. The last results (with the date) are kept on the phone, outside the security log, and are copied to the clipboard only if you tap *Copy results* (the copy includes the Hydra version, the date and each app's source: store, sideload or system). `tools/analyze_scan_results.py` turns that text into a score distribution per source and a suggested threshold.
 
 ### APP RISK
 Combines indicators into a **0–100 score** with levels SAFE, LOW, MEDIUM, HIGH and CRITICAL.
@@ -152,7 +158,7 @@ more. It is a signal, not a verdict — legitimate apps can have all of these.
 
 ### Behavior engine
 Correlates metadata Hydra already collects — connections, destinations, DNS activity, DNS blocks, unusual
-ports, known-bad TLS fingerprints — into a per-app behavior score. It does not inspect encrypted payloads
+ports — into a per-app behavior score. It does not inspect encrypted payloads
 and does not change firewall decisions by itself. *Local behavior learning* builds a per-app traffic
 baseline on the phone (it needs **traffic recording enabled in the Analyzer tab**, which is off by default).
 
@@ -164,9 +170,10 @@ Both are **secondary signals that warn and never block by themselves**. In the M
 0.5, precision is about 64 % and 5.6 % of legitimate apps are false positives.
 
 ### Security events and status
-Important findings (APK scans, security indicators) are recorded as events. *Security status*
-summarizes quarantine, TLS fingerprinting, service state, update/Doze monitoring, unexpected stops and
-rule conflicts.
+Important findings (antivirus matches, ignored apps, signature changes, quarantine) are recorded as events
+and listed in *Security → Security history*. *Security status* (Advanced mode) summarizes quarantine,
+service state and update/Doze monitoring. When the VPN stops without being asked to, Hydra shows a
+notification and a card in Security.
 
 ## 7. Visibility: history, analyzer, statistics
 
@@ -202,7 +209,9 @@ rule conflicts.
 
 | Mode | Tabs |
 |---|---|
-| **Normal** (default) | Protection · Rules · Connections · Statistics · Security · Settings · Help · About |
-| **Advanced** | Adds IP/Ports · Analyzer · Profiles · Test |
+| **Normal** (default) | Home · Apps (Rules) · Activity (Connections · Statistics) · Security (a single screen) · More (Settings with the basics · Help · About) |
+| **Advanced** | Adds IP/Ports (with Cleanup) · Profiles · Analyzer · Test, the Security sections (Quarantine, Update watch, APK scanner, Traffic correlation, Doze) and the technical settings (global mode, secure DNS, IPv6/roaming/screen-off, performance, permissive apps) |
+
+A short guide is shown the first time Hydra opens; it ends by choosing Normal or Advanced mode.
 
 Switching modes never deletes rules.

@@ -20,6 +20,7 @@ class AppSettings(context: Context) {
         }
     }
 
+    var onboardingDone: Boolean get() = prefs.getBoolean("onboarding_done", false); set(value) = prefs.edit().putBoolean("onboarding_done", value).apply()
     var advancedMode: Boolean get() = prefs.getBoolean("advanced_mode", false); set(value) = prefs.edit().putBoolean("advanced_mode", value).apply()
     var showSystemApps: Boolean get() = prefs.getBoolean("show_system_apps", false); set(value) = prefs.edit().putBoolean("show_system_apps", value).apply()
     var trustedAppsEnabled: Boolean get() = prefs.getBoolean("trusted_apps_enabled", false); set(value) = prefs.edit().putBoolean("trusted_apps_enabled", value).apply()

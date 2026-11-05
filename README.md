@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (version `2.2.5`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
+> **Status: closed-testing candidate** (version `2.3.0`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -32,7 +32,7 @@ Everything runs **on the device**. There are no Hydra servers, no account and no
 | | |
 |---|---|
 | **What it is** | An Android firewall built on the system `VpnService` (TUN interface). Open source, GPL‑3.0‑or‑later. |
-| **What it does** | Per-app Wi‑Fi/mobile rules · first-connection prompts · new-app quarantine · ad/tracker/malware domain blocking · encrypted DNS · SNI/JA3/QUIC filtering without decrypting HTTPS · IP and port rules · signed threat-intelligence pack · APK scanner and app-risk scoring · local behavior analysis · connection history and statistics · PIN/biometric lock · config export/import |
+| **What it does** | Per-app Wi‑Fi/mobile rules · first-connection prompts · new-app quarantine · ad/tracker/malware domain blocking · encrypted DNS · SNI/QUIC filtering without decrypting HTTPS · IP and port rules · signed threat-intelligence pack · APK scanner and app-risk scoring · local behavior analysis · connection history and statistics · PIN/biometric lock · config export/import |
 | **What it does not do** | Detect malware reliably · decrypt HTTPS · replace Android's own security · block traffic of apps you excluded from the VPN · work together with another VPN |
 | **Privacy** | No telemetry. The only network requests Hydra makes on its own are listed in [Updates and network activity](#updates-and-network-activity). |
 | **Requirements** | Android 7.0+ (API 24). Android allows only one active VPN at a time. |
@@ -72,7 +72,7 @@ flowchart LR
 
 1. **Capture.** Android sends the traffic of every non-excluded app to Hydra's TUN interface.
 2. **Identify.** Hydra works out which app owns each connection (system API on newer Android, `/proc/net` on Android 7–9). If it cannot tell, the connection is dropped — it never guesses.
-3. **Decide.** The rule engine combines the app's rule, the network type (Wi‑Fi / mobile), global mode, schedules, IP and port rules, DNS/SNI/JA3 matches, and the threat pack.
+3. **Decide.** The rule engine combines the app's rule, the network type (Wi‑Fi / mobile), global mode, schedules, IP and port rules, DNS/SNI matches, and the threat pack.
 4. **Forward or drop.** Allowed traffic is re-sent through real sockets bound to the physical network; replies are rebuilt into IP packets and handed back to the app.
 
 A deeper explanation (routing, DNS handling, TLS/QUIC inspection, limits) is in
@@ -92,7 +92,7 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 ### Filter what they connect to
 - **Ad/tracker/malware domain blocking** with a list bundled in the APK (~18,000 domains) plus optional live lists (HaGeZi, 1Hosts, StevenBlack, OISD).
 - **Encrypted DNS** over DNS‑over‑TLS (with DNS‑over‑HTTPS fallback) using Cloudflare, Google or Quad9.
-- **HTTPS filtering by server name (SNI)** and **TLS fingerprints (JA3)** — without decrypting anything.
+- **HTTPS filtering by server name (SNI)** — without decrypting anything.
 - **QUIC / HTTP3** filtering on a best-effort basis by correlating with the DNS answer the same app got earlier.
 - **Local-network and IPv6 controls**, including a *Block IPv6* switch.
 - **Signed threat-intelligence pack** (malicious IPs/domains from sources such as Feodo Tracker and URLhaus, plus YARA‑Lite rules). It is installed only if its signature verifies.
@@ -108,9 +108,9 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 
 ### Protect Hydra itself
 - **PIN** of **5 to 8 digits** (PBKDF2, 120,000 iterations) and **fingerprint** unlock. Wrong attempts add growing delays (15 s up to 5 min) that survive restarts and cannot be shortened by changing the phone's clock. PINs of 4 digits created by older versions keep working until you change them. `allowBackup=false`.
-- **Tamper and recovery monitoring**: unexpected stops, Doze behavior, rule conflicts, restart after boot.
+- **Tamper and recovery monitoring**: a notification and a card when the VPN stops by itself, Doze correlation (Advanced), restart after boot. Redundant IP/port rules are cleaned up in *Apps → IP and ports → Cleanup* (Advanced).
 - **Configuration export/import** (rules, schedules, advanced rules, IP exceptions) as a file that is portable by app name, with automatic undo.
-- **Normal and Advanced mode**, English/Spanish UI, light/dark theme, battery options.
+- **Normal and Advanced mode**, English/Spanish UI, light/dark theme, battery options. **Normal mode is deliberately simple**: Security is one screen (status, suspicious apps with a plain-language reason, quarantine, update watch and security history), the first-connection prompt has just *Allow* / *Block* (everything else under *More options*), and Settings shows only the basics. A short first-run guide explains the three things that matter. **Advanced mode** adds IP and ports, Profiles, the Analyzer, the experimental APK scanner, traffic correlation, Doze and the technical settings.
 
 ## Updates and network activity
 
@@ -196,7 +196,7 @@ Together with the YARA‑Lite rules, the signed threat pack and the per-app beha
 1. **Install** the APK (see below) and open Hydra.
 2. Tap the **Firewall VPN** switch on the Home screen and accept Android's VPN prompt.
 3. Allow notifications and exclude Hydra from battery optimization (otherwise Android may stop the service).
-4. Use your phone normally. Each app that connects for the first time triggers the **first-connection prompt** — choose *Allow*, *Block*, or *Details* to see why it connects.
+4. Use your phone normally. Each app that connects for the first time triggers the **first-connection prompt** — choose *Allow* or *Block* (tap *More options* for the rest).
 5. Open **RULES** to review per-app Wi‑Fi/mobile switches, **CONNECTIONS** to see history, and **SECURITY** for the threat pack and app scanning.
 6. Optional: set a **PIN**, enable **Always-on VPN** in Android settings, and run **Self-test** (Advanced mode) to validate DNS/SNI/TCP on your phone.
 

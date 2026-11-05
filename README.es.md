@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (versión `2.2.5`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
+> **Estado: candidata para prueba cerrada** (versión `2.3.0`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -32,7 +32,7 @@ Todo ocurre **en el dispositivo**. No hay servidores de Hydra, ni cuenta, ni ana
 | | |
 |---|---|
 | **Qué es** | Un firewall para Android construido sobre el `VpnService` del sistema (interfaz TUN). Código abierto, GPL‑3.0‑or‑later. |
-| **Qué hace** | Reglas por app para Wi‑Fi/datos · aviso en la primera conexión · cuarentena opcional de apps nuevas · bloqueo de dominios de anuncios/rastreadores/malware · DNS cifrado · filtrado SNI/JA3/QUIC sin descifrar HTTPS · reglas de IP y puertos · pack de amenazas firmado · escáner de APK y puntaje de riesgo · análisis de comportamiento local · historial y estadísticas · bloqueo con PIN/huella · exportar/importar configuración |
+| **Qué hace** | Reglas por app para Wi‑Fi/datos · aviso en la primera conexión · cuarentena opcional de apps nuevas · bloqueo de dominios de anuncios/rastreadores/malware · DNS cifrado · filtrado SNI/QUIC sin descifrar HTTPS · reglas de IP y puertos · pack de amenazas firmado · escáner de APK y puntaje de riesgo · análisis de comportamiento local · historial y estadísticas · bloqueo con PIN/huella · exportar/importar configuración |
 | **Qué no hace** | Detectar malware de forma confiable · descifrar HTTPS · reemplazar la seguridad de Android · bloquear el tráfico de apps que excluiste de la VPN · funcionar junto con otra VPN |
 | **Privacidad** | Sin telemetría. Las únicas conexiones que Hydra hace por su cuenta están en [Actualizaciones y actividad de red](#actualizaciones-y-actividad-de-red). |
 | **Requisitos** | Android 7.0+ (API 24). Android permite una sola VPN activa a la vez. |
@@ -71,7 +71,7 @@ flowchart LR
 
 1. **Captura.** Android manda a la interfaz TUN de Hydra el tráfico de toda app que no esté excluida.
 2. **Identificación.** Hydra averigua qué app es dueña de cada conexión (API del sistema en Android nuevo, `/proc/net` en Android 7–9). Si no puede saberlo, la conexión se descarta: nunca adivina.
-3. **Decisión.** El motor de reglas combina la regla de la app, el tipo de red (Wi‑Fi / datos), el modo global, los horarios, las reglas de IP y puertos, las coincidencias de DNS/SNI/JA3 y el pack de amenazas.
+3. **Decisión.** El motor de reglas combina la regla de la app, el tipo de red (Wi‑Fi / datos), el modo global, los horarios, las reglas de IP y puertos, las coincidencias de DNS/SNI y el pack de amenazas.
 4. **Reenviar o descartar.** El tráfico permitido se reenvía por sockets reales atados a la red física; las respuestas se reconstruyen como paquetes IP y se devuelven a la app.
 
 Una explicación más detallada (enrutamiento, DNS, inspección TLS/QUIC, límites) está en
@@ -91,7 +91,7 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 ### Filtrar a qué se conectan
 - **Bloqueo de dominios de anuncios/rastreadores/malware** con una lista incluida en el APK (~18.000 dominios) más listas en vivo opcionales (HaGeZi, 1Hosts, StevenBlack, OISD).
 - **DNS cifrado** por DNS‑sobre‑TLS (con respaldo DNS‑sobre‑HTTPS) usando Cloudflare, Google o Quad9.
-- **Filtrado HTTPS por nombre del servidor (SNI)** y por **huella TLS (JA3)**, sin descifrar nada.
+- **Filtrado HTTPS por nombre del servidor (SNI)**, sin descifrar nada.
 - **Filtrado QUIC / HTTP3** con mejor esfuerzo, correlacionando con la respuesta DNS que esa misma app obtuvo antes.
 - **Controles de red local e IPv6**, incluido un interruptor *Bloquear IPv6*.
 - **Pack de inteligencia de amenazas firmado** (IP/dominios maliciosos de fuentes como Feodo Tracker y URLhaus, más reglas YARA‑Lite). Se instala solo si su firma se verifica.
@@ -107,9 +107,9 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 
 ### Proteger a Hydra misma
 - **PIN de 5 a 8 dígitos** (PBKDF2, 120.000 iteraciones) y desbloqueo con **huella**. Los intentos fallidos agregan esperas crecientes (de 15 s hasta 5 min) que sobreviven a reinicios y no se pueden acortar cambiando el reloj del teléfono. Los PIN de 4 dígitos creados por versiones anteriores siguen funcionando hasta que los cambies. `allowBackup=false`.
-- **Monitoreo de manipulación y recuperación**: paradas inesperadas, comportamiento de Doze, conflictos de reglas, reinicio tras el arranque.
+- **Monitoreo de manipulación y recuperación**: una notificación y una tarjeta cuando la VPN se detiene sola, correlación con Doze (Avanzado), reinicio tras el arranque. Las reglas de IP/puerto redundantes se limpian en *Apps → IP y puertos → Limpieza* (Avanzado).
 - **Exportar/importar configuración** (reglas, horarios, reglas avanzadas, excepciones de IP) como un archivo portable por nombre de app, con deshacer automático.
-- **Modo Normal y Avanzado**, interfaz en español/inglés, tema claro/oscuro, opciones de batería.
+- **Modo Normal y Avanzado**, interfaz en español/inglés, tema claro/oscuro, opciones de batería. **El modo Normal es simple a propósito**: Seguridad es una sola pantalla (estado, apps sospechosas con el motivo en lenguaje simple, cuarentena, vigilancia de updates e historial de seguridad), el aviso de primera conexión tiene solo *Permitir* / *Bloquear* (lo demás en *Más opciones*) y Ajustes muestra solo lo básico. Una guía corta la primera vez explica lo esencial. El **modo Avanzado** agrega IP y puertos, Perfiles, el Analizador, el analizador APK experimental, la correlación de tráfico, Doze y los ajustes técnicos.
 
 ## Qué hace la IA incorporada
 
@@ -195,7 +195,7 @@ en la pestaña Analizador y reabrís el Centro de seguridad tras algo de uso rea
 1. **Instalá** el APK (ver abajo) y abrí Hydra.
 2. Tocá el interruptor **Firewall VPN** en Inicio y aceptá el aviso de VPN de Android.
 3. Permití las notificaciones y excluí a Hydra de la optimización de batería (si no, Android puede detener el servicio).
-4. Usá el teléfono normalmente. Cada app que se conecta por primera vez muestra el **aviso de primera conexión**: elegí *Permitir*, *Bloquear* o *Detalles* para ver por qué se conecta.
+4. Usá el teléfono normalmente. Cada app que se conecta por primera vez muestra el **aviso de primera conexión**: elegí *Permitir* o *Bloquear* (tocá *Más opciones* para el resto).
 5. Abrí **REGLAS** para revisar los interruptores Wi‑Fi/datos por app, **CONEXIONES** para ver el historial y **SEGURIDAD** para el pack de amenazas y el escaneo de apps.
 6. Opcional: poné un **PIN** (5 a 8 dígitos), activá **VPN siempre activa** en los ajustes de Android, activá la **Cuarentena** si querés revisar las apps nuevas y corré el **Autotest** (modo Avanzado) para validar DNS/SNI/TCP en tu teléfono.
 

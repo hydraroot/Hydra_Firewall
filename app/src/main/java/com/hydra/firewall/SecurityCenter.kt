@@ -36,7 +36,7 @@ import java.util.Locale
  * snapshots, so it's safe to leave open while the firewall runs.
  */
 @Composable
-fun SecurityCenterTab(context: Context, language: AppLanguage) {
+fun SecurityCenterTab(context: Context, language: AppLanguage, advancedMode: Boolean = false, onEnableAdvanced: () -> Unit = {}) {
     val english = language.isEnglish() ||
         (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
     var refreshTrigger by remember { mutableStateOf(0) }
@@ -44,38 +44,67 @@ fun SecurityCenterTab(context: Context, language: AppLanguage) {
     val advancedRuleStore = remember { AdvancedRuleStore(context) }
     val quarantineManager = remember { QuarantineManager(context) }
 
-    var section by remember { mutableStateOf(SecuritySection.STATUS) }
+    var picked by remember { mutableStateOf(SecuritySection.STATUS) }
+    // Normal mode is a single screen; the section picker only exists in Advanced mode.
+    val section = if (advancedMode) picked else SecuritySection.STATUS
 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)) {
         item {
             Text(
-                if (english) "Security Center" else "Centro de Seguridad",
+                if (english) "Security" else "Seguridad",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                if (english) "APK scanner, behavior correlation, TLS fingerprinting, update watch, quarantine, Doze correlation, unexpected-stop log and rule cleanup."
-                else "Analizador APK, correlación de comportamiento, huella TLS, vigilancia de updates, cuarentena, correlación con Doze, log de paradas inesperadas del servicio y limpieza de reglas.",
+                if (advancedMode) {
+                    if (english) "Protection status, quarantine, update watch, APK scanner (experimental), traffic correlation and Doze."
+                    else "Estado de la protección, cuarentena, vigilancia de updates, analizador APK (experimental), correlación de tráfico y Doze."
+                } else {
+                    if (english) "Is your phone protected, and which apps deserve a look."
+                    else "Si tu teléfono está protegido y qué apps conviene revisar."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(8.dp))
-            SecuritySectionPicker(section, english) { section = it; refreshTrigger++ }
+            if (advancedMode) {
+                Spacer(Modifier.height(8.dp))
+                SecuritySectionPicker(section, english) { picked = it; refreshTrigger++ }
+            }
             Spacer(Modifier.height(8.dp))
         }
 
         when (section) {
-            SecuritySection.STATUS -> statusSection(this, context, english, quarantineManager, refreshTrigger)
+            SecuritySection.STATUS -> {
+                statusSection(this, context, english, quarantineManager, refreshTrigger, advancedMode)
+                tamperNotice(this, english, refreshTrigger) { refreshTrigger++ }
+                if (!advancedMode) {
+                    // One screen for everyone else: quarantine and update watch live right here.
+                    quarantineSection(this, context, english, quarantineManager, refreshTrigger) { refreshTrigger++ }
+                    updateWatchSection(this, context, english, refreshTrigger) { refreshTrigger++ }
+                }
+                securityHistory(this, context, english, refreshTrigger)
+                if (!advancedMode) {
+                    item {
+                        ModernCard {
+                            Text(if (english) "Want more tools?" else "¿Querés más herramientas?", fontWeight = FontWeight.Bold)
+                            Text(
+                                if (english) "Advanced mode adds the APK scanner, traffic correlation, IP and port rules, profiles and more technical detail."
+                                else "El modo Avanzado agrega el analizador APK, la correlación de tráfico, reglas de IP y puertos, perfiles y más detalle técnico.",
+                                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onEnableAdvanced) {
+                                Text(if (english) "Turn on Advanced mode" else "Activar modo Avanzado")
+                            }
+                        }
+                    }
+                }
+            }
             SecuritySection.APK_SCANNER -> apkScannerSection(this, context, english, refreshTrigger)
             SecuritySection.BEHAVIOR -> behaviorSection(this, context, english, refreshTrigger)
-            SecuritySection.FINGERPRINT -> fingerprintSection(this, context, english, refreshTrigger) { refreshTrigger++ }
             SecuritySection.QUARANTINE -> quarantineSection(this, context, english, quarantineManager, refreshTrigger) { refreshTrigger++ }
             SecuritySection.UPDATE_WATCH -> updateWatchSection(this, context, english, refreshTrigger) { refreshTrigger++ }
             SecuritySection.DOZE -> dozeSection(this, english, refreshTrigger)
-            SecuritySection.TAMPER -> tamperSection(this, english, refreshTrigger) { refreshTrigger++ }
-            SecuritySection.CONFLICTS -> conflictsSection(this, english, ipBlockStore, advancedRuleStore, refreshTrigger) { refreshTrigger++ }
-            SecuritySection.TIMELINE -> timelineSection(this, context, english, refreshTrigger)
         }
 
         item { Spacer(Modifier.height(24.dp)) }
@@ -466,21 +495,17 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     }
 }
 
-private enum class SecuritySection { STATUS, APK_SCANNER, BEHAVIOR, FINGERPRINT, QUARANTINE, UPDATE_WATCH, DOZE, TAMPER, CONFLICTS, TIMELINE }
+private enum class SecuritySection { STATUS, QUARANTINE, UPDATE_WATCH, APK_SCANNER, BEHAVIOR, DOZE }
 
 @Composable
 private fun SecuritySectionPicker(current: SecuritySection, english: Boolean, onPick: (SecuritySection) -> Unit) {
     val labels = mapOf(
         SecuritySection.STATUS to (if (english) "Protection" else "Protección"),
-        SecuritySection.APK_SCANNER to (if (english) "APK scanner" else "Analizar APK"),
-        SecuritySection.BEHAVIOR to (if (english) "Behavior" else "Comportamiento"),
-        SecuritySection.FINGERPRINT to (if (english) "TLS fingerprint" else "Huella TLS"),
         SecuritySection.QUARANTINE to (if (english) "Quarantine" else "Cuarentena"),
         SecuritySection.UPDATE_WATCH to (if (english) "Update watch" else "Vigilar updates"),
-        SecuritySection.DOZE to "Doze",
-        SecuritySection.TAMPER to (if (english) "Unexpected stops" else "Parada inesperada"),
-        SecuritySection.CONFLICTS to (if (english) "Rule cleanup" else "Reglas"),
-        SecuritySection.TIMELINE to (if (english) "Timeline" else "Línea de tiempo")
+        SecuritySection.APK_SCANNER to (if (english) "APK scanner (experimental)" else "Analizar APK (experimental)"),
+        SecuritySection.BEHAVIOR to (if (english) "Traffic correlation" else "Correlación de tráfico"),
+        SecuritySection.DOZE to "Doze"
     )
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         labels.forEach { (section, label) ->
@@ -506,18 +531,18 @@ private fun statusSection(
     context: Context,
     english: Boolean,
     quarantineManager: QuarantineManager,
-    refreshTrigger: Int
+    refreshTrigger: Int,
+    advancedMode: Boolean = true
 ) = with(scope) {
     item { ControlPanelCard(context, english, refreshTrigger) }
-    item {
+    // The long technical checklist is only for Advanced mode; Normal mode keeps the control panel above.
+    if (advancedMode) item {
         val protection = ProtectionStatus.read(context)
         val ruleStore = remember { RuleStore(context) }
         val listInfo = DomainBlockStore.activeListInfo()
         val threat = ThreatSignatureStore.status(context)
         val threatIntel = ThreatIntelDomainStore.info(context)
         val customRules = CustomDomainRuleStore.snapshot(context)
-        val tlsEnabled = TlsFingerprintStore.isEnabled()
-        val tlsBlock = TlsFingerprintStore.isBlockOnMatchEnabled()
         val securityAi = runCatching { HydraAiEngine.init(context); HydraAiEngine.isLoaded() }.getOrDefault(false)
         val privacyAi = runCatching { HydraPrivacyAiEngine.init(context); HydraPrivacyAiEngine.isLoaded() }.getOrDefault(false)
         val mh100kAi = runCatching { HydraMh100kApkAi.init(context); HydraMh100kApkAi.isLoaded() }.getOrDefault(false)
@@ -608,8 +633,6 @@ private fun statusSection(
         StatusRow(english, adaptiveApps > 0, "Aprendizaje local de comportamiento (${adaptiveApps} apps)", "Local behavior learning (${adaptiveApps} apps)")
         if (ruleStore.threatProtectionEnabled) StatusRow(english, true, "Amenazas + publicidad", "Threats + ads")
         if (ruleStore.secureDnsEnabled) StatusRow(english, protection.dns, "DNS seguro (${ruleStore.dnsTransport.name})", "Secure DNS (${ruleStore.dnsTransport.name})")
-        if (tlsEnabled) StatusRow(english, true, "Huella TLS / JA3", "TLS / JA3 fingerprinting")
-        if (tlsEnabled && tlsBlock) StatusRow(english, true, "Cortar por huella TLS conocida", "Reset on known-bad TLS fingerprint")
         if (quarantineManager.enabled) StatusRow(english, true, "Cuarentena de apps nuevas", "New-app quarantine")
         if (ruleStore.globalBlockAll) StatusRow(english, true, "Bloquear todo el tráfico", "Block all traffic")
         if (customRules.isNotEmpty()) StatusRow(english, true, "Reglas de dominio personalizadas (${customRules.size})", "Custom domain rules (${customRules.size})")
@@ -619,8 +642,6 @@ private fun statusSection(
         Spacer(Modifier.height(4.dp))
         if (!ruleStore.threatProtectionEnabled) OptionalStatusRow(english, false, "Amenazas + publicidad", "Threats + ads")
         if (!ruleStore.secureDnsEnabled) OptionalStatusRow(english, false, "DNS seguro", "Secure DNS")
-        if (!tlsEnabled) OptionalStatusRow(english, false, "Huella TLS / JA3", "TLS / JA3 fingerprinting")
-        if (!tlsEnabled || !tlsBlock) OptionalStatusRow(english, false, "Cortar por huella TLS conocida", "Reset on known-bad TLS fingerprint")
         if (!quarantineManager.enabled) OptionalStatusRow(english, false, "Cuarentena de apps nuevas", "New-app quarantine")
         if (!ruleStore.globalBlockAll) OptionalStatusRow(english, false, "Bloquear todo el tráfico", "Block all traffic")
         if (customRules.isEmpty()) OptionalStatusRow(english, false, "Reglas de dominio personalizadas", "Custom domain rules")
@@ -714,84 +735,6 @@ private fun CaveatRow(english: Boolean, esLabel: String, enLabel: String) {
         Box(Modifier.padding(top = 3.dp).size(9.dp).clip(RoundedCornerShape(50)).background(Color(0xFFD98E1F)))
         Spacer(Modifier.width(8.dp))
         Text(if (english) enLabel else esLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 1) JA3/JA3N/Hydra-lite TLS fingerprinting
-// ---------------------------------------------------------------------------
-private fun fingerprintSection(
-    scope: androidx.compose.foundation.lazy.LazyListScope,
-    context: Context,
-    english: Boolean,
-    refreshTrigger: Int,
-    onChanged: () -> Unit
-) = with(scope) {
-    item {
-        var enabled by remember { mutableStateOf(TlsFingerprintStore.isEnabled()) }
-        var blockOnMatch by remember { mutableStateOf(TlsFingerprintStore.isBlockOnMatchEnabled()) }
-        var newHash by remember { mutableStateOf("") }
-
-        SectionCard {
-            RowSwitch(
-                if (english) "Fingerprint TLS handshakes (JA3 / JA3N / HYDRA-lite)" else "Analizar handshakes TLS (JA3 / JA3N / HYDRA-lite)",
-                enabled
-            ) { enabled = it; TlsFingerprintStore.setEnabled(it) }
-            Text(
-                if (english) "Identifies the TLS client stack behind a connection independent of domain/IP, so known malicious or tracking fingerprints can still be recognized even if the domain changes or hides behind a CDN. A fingerprint match is a lead to review, not proof by itself: the same JA3 can also come from Chrome, a WebView, or any other app using the same legitimate library."
-                else "Identifica el stack TLS detrás de una conexión sin depender del dominio/IP, así se pueden reconocer huellas maliciosas o de tracking conocidas aunque cambien de dominio o se escondan detrás de un CDN. Una coincidencia es una pista para revisar, no una prueba por sí sola: el mismo JA3 también puede venir de Chrome, un WebView, o cualquier otra app que use la misma librería legítima.",
-                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(6.dp))
-            RowSwitch(
-                if (english) "Reset connection on known-bad match" else "Cortar conexión si coincide con hash conocido"
-                , blockOnMatch
-            ) { blockOnMatch = it; TlsFingerprintStore.setBlockOnMatch(it) }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = newHash, onValueChange = { newHash = it },
-                    label = { Text(if (english) "Add known-bad JA3 hash" else "Agregar hash JA3 conocido") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(6.dp))
-                Button(onClick = {
-                    if (newHash.isNotBlank()) { TlsFingerprintStore.addKnownBad(newHash.trim()); newHash = ""; onChanged() }
-                }) { Text(if (english) "Add" else "Agregar") }
-            }
-        }
-    }
-
-    val alerts = TlsFingerprintStore.alerts()
-    if (alerts.isNotEmpty()) {
-        item {
-            Spacer(Modifier.height(8.dp))
-            Text(if (english) "Matches against your known-bad list" else "Coincidencias con tu lista de hashes conocidos", style = MaterialTheme.typography.titleSmall)
-        }
-        items(alerts.take(50)) { s ->
-            SmallCard(background = Color(0xFFF1D0D0)) {
-                Text("${s.packageName ?: "uid:${s.uid}"} → ${s.sni ?: s.destination}:${s.port}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                Text("JA3 ${s.ja3Hash}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
-                Text(s.time, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-
-    item {
-        Spacer(Modifier.height(8.dp))
-        Text(if (english) "Recent handshakes" else "Handshakes recientes", style = MaterialTheme.typography.titleSmall)
-    }
-    val recent = TlsFingerprintStore.snapshot().take(60)
-    if (recent.isEmpty()) {
-        item { Text(if (english) "Nothing captured yet." else "Todavía no se capturó nada.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    } else {
-        items(recent) { s ->
-            SmallCard {
-                Text("${s.packageName ?: "uid:${s.uid}"} → ${s.sni ?: s.destination}:${s.port}", fontSize = 12.sp)
-                Text("JA3 ${s.ja3Hash.take(12)}… • JA3N ${s.ja3nHash.take(12)}…", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
     }
 }
 
@@ -973,35 +916,79 @@ private fun dozeSection(
 }
 
 // ---------------------------------------------------------------------------
-// 5) Service tamper log
+// Unexpected service stops: a notification already warns about them; this only shows a compact card
+// when there is something to look at (it replaces the old "Unexpected stops" page).
 // ---------------------------------------------------------------------------
-private fun tamperSection(
+private fun tamperNotice(
     scope: androidx.compose.foundation.lazy.LazyListScope,
     english: Boolean,
     refreshTrigger: Int,
     onChanged: () -> Unit
 ) = with(scope) {
-    item {
-        SectionCard {
+    val events = ServiceTamperMonitor.eventsSnapshot()
+    if (events.isNotEmpty()) item {
+        ModernCard {
             Text(
-                if (english) "Every time the VPN service stops without a matching in-app request (Stop button, kill switch, schedule), it's logged here. START_STICKY already restarts it, but a string of unexplained stops is worth noticing."
-                else "Cada vez que el servicio VPN se detiene sin un pedido explícito desde la app (botón Detener, kill switch, horario), queda registrado acá. START_STICKY ya lo reinicia, pero una seguidilla de paradas sin explicación vale la pena notarla.",
-                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (english) "⚠ The protection stopped by itself ${events.size} time(s)" else "⚠ La protección se detuvo sola ${events.size} vez/veces",
+                fontWeight = FontWeight.Bold
             )
-            TextButton(onClick = { ServiceTamperMonitor.clear(); onChanged() }) {
-                Text(if (english) "Clear log" else "Limpiar registro", fontSize = 12.sp)
+            Text(
+                if (english) "Android or another app closed the VPN without you asking. Hydra restarts it automatically. If it keeps happening, check the battery settings for Hydra."
+                else "Android u otra app cerró la VPN sin que lo pidieras. Hydra la reinicia sola. Si se repite, revisá los ajustes de batería de Hydra.",
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            events.firstOrNull()?.let { Text(it.time + " • " + it.note, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { ServiceTamperMonitor.clear(); onChanged() }) {
+                Text(if (english) "Clear" else "Borrar aviso")
             }
         }
     }
-    val events = ServiceTamperMonitor.eventsSnapshot()
-    if (events.isEmpty()) {
-        item { Text(if (english) "No unexpected stops recorded." else "No hay paradas inesperadas registradas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    } else {
-        items(events) { e ->
-            SmallCard(background = Color(0xFFF1D0D0)) {
-                Text(e.note, fontSize = 12.sp)
-                Text(e.time, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+// ---------------------------------------------------------------------------
+// Security history: the antivirus / quarantine / signature events (replaces the old "Timeline" page)
+// ---------------------------------------------------------------------------
+private fun securityHistory(
+    scope: androidx.compose.foundation.lazy.LazyListScope,
+    context: Context,
+    english: Boolean,
+    refreshTrigger: Int
+) = with(scope) {
+    item {
+        var open by remember { mutableStateOf(false) }
+        val events = remember(refreshTrigger, open) { SecurityEventStore.snapshot(context).sortedByDescending { it.time }.take(30) }
+        ModernCard {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (english) "Security history (${events.size})" else "Historial de seguridad (${events.size})",
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { open = !open }) { Text(if (open) (if (english) "Hide" else "Ocultar") else (if (english) "Show" else "Ver")) }
             }
+            if (open) {
+                if (events.isEmpty()) {
+                    Text(if (english) "Nothing yet." else "Todavía no hay nada.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    val fmt = java.text.DateFormat.getDateTimeInstance()
+                    events.forEach { e ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(e.title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(fmt.format(java.util.Date(e.time)) + " • " + e.detail, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Rule cleanup lives next to the IP and port rules now (Apps > IP and ports > Cleanup). */
+@Composable
+fun RuleCleanupPanel(english: Boolean, ipBlockStore: IpBlockStore, advancedRuleStore: AdvancedRuleStore, version: Int, onChanged: () -> Unit) {
+    key(version) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 6.dp)) {
+            conflictsSection(this, english, ipBlockStore, advancedRuleStore, version, onChanged)
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
@@ -1142,6 +1129,12 @@ private fun apkScannerSection(
         SectionCard {
             Text(if (english) "HYDRA SECURITY ENGINE" else "HYDRA SECURITY ENGINE", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             Spacer(Modifier.height(4.dp))
+            Text(
+                if (english) "⚗ Experimental: the score is a guide, not a verdict. It has not been calibrated against enough real apps yet, so a high score does not mean malware and a low one does not mean safe."
+                else "⚗ Experimental: el puntaje es orientativo, no un veredicto. Todavía no está calibrado con suficientes apps reales: un puntaje alto no significa malware ni uno bajo significa que es seguro.",
+                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB454)
+            )
+            Spacer(Modifier.height(6.dp))
             Text(
                 if (english) "Analyze an APK locally: SHA-256, signing certificate, permissions, exported components, accessibility/device-admin capabilities, native code and a heuristic risk score. This is an analysis result, not proof of malware."
                 else "Analiza una APK localmente: SHA-256, certificado de firma, permisos, componentes exportados, capacidades de accesibilidad/device-admin, código nativo y un nivel de riesgo heurístico. Es un resultado de análisis, no una prueba de malware.",
@@ -1550,46 +1543,6 @@ private fun behaviorSection(
     }
 }
 
-// ---------------------------------------------------------------------------
-// 10) Unified security timeline
-// ---------------------------------------------------------------------------
-private fun timelineSection(
-    scope: androidx.compose.foundation.lazy.LazyListScope,
-    context: Context,
-    english: Boolean,
-    refreshTrigger: Int
-) = with(scope) {
-    item {
-        val analyzer = TrafficAnalyzerStore.snapshot().map { e ->
-            TimelineItem(e.timestamp, "NETWORK", e.packageName ?: "uid:${e.uid}", "${e.kind} • ${e.protocol} ${e.destination}:${e.port}")
-        }
-        val security = SecurityEventStore.snapshot(context).map { e ->
-            TimelineItem(e.time, e.severity.name, e.title, e.detail)
-        }
-        val items = (analyzer + security).sortedByDescending { it.time }.take(80)
-        SectionCard {
-            Text(if (english) "Unified security timeline" else "Línea de tiempo de seguridad", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(
-                if (english) "Network and security events are shown together so an alert can be correlated with what happened before and after it."
-                else "Los eventos de red y seguridad se muestran juntos para correlacionar una alerta con lo que ocurrió antes y después.",
-                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (items.isEmpty()) {
-            Text(if (english) "No events yet." else "Todavía no hay eventos.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            items.forEach { e ->
-                SmallCard {
-                    Text("${java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(java.util.Date(e.time))} • ${e.type}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text(e.title, fontSize = 11.sp)
-                    Text(e.detail, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-}
-
-private data class TimelineItem(val time: Long, val type: String, val title: String, val detail: String)
 
 // ---------------------------------------------------------------------------
 // Small shared building blocks
