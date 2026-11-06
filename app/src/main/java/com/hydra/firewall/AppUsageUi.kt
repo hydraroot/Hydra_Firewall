@@ -108,9 +108,5 @@ fun AppUsageCard(english: Boolean, sessionStats: List<TrafficStatsStore.Snapshot
 }
 
 private fun appLabel(context: Context, packageName: String?, uid: Int): String {
-    if (packageName.isNullOrBlank()) return if (uid >= 0) "UID $uid" else "?"
-    return runCatching {
-        val pm = context.packageManager
-        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString().takeIf { it.isNotBlank() }
-    }.getOrNull() ?: packageName
+    return com.hydra.firewall.vpn.AppNames.label(uid, packageName)
 }

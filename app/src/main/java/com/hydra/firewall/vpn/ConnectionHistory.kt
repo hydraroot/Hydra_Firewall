@@ -36,6 +36,7 @@ object ConnectionHistory {
         if (initialized) return
         initialized = true
         WeeklyStats.init(context)
+        AppNames.init(context)
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val uiPrefs = context.applicationContext.getSharedPreferences("firewall_settings", Context.MODE_PRIVATE)
         maxRecords = uiPrefs.getInt("history_max", prefs.getInt(KEY_MAX_RECORDS, 500)).coerceIn(100, 1000)

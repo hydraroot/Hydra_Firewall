@@ -48,3 +48,16 @@ class WeeklyStatsTest {
         assertEquals(7, WeeklyStats.windowKeys(System.currentTimeMillis()).size)
     }
 }
+
+class AppNamesTest {
+    @Test fun wellKnownSystemUidsGetAName() {
+        assertEquals("Sistema Android (1000)", AppNames.fallback(1000, false))
+        assertEquals("Network daemon (netd) (1051)", AppNames.fallback(1051, true))
+    }
+
+    @Test fun unknownUidsKeepTheNumberButSayWhatTheyAre() {
+        assertEquals("Proceso del sistema (UID 1099)", AppNames.fallback(1099, false))
+        assertEquals("Unknown or uninstalled app (UID 10234)", AppNames.fallback(10234, true))
+        assertEquals("?", AppNames.fallback(-1, false))
+    }
+}

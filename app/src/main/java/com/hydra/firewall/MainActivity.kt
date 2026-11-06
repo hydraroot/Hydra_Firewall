@@ -970,7 +970,7 @@ fun FirewallScreen(
                                     items(groups, key = { "${it.last.id}:${it.count}:$currentIpVersion" }) { g ->
                                         val host = extractHost(g.last.destination)
                                         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                            Text(g.last.packageName ?: "UID ${g.last.uid}", style = MaterialTheme.typography.titleSmall)
+                                            Text(com.hydra.firewall.vpn.AppNames.label(g.last.uid, g.last.packageName), style = MaterialTheme.typography.titleSmall)
                                             Text("${g.last.protocol} • ${g.last.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                                             Text("${g.count} eventos • ${if (language.isEnglish()) "allowed" else "permitidos"}: ${g.allowed} • ${if (language.isEnglish()) "blocked" else "bloqueados"}: ${g.blocked}", style = MaterialTheme.typography.bodySmall)
                                             Text(g.last.time, style = MaterialTheme.typography.labelSmall)
@@ -1031,7 +1031,7 @@ fun FirewallScreen(
                                             Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
                                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(10.dp)
                                         ) {
-                                            Text("${item.time}  ${item.packageName ?: "UID ${item.uid}"}", style = MaterialTheme.typography.titleSmall)
+                                            Text("${item.time}  ${com.hydra.firewall.vpn.AppNames.label(item.uid, item.packageName)}", style = MaterialTheme.typography.titleSmall)
                                             Text("${item.protocol} • ${item.network.displayName} • ${if (item.allowed) tr(context,"allow") else tr(context,"block")}", style = MaterialTheme.typography.bodySmall)
                                             Text("${item.source} → ${item.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                                             Text("Dominio: ${domain ?: tr(context,"domain_unavailable")}", style = MaterialTheme.typography.bodySmall)
@@ -1105,7 +1105,7 @@ fun FirewallScreen(
                                 title = { Text(if (language.isEnglish()) "Connection details" else "Detalles de conexión", color = hydraDialogColors().second) },
                                 text = {
                                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                        Text("${record.packageName ?: "UID ${record.uid}"}", style = MaterialTheme.typography.titleSmall)
+                                        Text("${com.hydra.firewall.vpn.AppNames.label(record.uid, record.packageName)}", style = MaterialTheme.typography.titleSmall)
                                         Text("${record.protocol} • ${record.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                                         Text("${if (record.allowed) (if (language.isEnglish()) "Allowed" else "Permitido") else (if (language.isEnglish()) "Blocked" else "Bloqueado")}", style = MaterialTheme.typography.bodySmall)
                                         if (record.repeatCount > 1) {
@@ -1300,7 +1300,7 @@ fun FirewallScreen(
                             items(stats, key = { it.uid }) { s ->
                                 HydraCard(Modifier.fillMaxWidth()) {
                                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                                        Text(s.packageName ?: "UID ${s.uid}", style = MaterialTheme.typography.titleSmall)
+                                        Text(com.hydra.firewall.vpn.AppNames.label(s.uid, s.packageName), style = MaterialTheme.typography.titleSmall)
                                         Text("${tr(context,"connections_word")}: ${s.connections} • ${tr(context,"blocked_word")}: ${s.blocked}", style = MaterialTheme.typography.bodySmall)
                                         Text("↑ ${formatBytes(s.txBytes)}  ↓ ${formatBytes(s.rxBytes)}", style = MaterialTheme.typography.bodySmall)
                                         Text("Bloqueado: ${formatBytes(s.blockedBytes)}", style = MaterialTheme.typography.labelSmall)
@@ -1315,7 +1315,7 @@ fun FirewallScreen(
                         val currentSnapshot = exportRuleSnapshot(ruleStore, advancedRuleStore)
                         val names = profilesStore.names()
                         val loadedProfileName = names.firstOrNull { profilesStore.load(it) == currentSnapshot }
-                        val currentSummary = runCatching { profileSummary(currentSnapshot) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: "UID $uid" } }.getOrNull()
+                        val currentSummary = runCatching { profileSummary(currentSnapshot) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(uid) } }.getOrNull()
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
                             Text(if (language.isEnglish()) "Profiles" else "Perfiles", style = MaterialTheme.typography.titleMedium)
                             Text(if (language.isEnglish()) "Save and restore the complete firewall configuration. Each profile shows what it will allow and block." else "Guardá y restaurá la configuración completa. Cada perfil muestra qué va a permitir y bloquear.", style = MaterialTheme.typography.bodySmall)
@@ -1364,7 +1364,7 @@ fun FirewallScreen(
                             } else {
                                 names.forEach { name ->
                                     val snapshot = profilesStore.load(name)
-                                    val summary = snapshot?.let { runCatching { profileSummary(it) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: "UID $uid" } }.getOrNull() }
+                                    val summary = snapshot?.let { runCatching { profileSummary(it) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(uid) } }.getOrNull() }
                                     HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                         Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                             val isLoaded = snapshot != null && snapshot == currentSnapshot
@@ -1398,7 +1398,7 @@ fun FirewallScreen(
                         }
                         selectedProfileForDetails?.let { name ->
                             val snapshot = profilesStore.load(name)
-                            val summary = snapshot?.let { runCatching { profileSummary(it) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: "UID $uid" } }.getOrNull() }
+                            val summary = snapshot?.let { runCatching { profileSummary(it) { uid -> apps.firstOrNull { a -> a.uid == uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(uid) } }.getOrNull() }
                             if (summary != null) AlertDialog(
                                 onDismissRequest={selectedProfileForDetails=null},
                                 title={Text(name)},
@@ -2292,7 +2292,7 @@ private fun TrafficUsageChart(stats: List<TrafficStatsStore.Snapshot>) {
         } else {
             top.forEach { (s, total) ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text((s.packageName ?: "UID ${s.uid}").take(18), Modifier.width(140.dp), style = MaterialTheme.typography.bodySmall)
+                    Text(com.hydra.firewall.vpn.AppNames.label(s.uid, s.packageName).take(18), Modifier.width(140.dp), style = MaterialTheme.typography.bodySmall)
                     LinearProgressIndicator(progress = { (total.toDouble() / max.toDouble()).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.weight(1f))
                     Text(formatBytes(total), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelSmall)
                 }
@@ -2532,7 +2532,7 @@ private fun PortRulesPanel(
                     val appLabel = if (rule.uid == AdvancedRuleStore.GLOBAL_UID) {
                         if (english) "GLOBAL — ALL APPS" else "GLOBAL — TODAS LAS APPS"
                     } else {
-                        app?.label ?: "UID ${rule.uid}"
+                        app?.label ?: com.hydra.firewall.vpn.AppNames.label(rule.uid)
                     }
                     HydraCard(
                         Modifier
@@ -2606,7 +2606,7 @@ private fun PortRulesPanel(
         val appLabel = if (rule.uid == AdvancedRuleStore.GLOBAL_UID) {
             if (english) "GLOBAL — ALL APPS" else "GLOBAL — TODAS LAS APPS"
         } else {
-            app?.label ?: "UID ${rule.uid}"
+            app?.label ?: com.hydra.firewall.vpn.AppNames.label(rule.uid)
         }
         AlertDialog(
             containerColor = hydraDialogColors().first,
@@ -2790,7 +2790,7 @@ private fun AdvancedRulesEditor(context: Context, apps: List<AppEntry>, store: A
     } else {
         rules.forEach { r ->
             key(r.uid, r.protocol, r.startPort, r.endPort, r.allowed) {
-                val appLabel = apps.firstOrNull { it.uid == r.uid }?.label ?: "UID ${r.uid}"
+                val appLabel = apps.firstOrNull { it.uid == r.uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(r.uid)
                 HydraCard(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { selectedRule = r }) {
                     Row(Modifier.fillMaxWidth().padding(9.dp),verticalAlignment=Alignment.CenterVertically){
                         AppIcon(apps.firstOrNull { it.uid == r.uid }, Modifier.size(40.dp).padding(end = 8.dp))
@@ -2806,7 +2806,7 @@ private fun AdvancedRulesEditor(context: Context, apps: List<AppEntry>, store: A
         }
     }
     selectedRule?.let { rule ->
-        val appLabel = apps.firstOrNull { it.uid == rule.uid }?.label ?: "UID ${rule.uid}"
+        val appLabel = apps.firstOrNull { it.uid == rule.uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(rule.uid)
         AlertDialog(
             containerColor = hydraDialogColors().first,
             titleContentColor = hydraDialogColors().second,
@@ -2964,7 +2964,7 @@ private fun ProtectionTabContent(
             onThreatProtectionChange
         )
 
-        if (threatProtectionEnabled && advancedMode) {
+        if (threatProtectionEnabled) {
             BlockAdsSection(
                 context = context,
                 listInfo = blockAdsListInfo,

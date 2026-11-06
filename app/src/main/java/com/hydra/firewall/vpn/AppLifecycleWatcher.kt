@@ -38,6 +38,7 @@ class AppLifecycleWatcher(
         val packageName = intent.data?.schemeSpecificPart ?: return
         if (packageName == ctx.packageName) return
         val replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+        AppNames.invalidate()
 
         when (intent.action) {
             Intent.ACTION_PACKAGE_ADDED -> {
