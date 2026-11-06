@@ -1,6 +1,8 @@
 package com.hydra.firewall.vpn
 
 import android.content.Context
+import com.hydra.firewall.AppSettings
+import com.hydra.firewall.isEnglish
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -46,7 +48,7 @@ object AppNames {
         val ctx = appContext ?: return packageName?.takeIf { it.isNotBlank() } ?: (if (uid >= 0) "UID $uid" else "?")
         val key = "$uid|${packageName.orEmpty()}"
         cache[key]?.let { return it }
-        val english = runCatching { com.hydra.firewall.AppSettings(ctx).language.isEnglish() }.getOrDefault(false)
+        val english = runCatching { AppSettings(ctx).language.isEnglish() }.getOrDefault(false)
         val pm = ctx.packageManager
         fun labelOf(pkg: String): String? = runCatching {
             pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString().takeIf { it.isNotBlank() }
