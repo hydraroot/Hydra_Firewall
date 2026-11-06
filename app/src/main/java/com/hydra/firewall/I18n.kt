@@ -26,6 +26,8 @@ class AppSettings(context: Context) {
     var trustedAppsEnabled: Boolean get() = prefs.getBoolean("trusted_apps_enabled", false); set(value) = prefs.edit().putBoolean("trusted_apps_enabled", value).apply()
     var themeMode: ThemeMode get() = runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.SYSTEM.name)!!) }.getOrDefault(ThemeMode.SYSTEM); set(value) = prefs.edit().putString("theme_mode", value.name).apply()
     var language: AppLanguage get() = runCatching { AppLanguage.valueOf(prefs.getString("language", AppLanguage.SYSTEM.name)!!) }.getOrDefault(AppLanguage.SYSTEM); set(value) = prefs.edit().putString("language", value.name).apply()
+    /** Silent, informational notices (blocklist updated, pause ended...). Notices that need a decision ignore this. */
+    var infoNotices: Boolean get() = prefs.getBoolean("info_notices", true); set(value) = prefs.edit().putBoolean("info_notices", value).apply()
     var lowPowerMode: Boolean get() = prefs.getBoolean("low_power_mode", false); set(value) = prefs.edit().putBoolean("low_power_mode", value).apply()
     var pauseUiWhenScreenOff: Boolean get() = prefs.getBoolean("pause_ui_screen_off", true); set(value) = prefs.edit().putBoolean("pause_ui_screen_off", value).apply()
     var uiRefreshSeconds: Int get() = prefs.getInt("ui_refresh_seconds", 2).coerceIn(1, 10); set(value) = prefs.edit().putInt("ui_refresh_seconds", value.coerceIn(1, 10)).apply()

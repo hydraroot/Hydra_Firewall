@@ -495,28 +495,43 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
 
 private enum class SecuritySection { STATUS, QUARANTINE, UPDATE_WATCH, APK_SCANNER, BEHAVIOR, DOZE }
 
+private val TOOL_SECTIONS = listOf(SecuritySection.APK_SCANNER, SecuritySection.BEHAVIOR, SecuritySection.DOZE)
+
+@Composable
+private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label, fontSize = 11.sp) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = if (selected) Color(0xFFE3D0FF) else MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = if (selected) Color(0xFF241A34) else MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        modifier = Modifier.padding(end = 6.dp)
+    )
+}
+
+/** Four main sections; the experimental / technical ones live together under "Tools". */
 @Composable
 private fun SecuritySectionPicker(current: SecuritySection, english: Boolean, onPick: (SecuritySection) -> Unit) {
-    val labels = mapOf(
+    val main = listOf(
         SecuritySection.STATUS to (if (english) "Protection" else "Protección"),
         SecuritySection.QUARANTINE to (if (english) "Quarantine" else "Cuarentena"),
-        SecuritySection.UPDATE_WATCH to (if (english) "Update watch" else "Vigilar updates"),
+        SecuritySection.UPDATE_WATCH to (if (english) "Update watch" else "Vigilar updates")
+    )
+    val toolLabels = mapOf(
         SecuritySection.APK_SCANNER to (if (english) "APK scanner (experimental)" else "Analizar APK (experimental)"),
         SecuritySection.BEHAVIOR to (if (english) "Traffic correlation" else "Correlación de tráfico"),
         SecuritySection.DOZE to "Doze"
     )
+    val inTools = current in TOOL_SECTIONS
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-        labels.forEach { (section, label) ->
-            val selected = section == current
-            AssistChip(
-                onClick = { onPick(section) },
-                label = { Text(label, fontSize = 11.sp) },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (selected) Color(0xFFE3D0FF) else MaterialTheme.colorScheme.surfaceVariant,
-                    labelColor = if (selected) Color(0xFF241A34) else MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.padding(end = 6.dp)
-            )
+        main.forEach { (section, label) -> SectionChip(label, section == current) { onPick(section) } }
+        SectionChip(if (english) "Tools" else "Herramientas", inTools) { if (!inTools) onPick(SecuritySection.APK_SCANNER) }
+    }
+    if (inTools) {
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            TOOL_SECTIONS.forEach { section -> SectionChip(toolLabels.getValue(section), section == current) { onPick(section) } }
         }
     }
 }

@@ -1,3 +1,11 @@
+## 2.5.0 (versionCode 20500)
+- **Inicio más corto:** en modo Normal queda el interruptor, la pausa, el estado de Seguridad, el resumen de 7 días y «Amenazas + publicidad». Las 3 cifras, el detalle de la lista, «Bloquear todo el tráfico» y «Detalles del sistema» pasan a Avanzado (si «Bloquear todo» está activo se sigue mostrando para poder apagarlo).
+- **Ajustes en 5 bloques:** Protección, Notificaciones, Apariencia, Copias y datos, y Avanzado (con el interruptor de modo y todo lo técnico). Cada ajuste está en un solo lugar.
+- **Avisos en dos niveles:** los que necesitan tu decisión (amenazas, cuarentena, parada inesperada, fin de pausa, pedidos de acceso, actualización lista para instalar) siguen sonando; los informativos (p. ej. «hay una actualización») van por un canal silencioso y se pueden apagar en Ajustes → Notificaciones.
+- **Apps con filtros simples:** en modo Normal, Todas / Sin Internet / Nuevas (apps tuyas sin regla). La fila completa de filtros queda en Avanzado.
+- **Seguridad → Herramientas:** en Avanzado, el analizador APK (experimental), la correlación de tráfico y Doze se agrupan bajo «Herramientas».
+- **Textos:** se corrigió un texto en inglés que empezaba en español y se unificó «permitir» en lugar de «autorizar».
+
 ## 2.4.1 (versionCode 20401)
 - **Estilo de tarjetas unificado:** todas las pantallas (Inicio, Apps, Actividad, Seguridad, Ayuda, Ajustes, avisos) usan el mismo componente `HydraCard`: esquinas de 16 dp, fondo de superficie, borde fino y sombra leve. Antes se mezclaban tarjetas de Material con otras hechas a mano.
 

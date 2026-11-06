@@ -131,6 +131,8 @@ object NotificationHelper {
     private fun formatMb(bytes: Long): String = String.format(Locale.US, "%.1f", bytes.toDouble() / (1024.0 * 1024.0))
 
     private const val SECURITY_CHANNEL_ID = "hydra_security_events"
+    /** Silent level: purely informational notices. The security channel above is the "needs your decision" level. */
+    private const val INFO_CHANNEL_ID = "hydra_info"
     private const val QUARANTINE_NOTIFICATION_ID = 20001
     private const val TAMPER_NOTIFICATION_ID = 20002
     private const val THREAT_NOTIFICATION_BASE_ID = 21000
@@ -146,10 +148,20 @@ object NotificationHelper {
         manager.createNotificationChannel(
             NotificationChannel(
                 SECURITY_CHANNEL_ID,
-                "Hydra Security Center",
+                "Hydra: needs your decision / alerts",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = if (AppSettings(context).language.isEnglish()) "New-app quarantine, service tampering and other security alerts" else "Cuarentena de apps nuevas, manipulación del servicio y otras alertas de seguridad"
+                description = if (AppSettings(context).language.isEnglish()) "New-app quarantine, threats, unexpected stops and anything that needs your decision" else "Cuarentena de apps nuevas, amenazas, paradas inesperadas y todo lo que necesita tu decisión"
+            }
+        )
+    }
+
+    private fun ensureInfoChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(
+            NotificationChannel(INFO_CHANNEL_ID, "Hydra: information", NotificationManager.IMPORTANCE_LOW).apply {
+                description = if (AppSettings(context).language.isEnglish()) "Silent informational notices (for example: an update is available)" else "Avisos informativos silenciosos (por ejemplo: hay una actualización disponible)"
             }
         )
     }
@@ -298,7 +310,9 @@ object NotificationHelper {
 
     /** A newer Hydra version exists. [readyToInstall] = downloaded and verified, waiting for Android's confirmation. */
     fun notifyAppUpdate(context: Context, version: String, readyToInstall: Boolean, confirmIntent: Intent? = null) {
-        ensureSecurityChannel(context)
+        // "Available" is informational (silent, can be turned off); "ready to install" needs a tap, so it keeps the alert level.
+        if (!readyToInstall && !AppSettings(context).infoNotices) return
+        if (readyToInstall) ensureSecurityChannel(context) else ensureInfoChannel(context)
         val english = AppSettings(context).language.isEnglish() ||
             (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
@@ -311,11 +325,11 @@ object NotificationHelper {
         } else {
             if (english) "Open Security → Overview to download it." else "Abrí Seguridad → Resumen para descargarla."
         }
-        val n = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+        val n = NotificationCompat.Builder(context, if (readyToInstall) SECURITY_CHANNEL_ID else INFO_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(title).setContentText(text)
             .setContentIntent(pending).setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT).build()
+            .setPriority(if (readyToInstall) NotificationCompat.PRIORITY_DEFAULT else NotificationCompat.PRIORITY_LOW).build()
         (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(APP_UPDATE_NOTIFICATION_ID, n)
     }
 

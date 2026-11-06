@@ -284,6 +284,7 @@ fun FirewallScreen(
     var systemAppsWarning by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(settingsStore.themeMode) }
     var filter by remember { mutableStateOf(RuleFilter.ALL) }
+    var newOnly by remember { mutableStateOf(false) }
     var appListFilter by remember { mutableStateOf(AppListFilter.USER) }
     var appSort by remember { mutableStateOf(AppSort.NAME) }
     var ruleSubTab by remember { mutableStateOf(RuleSubTab.APPS) }
@@ -315,6 +316,7 @@ fun FirewallScreen(
     var askFirst by remember { mutableStateOf(ruleStore.askOnFirstConnection) }
     var learningMode by remember { mutableStateOf(ruleStore.learningMode) }
     var lowPowerMode by remember { mutableStateOf(appSettings.lowPowerMode) }
+    var infoNotices by remember { mutableStateOf(appSettings.infoNotices) }
     var pauseUiScreenOff by remember { mutableStateOf(appSettings.pauseUiWhenScreenOff) }
     var uiRefreshSeconds by remember { mutableStateOf(appSettings.uiRefreshSeconds) }
     var historyMaxRecords by remember { mutableStateOf(appSettings.historyMaxRecords) }
@@ -641,16 +643,16 @@ fun FirewallScreen(
                             Spacer(Modifier.height(2.dp))
                             if (advancedMode) Text(
                                 if (language.isEnglish())
-                                    "Apps de confianza: when enabled, apps installed from Google Play or platform-signed system apps can be auto-allowed. New ordinary apps still prompt when this is off."
+                                    "Trusted apps: when enabled, apps installed from Google Play or platform-signed system apps can be auto-allowed. New ordinary apps still prompt when this is off."
                                 else
-                                    "Apps de confianza: activado permite autorizar automáticamente apps instaladas desde Google Play o apps de sistema firmadas por la plataforma. Con el interruptor apagado, las apps nuevas preguntan."
+                                    "Apps de confianza: activado permite permitir automáticamente apps instaladas desde Google Play o apps de sistema firmadas por la plataforma. Con el interruptor apagado, las apps nuevas preguntan."
                                 ,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
-                            HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
+                            if (advancedMode) HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.USER,
                                     label = if(language.isEnglish()) "User" else "Usuario",
@@ -733,6 +735,35 @@ fun FirewallScreen(
                                     modifier = Modifier.width(44.dp),
                                     fontSize = 14.sp
                                 )
+                            } else HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
+                                HydraChoiceButton(
+                                    selected = filter == RuleFilter.ALL && !newOnly,
+                                    label = tr(context,"all"),
+                                    selectedColor = Color(0xFFE3D0FF),
+                                    selectedLabelColor = Color(0xFF241A34),
+                                    onClick = { filter = RuleFilter.ALL; appListFilter = AppListFilter.USER; newOnly = false },
+                                    modifier = Modifier.widthIn(min = 82.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                HydraChoiceButton(
+                                    selected = filter == RuleFilter.BLOCKED,
+                                    label = if (language.isEnglish()) "No Internet" else "Sin Internet",
+                                    selectedColor = Color(0xFFB83A46),
+                                    selectedLabelColor = Color.White,
+                                    unselectedLabelColor = Color(0xFF8F2F39),
+                                    onClick = { newOnly = false; filter = if (filter == RuleFilter.BLOCKED) RuleFilter.ALL else RuleFilter.BLOCKED },
+                                    modifier = Modifier.widthIn(min = 112.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                HydraChoiceButton(
+                                    selected = newOnly,
+                                    label = if (language.isEnglish()) "New" else "Nuevas",
+                                    selectedColor = Color(0xFF2D79B7),
+                                    selectedLabelColor = Color.White,
+                                    unselectedLabelColor = Color(0xFF2D79B7),
+                                    onClick = { newOnly = !newOnly; if (newOnly) filter = RuleFilter.ALL },
+                                    modifier = Modifier.widthIn(min = 94.dp)
+                                )
                             }
                             val query = search.trim().lowercase()
                             val baseApps = apps.filter { app ->
@@ -747,6 +778,8 @@ fun FirewallScreen(
                                 val effectiveWifi = if (!explicit && (autoEssential || trustedAuto)) true else rule.wifiAllowed
                                 val effectiveMobile = if (!explicit && (autoEssential || trustedAuto)) true else rule.mobileAllowed
                                 filter == RuleFilter.ALL || !effectiveWifi || !effectiveMobile
+                            }.filter { app ->
+                                !newOnly || (!app.isSystem && !ruleStore.hasExplicitRule(app.uid))
                             }.filter { app ->
                                 when (appListFilter) {
                                     AppListFilter.ALL -> true
@@ -1402,7 +1435,15 @@ fun FirewallScreen(
                     }
                     MainTab.SETTINGS -> {
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            SettingsBlockTitle(if (language.isEnglish()) "Protection" else "Protección")
+                            SettingSwitchRow(tr(context,"ask_first"), tr(context,"ask_first_sub"), askFirst) { askFirst=it; ruleStore.askOnFirstConnection=it; notifyRulesChanged(context) }
+                            Text(tr(context,"security"), style = MaterialTheme.typography.titleMedium)
+                            SecuritySettingsSection(context, LockStore(context), onChanged = { })
                             if (advancedMode) {
+                            SettingSwitchRow(tr(context,"block_ipv6"), tr(context,"block_ipv6_sub"), blockIpv6) { blockIpv6=it; ruleStore.blockIpv6=it; notifyRulesChanged(context) }
+                            SettingSwitchRow(tr(context,"block_roaming"), tr(context,"block_roaming_sub"), blockRoaming) { blockRoaming=it; ruleStore.blockWhenRoaming=it; notifyRulesChanged(context) }
+                            SettingSwitchRow(tr(context,"block_screen"), tr(context,"block_screen_sub"), blockScreenOff) { blockScreenOff=it; ruleStore.blockWhenScreenOff=it; notifyRulesChanged(context) }
+                            Spacer(Modifier.height(8.dp))
                             Text("Firewall", style = MaterialTheme.typography.titleSmall)
                             Text(if (language.isEnglish()) "Global mode" else "Modo global", style = MaterialTheme.typography.labelLarge)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
@@ -1433,7 +1474,55 @@ fun FirewallScreen(
                             }
                             Spacer(Modifier.height(10.dp))
                             }
-                            SettingSwitchRow(tr(context,"ask_first"), tr(context,"ask_first_sub"), askFirst) { askFirst=it; ruleStore.askOnFirstConnection=it; notifyRulesChanged(context) }
+                            SettingsBlockTitle(if (language.isEnglish()) "Notifications" else "Notificaciones")
+                            SettingSwitchRow(
+                                if (language.isEnglish()) "Informational notices" else "Avisos informativos",
+                                if (language.isEnglish()) "Silent notices, for example when a Hydra update is available. Notices that need your decision (threats, quarantine, pause ended, access requests) always ring." else "Avisos silenciosos, por ejemplo cuando hay una actualización de Hydra. Los que necesitan tu decisión (amenazas, cuarentena, fin de pausa, pedidos de acceso) siempre suenan.",
+                                infoNotices
+                            ) { infoNotices = it; appSettings.infoNotices = it }
+                            SettingsBlockTitle(if (language.isEnglish()) "Appearance" else "Apariencia")
+                            Text(tr(context,"language"), style = MaterialTheme.typography.titleMedium)
+                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
+                                listOf(AppLanguage.SYSTEM to tr(context,"system_language"), AppLanguage.ES to tr(context,"spanish"), AppLanguage.EN to tr(context,"english")).forEach { (mode, label) ->
+                                    HydraChoiceButton(language == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { language = mode; settingsStore.language = mode }, modifier = Modifier.height(30.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                            }
+                            Text(tr(context,"appearance"), style = MaterialTheme.typography.titleMedium)
+                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
+                                listOf(ThemeMode.SYSTEM to tr(context,"system_language"), ThemeMode.LIGHT to if (language.isEnglish()) "Light" else "Claro", ThemeMode.DARK to if (language.isEnglish()) "Dark" else "Oscuro").forEach { (mode,label) ->
+                                    HydraChoiceButton(themeMode == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick={ themeMode=mode; settingsStore.themeMode=mode }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(8.dp))
+                                }
+                            }
+                            SettingsBlockTitle(if (language.isEnglish()) "Data and backups" else "Copias y datos")
+                            Text(tr(context,"maintenance"), style = MaterialTheme.typography.titleMedium)
+                            Text(if (language.isEnglish()) "Automatic history cleanup" else "Limpiar historial automáticamente", style = MaterialTheme.typography.bodyMedium)
+                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
+                                listOf(12 to "12 h", 24 to if (language.isEnglish()) "24 h" else "24 h", 24 * 7 to tr(context,"days7"), 24 * 30 to tr(context,"days30"), 0 to tr(context,"never")).forEach { (hours, label) ->
+                                    HydraChoiceButton(retentionHours == hours, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { retentionHours = hours; ConnectionHistory.setRetentionHours(context, hours); history = ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                            }
+                            Text(if (language.isEnglish()) "Maximum history records" else "Máximo de registros del historial", style = MaterialTheme.typography.bodyMedium)
+                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
+                                listOf(250,500,1000).forEach { n ->
+                                    HydraChoiceButton(historyMaxRecords == n, n.toString(), Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { historyMaxRecords=n; appSettings.historyMaxRecords=n; ConnectionHistory.setMaxRecords(context,n); history=ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                }
+                            }
+                            Button({ onExportHistory() }) { Text(if (language.isEnglish()) "Export history CSV" else "Exportar historial CSV") }
+                            Button({ ConnectionHistory.clear(); TrafficStatsStore.clear(); AppDailyUsageStore.clear(); DiagnosticLogger.clearBuffer(); TrafficAnalyzerStore.clear(); history = emptyList(); stats = emptyList() }) { Text(tr(context,"clear_all")) }
+                            Spacer(Modifier.height(6.dp))
+                            Button({ showResetDialog=true }) { Text(tr(context,"reset_rules")) }
+                            if (showResetDialog) AlertDialog(
+                                onDismissRequest={showResetDialog=false},
+                                title={Text(tr(context,"reset_rules"))},
+                                text={Text(tr(context,"reset_rules_body"))},
+                                confirmButton={TextButton({ resetRulesToDefaults(ruleStore, advancedRuleStore, ipBlockStore); ruleVersion++; advancedVersion++; ipVersion++; profileVersion++; showResetDialog=false; notifyRulesChanged(context) }) { Text(tr(context,"reset")) }},
+                                dismissButton={TextButton({showResetDialog=false}) { Text(tr(context,"cancel")) }}
+                            )
+                            SettingsBlockTitle(if (language.isEnglish()) "Advanced" else "Avanzado")
+                            SettingSwitchRow(tr(context,"advanced_mode"), tr(context,"advanced_mode_sub"), advancedMode) { advancedMode=it; settingsStore.advancedMode=it }
                             if (advancedMode) {
                             SettingSwitchRow(
                                 if (language.isEnglish()) "Learning analysis" else "Análisis de aprendizaje",
@@ -1442,15 +1531,7 @@ fun FirewallScreen(
                             ) { learningMode = it; ruleStore.learningMode = it }
                             SettingSwitchRow(tr(context,"allow_unknown"), tr(context,"allow_unknown_sub"), invalidAllowed) { invalidAllowed=it; ruleStore.invalidUidAllowed=it; notifyRulesChanged(context) }
                             SettingSwitchRow(tr(context,"allow_local"), tr(context,"allow_local_sub"), allowLocal) { allowLocal=it; ruleStore.allowLocalNetwork=it; notifyRulesChanged(context) }
-                            }
-                            SettingSwitchRow(tr(context,"advanced_mode"), tr(context,"advanced_mode_sub"), advancedMode) { advancedMode=it; settingsStore.advancedMode=it }
-                            if (advancedMode) {
-                            SettingSwitchRow(tr(context,"block_ipv6"), tr(context,"block_ipv6_sub"), blockIpv6) { blockIpv6=it; ruleStore.blockIpv6=it; notifyRulesChanged(context) }
-                            SettingSwitchRow(tr(context,"block_roaming"), tr(context,"block_roaming_sub"), blockRoaming) { blockRoaming=it; ruleStore.blockWhenRoaming=it; notifyRulesChanged(context) }
-                            SettingSwitchRow(tr(context,"block_screen"), tr(context,"block_screen_sub"), blockScreenOff) { blockScreenOff=it; ruleStore.blockWhenScreenOff=it; notifyRulesChanged(context) }
-                            }
-
-                            if (advancedMode) {
+                            Spacer(Modifier.height(10.dp))
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
                             Text(if (language.isEnglish()) "Secure DNS" else "DNS seguro", style = MaterialTheme.typography.titleMedium)
                             Text(
@@ -1538,53 +1619,6 @@ fun FirewallScreen(
                                 Text(if (language.isEnglish()) "Selected: ${essentialAppsStore.uids.size}" else "Seleccionadas: ${essentialAppsStore.uids.size}", style = MaterialTheme.typography.labelSmall)
                             }
                             }
-                            Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(tr(context,"security"), style = MaterialTheme.typography.titleMedium)
-                            SecuritySettingsSection(context, LockStore(context), onChanged = { })
-
-                            Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(tr(context,"language"), style = MaterialTheme.typography.titleMedium)
-                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
-                                listOf(AppLanguage.SYSTEM to tr(context,"system_language"), AppLanguage.ES to tr(context,"spanish"), AppLanguage.EN to tr(context,"english")).forEach { (mode, label) ->
-                                    HydraChoiceButton(language == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { language = mode; settingsStore.language = mode }, modifier = Modifier.height(30.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
-                            Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(tr(context,"appearance"), style = MaterialTheme.typography.titleMedium)
-                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
-                                listOf(ThemeMode.SYSTEM to tr(context,"system_language"), ThemeMode.LIGHT to if (language.isEnglish()) "Light" else "Claro", ThemeMode.DARK to if (language.isEnglish()) "Dark" else "Oscuro").forEach { (mode,label) ->
-                                    HydraChoiceButton(themeMode == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick={ themeMode=mode; settingsStore.themeMode=mode }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(8.dp))
-                                }
-                            }
-                            Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
-                            Text(tr(context,"maintenance"), style = MaterialTheme.typography.titleMedium)
-                            Text(if (language.isEnglish()) "Automatic history cleanup" else "Limpiar historial automáticamente", style = MaterialTheme.typography.bodyMedium)
-                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
-                                listOf(12 to "12 h", 24 to if (language.isEnglish()) "24 h" else "24 h", 24 * 7 to tr(context,"days7"), 24 * 30 to tr(context,"days30"), 0 to tr(context,"never")).forEach { (hours, label) ->
-                                    HydraChoiceButton(retentionHours == hours, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { retentionHours = hours; ConnectionHistory.setRetentionHours(context, hours); history = ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                            }
-                            Text(if (language.isEnglish()) "Maximum history records" else "Máximo de registros del historial", style = MaterialTheme.typography.bodyMedium)
-                            HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
-                                listOf(250,500,1000).forEach { n ->
-                                    HydraChoiceButton(historyMaxRecords == n, n.toString(), Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { historyMaxRecords=n; appSettings.historyMaxRecords=n; ConnectionHistory.setMaxRecords(context,n); history=ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                }
-                            }
-                            Button({ onExportHistory() }) { Text(if (language.isEnglish()) "Export history CSV" else "Exportar historial CSV") }
-                            Button({ ConnectionHistory.clear(); TrafficStatsStore.clear(); AppDailyUsageStore.clear(); DiagnosticLogger.clearBuffer(); TrafficAnalyzerStore.clear(); history = emptyList(); stats = emptyList() }) { Text(tr(context,"clear_all")) }
-                            Spacer(Modifier.height(6.dp))
-                            Button({ showResetDialog=true }) { Text(tr(context,"reset_rules")) }
-                            if (showResetDialog) AlertDialog(
-                                onDismissRequest={showResetDialog=false},
-                                title={Text(tr(context,"reset_rules"))},
-                                text={Text(tr(context,"reset_rules_body"))},
-                                confirmButton={TextButton({ resetRulesToDefaults(ruleStore, advancedRuleStore, ipBlockStore); ruleVersion++; advancedVersion++; ipVersion++; profileVersion++; showResetDialog=false; notifyRulesChanged(context) }) { Text(tr(context,"reset")) }},
-                                dismissButton={TextButton({showResetDialog=false}) { Text(tr(context,"cancel")) }}
-                            )
                             Spacer(Modifier.height(24.dp))
                         }
                     }
@@ -2873,7 +2907,7 @@ private fun ProtectionTabContent(
         PauseCard(context, language.isEnglish(), isOn) { onToggleVpn(true) }
         val homeThreats = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.findings(context).size }
         val homeLastScan = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.lastFullScan(context) }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (advancedMode) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HomeStatTile(Modifier.weight(1f), blockAdsBlockedToday.toString(), if (language.isEnglish()) "blocked today" else "bloqueos hoy")
             HomeStatTile(Modifier.weight(1f), blockAdsListInfo.domainCount.toString(), if (language.isEnglish()) "domains in list" else "dominios en lista")
             HomeStatTile(Modifier.weight(1f), homeThreats.toString(), if (language.isEnglish()) "threats" else "amenazas")
@@ -2906,7 +2940,10 @@ private fun ProtectionTabContent(
             }
         }
         Spacer(Modifier.height(8.dp))
-        SettingSwitchCard(
+        // Weekly summary (the Normal/Advanced switch lives only in Settings).
+        WeeklySummaryCard(context, language.isEnglish())
+        Spacer(Modifier.height(4.dp))
+        if (advancedMode || globalBlockAll) SettingSwitchCard(
             if (language.isEnglish()) "Block all traffic" else "Bloquear todo el tráfico",
             if (language.isEnglish())
                 "Stops normal traffic decisions globally while enabled."
@@ -2927,7 +2964,7 @@ private fun ProtectionTabContent(
             onThreatProtectionChange
         )
 
-        if (threatProtectionEnabled) {
+        if (threatProtectionEnabled && advancedMode) {
             BlockAdsSection(
                 context = context,
                 listInfo = blockAdsListInfo,
@@ -2940,7 +2977,7 @@ private fun ProtectionTabContent(
 
         var showDiag by remember { mutableStateOf(false) }
         Spacer(Modifier.height(10.dp))
-        HydraCard(Modifier.fillMaxWidth().clickable { showDiag = !showDiag }, shape = RoundedCornerShape(16.dp)) {
+        if (advancedMode) HydraCard(Modifier.fillMaxWidth().clickable { showDiag = !showDiag }, shape = RoundedCornerShape(16.dp)) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(if (language.isEnglish()) "System details" else "Detalles del sistema", fontWeight = FontWeight.SemiBold)
@@ -3002,9 +3039,6 @@ private fun ProtectionTabContent(
         }
 
         }
-        Spacer(Modifier.height(10.dp))
-        // Weekly summary (replaces the Mode card: the Normal/Advanced switch now lives only in Settings).
-        WeeklySummaryCard(context, language.isEnglish())
         Spacer(Modifier.height(6.dp))
 
         if (showDiag) {
@@ -4480,6 +4514,13 @@ private fun SettingSwitchCard(title: String, subtitle: String, checked: Boolean,
             Switch(checked, onCheckedChange)
         }
     }
+}
+
+@Composable
+private fun SettingsBlockTitle(text: String) {
+    Spacer(Modifier.height(16.dp))
+    Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    HorizontalDivider(Modifier.padding(top = 4.dp, bottom = 6.dp))
 }
 
 @Composable
