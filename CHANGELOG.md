@@ -1,3 +1,6 @@
+## 2.5.2 (versionCode 20502)
+- Corrige la compilación de 2.5.1 (faltaban imports en `AppNames`). Sin cambios de funciones respecto de 2.5.1.
+
 ## 2.5.1 (versionCode 20501)
 - **Vuelve «Actualizar lista» en Inicio:** «Amenazas + publicidad» muestra otra vez la fecha de la lista, los bloqueos de hoy y el botón para buscar/actualizar la lista, también en modo Normal (en 2.5.0 había quedado solo en Avanzado).
 - **Nombres en vez de «UID 1234»:** el historial, las conexiones, las reglas y el uso por app resuelven el nombre de la app (aunque solo haya UID); si el UID es compartido muestra «App +N»; los UID fijos de Android se nombran (p. ej. «Sistema Android (1000)») y los desconocidos dicen «App desconocida o desinstalada (UID n)».

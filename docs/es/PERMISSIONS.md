@@ -1,6 +1,6 @@
 # Permisos: para qué sirve cada uno
 
-Revisión de todos los permisos de `AndroidManifest.xml` (versión 2.5.1). No se pide nada «por si acaso».
+Revisión de todos los permisos de `AndroidManifest.xml` (versión 2.5.2). No se pide nada «por si acaso».
 
 | Permiso | Para qué | ¿Sensible en Google Play? | Notas |
 |---|---|---|---|
