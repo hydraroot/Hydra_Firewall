@@ -1,3 +1,8 @@
+## 2.6.0 (versionCode 20600)
+- **Permitir una app por 1 hora:** en el detalle de una conexión bloqueada, «Permitir por 1 hora» abre la regla de esa app y la deja exactamente como estaba al terminar (incluso «sin regla»). Se controla con una alarma, al arrancar el teléfono y al abrir la app.
+- **Copiar diagnóstico** (Ajustes → Copias y datos): texto con versión, Android, modo, estado de la VPN, lista de bloqueo y títulos de los últimos eventos de seguridad. No incluye destinos, dominios ni historial.
+- **Error de actualización más claro:** si el APK descargado no es más nuevo, el cartel muestra las dos versiones y códigos (p. ej. «el APK es 2.5.1 (20501) y ya tenés la 2.5.2 (20502)»).
+
 ## 2.5.2 (versionCode 20502)
 - Corrige la compilación de 2.5.1 (faltaban imports en `AppNames`). Sin cambios de funciones respecto de 2.5.1.
 

@@ -214,7 +214,15 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     fun friendly(err: String): String = when {
         err.contains("signature_differs") -> t("La firma del APK nuevo no coincide con la de esta instalación. Hay que instalar UNA vez la versión release firmada con tu clave (desinstalando esta); desde ahí se actualiza sola.", "The new APK's signature differs from this install. Install the signed release build ONCE (uninstall this one); after that it updates itself.") + " " + err.substringAfter("signature_differs", "").trim()
         err.contains("sha256") -> t("La descarga no coincide con el SHA‑256 publicado: se descartó.", "The download does not match the published SHA‑256: discarded.")
-        err.contains("not_newer") -> t("Esa versión no es más nueva que la instalada.", "That version is not newer than the installed one.")
+        err.contains("not_newer") -> {
+            fun name(code: Long) = "${code / 10000}.${(code / 100) % 100}.${code % 100}"
+            val m = Regex("not_newer:(\\d+):(\\d+)").find(err)
+            if (m != null) {
+                val newer = m.groupValues[1].toLong(); val own = m.groupValues[2].toLong()
+                t("El APK descargado es la versión ${name(newer)} (código $newer) y ya tenés la ${name(own)} (código $own). Si acabás de publicar, revisá que el tag salga de un commit con la versión nueva.",
+                  "The downloaded APK is version ${name(newer)} (code $newer) and you already have ${name(own)} (code $own). If you just published, check that the tag points to a commit with the new version.")
+            } else t("Esa versión no es más nueva que la instalada.", "That version is not newer than the installed one.")
+        }
         else -> err
     }
 

@@ -61,3 +61,23 @@ class AppNamesTest {
         assertEquals("?", AppNames.fallback(-1, false))
     }
 }
+
+class TempAllowManagerTest {
+    private val a = TempAllowManager.Entry(10001, 1_000L, true, false, true)
+    private val b = TempAllowManager.Entry(10002, 5_000L, false, false, false)
+
+    @Test fun expiredReturnsOnlyFinishedEntries() {
+        assertEquals(listOf(a), TempAllowManager.expired(listOf(a, b), 1_000L))
+        assertTrue(TempAllowManager.expired(listOf(a, b), 999L).isEmpty())
+    }
+
+    @Test fun nextExpiryIsTheEarliest() {
+        assertEquals(1_000L, TempAllowManager.nextExpiry(listOf(b, a)))
+        assertEquals(null, TempAllowManager.nextExpiry(emptyList()))
+    }
+
+    @Test fun encodeDecodeRoundTrip() {
+        assertEquals(listOf(a, b), TempAllowManager.decode(TempAllowManager.encode(listOf(a, b))))
+        assertTrue(TempAllowManager.decode("not json").isEmpty())
+    }
+}

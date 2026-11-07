@@ -214,7 +214,7 @@ object AppUpdater {
         val own = pm.getPackageInfo(context.packageName, flags)
         val newCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else @Suppress("DEPRECATION") archive.versionCode.toLong()
         val oldCode = if (Build.VERSION.SDK_INT >= 28) own.longVersionCode else @Suppress("DEPRECATION") own.versionCode.toLong()
-        require(newCode > oldCode) { "not_newer" }
+        require(newCode > oldCode) { "not_newer:$newCode:$oldCode" }
         val newCerts = certs(archive)
         val ownCerts = certs(own)
         // If Android cannot read the signature of a file that is not installed yet (it happens on some devices) we do

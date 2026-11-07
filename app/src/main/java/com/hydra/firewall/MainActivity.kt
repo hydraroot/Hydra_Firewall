@@ -119,6 +119,7 @@ class MainActivity : AppCompatActivity() {
             ).show()
         }
         ConnectionHistory.init(this)
+        TempAllowManager.revertExpired(this)
         TrafficAnalyzerStore.init(this)
         TlsFingerprintStore.init(this)
         AppNetworkProfileStore.init(this)
@@ -1155,6 +1156,19 @@ fun FirewallScreen(
                                                         },
                                                         modifier = Modifier.fillMaxWidth()
                                                     ) { Text(if (en) "ALLOW THIS APP" else "PERMITIR ESTA APP") }
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            TempAllowManager.allow(context, record.uid, 60)
+                                                            ruleVersion++
+                                                            android.widget.Toast.makeText(
+                                                                context,
+                                                                if (en) "Allowed for 1 hour. Hydra puts the rule back by itself." else "Permitida por 1 hora. Hydra vuelve a poner la regla sola.",
+                                                                android.widget.Toast.LENGTH_LONG
+                                                            ).show()
+                                                            selectedHistoryDetail = null
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text(if (en) "ALLOW FOR 1 HOUR" else "PERMITIR POR 1 HORA") }
                                                 }
                                             }
                                         }
@@ -1495,6 +1509,25 @@ fun FirewallScreen(
                                 }
                             }
                             SettingsBlockTitle(if (language.isEnglish()) "Data and backups" else "Copias y datos")
+                            OutlinedButton(
+                                onClick = {
+                                    val report = DiagnosticsReport.build(context)
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Hydra diagnostics", report))
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        if (language.isEnglish()) "Diagnostic copied. It has no destinations or domains." else "Diagnóstico copiado. No incluye destinos ni dominios.",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(if (language.isEnglish()) "Copy diagnostic report" else "Copiar diagnóstico") }
+                            Text(
+                                if (language.isEnglish()) "Paste it into a bug report: versions, switches and security event titles only."
+                                else "Pegalo en un reporte de problema: solo versiones, interruptores y títulos de eventos de seguridad.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Text(tr(context,"maintenance"), style = MaterialTheme.typography.titleMedium)
                             Text(if (language.isEnglish()) "Automatic history cleanup" else "Limpiar historial automáticamente", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {

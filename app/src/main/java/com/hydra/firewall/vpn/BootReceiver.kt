@@ -21,6 +21,10 @@ class BootReceiver : BroadcastReceiver() {
             ThreatSignatureUpdater.scheduleDaily(context)
             return
         }
+        if (action == TempAllowManager.ACTION_TEMP_ALLOW_END) {
+            TempAllowManager.revertExpired(context)
+            return
+        }
         if (action == PauseManager.ACTION_PAUSE_END) {
             PauseManager.onAlarm(context)
             return
@@ -58,6 +62,7 @@ class BootReceiver : BroadcastReceiver() {
 
         ThreatSignatureUpdater.scheduleDaily(context)
         if (action == Intent.ACTION_USER_UNLOCKED) DirectBootState.markUnlocked(context)
+        TempAllowManager.revertExpired(context)
         if (PauseManager.handleBoot(context)) return
         recoverVpn(context, action)
     }
