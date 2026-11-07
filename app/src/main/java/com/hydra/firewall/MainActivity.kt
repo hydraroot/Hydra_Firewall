@@ -527,6 +527,8 @@ fun FirewallScreen(
                             blockAdsListInfo = blockAdsListInfo,
                             blockAdsBlockedToday = blockAdsBlockedToday,
                             blockAdsCheckState = blockAdsCheckState,
+                            trafficHistory = trafficHistory,
+                            connectionHistory = history,
                             onToggleVpn = onToggle,
                             onGlobalBlockAllChange = { enabled ->
                                 globalBlockAll = enabled
@@ -578,7 +580,8 @@ fun FirewallScreen(
                                 }
                             },
                             onKillSwitch = onKillSwitch,
-                            onOpenSecurity = { selectedTab = MainTab.SECURITY }
+                            onOpenSecurity = { selectedTab = MainTab.SECURITY },
+                            onOpenConnections = { selectedTab = MainTab.CONNECTIONS }
                         )
                     }
                     MainTab.RULES -> {
@@ -2878,13 +2881,16 @@ private fun ProtectionTabContent(
     blockAdsListInfo: DomainBlockStore.ListInfo,
     blockAdsBlockedToday: Long,
     blockAdsCheckState: BlockAdsCheckState,
+    trafficHistory: List<Pair<Float, Float>>,
+    connectionHistory: List<com.hydra.firewall.vpn.ConnectionHistory.Record>,
     onToggleVpn: (Boolean) -> Unit,
     onGlobalBlockAllChange: (Boolean) -> Unit,
     onThreatProtectionChange: (Boolean) -> Unit,
     onCheckBlocklist: () -> Unit,
     onUpdateBlocklist: () -> Unit,
     onKillSwitch: () -> Unit,
-    onOpenSecurity: () -> Unit = {}
+    onOpenSecurity: () -> Unit = {},
+    onOpenConnections: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -2893,49 +2899,11 @@ private fun ProtectionTabContent(
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(Modifier.height(6.dp))
-        HydraCard(
-            Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            containerColor = if (isOn) Color(0xFF34D399).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                        Text(
-                            if (language.isEnglish()) "Firewall VPN" else "VPN del firewall",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                        Text(
-                            if (language.isEnglish())
-                                "Routes device traffic through Hydra for filtering."
-                            else
-                                "Envía el tráfico del equipo a través de Hydra para filtrarlo.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Switch(checked = isOn, onCheckedChange = onToggleVpn)
-                }
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    if (isOn) {
-                        if (language.isEnglish())
-                            "Running • ${network.displayName}${if (roaming) " • Roaming" else ""}"
-                        else
-                            "Activa • ${network.displayName}${if (roaming) " • Roaming" else ""}"
-                    } else {
-                        if (language.isEnglish()) "Stopped" else "Detenida"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isOn) Color(0xFF2E8B57) else MaterialTheme.colorScheme.error
-                )
-            }
-        }
-
+        HomeStatusRow(language.isEnglish(), isOn, network, roaming, onToggleVpn)
+        Spacer(Modifier.height(10.dp))
+        HomeLiveTrafficCard(language.isEnglish(), trafficHistory, blockAdsBlockedToday)
+        Spacer(Modifier.height(10.dp))
+        HomeRecentDecisionsCard(language.isEnglish(), connectionHistory, onOpenConnections = onOpenConnections)
         Spacer(Modifier.height(10.dp))
         PauseCard(context, language.isEnglish(), isOn) { onToggleVpn(true) }
         val homeThreats = remember(blockAdsBlockedToday) { com.hydra.firewall.security.AppThreatScanner.findings(context).size }

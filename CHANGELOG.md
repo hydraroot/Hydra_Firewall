@@ -1,3 +1,6 @@
+## 2.7.0 (versionCode 20700)
+- **Inicio rediseñado («Actividad en vivo»):** fila de estado compacta con el interruptor del firewall, tarjeta de tráfico en vivo (permitido vs. bloqueado, bloqueos de hoy) y las últimas 6 decisiones con app, protocolo, destino y etiqueta permitido/bloqueado. «Ver todo» abre Conexiones. Pausa, Seguridad, resumen de 7 días y los interruptores siguen debajo.
+
 ## 2.6.0 (versionCode 20600)
 - **Permitir una app por 1 hora:** en el detalle de una conexión bloqueada, «Permitir por 1 hora» abre la regla de esa app y la deja exactamente como estaba al terminar (incluso «sin regla»). Se controla con una alarma, al arrancar el teléfono y al abrir la app.
 - **Copiar diagnóstico** (Ajustes → Copias y datos): texto con versión, Android, modo, estado de la VPN, lista de bloqueo y títulos de los últimos eventos de seguridad. No incluye destinos, dominios ni historial.
