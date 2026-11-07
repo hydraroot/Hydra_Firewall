@@ -1,3 +1,9 @@
+## 3.1.0 (versionCode 30100)
+- **Apps de sistema:** la lista de apps se carga con una consulta más liviana (`getInstalledApplications` + permiso INTERNET) para que aparezcan también las de sistema; el filtro «Sistema» muestra cuántas hay y, si una vista queda vacía, ahora lo dice en pantalla.
+- **Conexiones:** cada tarjeta muestra el motivo probable del bloqueo. «Permitir app» y «Permitir 1 h» confirman con un aviso; si la app ya está permitida, la tarjeta lo dice y explica que el bloqueo viene de otra regla (dominio de la lista, horario, IP o puerto) en vez de repetir botones que no cambian nada.
+- **Apps no identificadas («?»):** la tarjeta lo indica y en Detalles aparece «¿Quién la inició?» con pistas: paquetes que comparten el UID, quién la instaló y qué apps estaban activas en ese momento. Son pistas; Android no informa qué app inició a otra.
+- **Reglas, servicios que usa (opcional):** al abrir una app se listan sus servicios relacionados (Google Play Services, Services Framework, Google Drive, almacenamiento multimedia, descargas) con interruptores Wi‑Fi y Datos propios. Pensado para casos como la copia de seguridad de WhatsApp en Drive.
+
 ## 3.0.0 (versionCode 30000)
 - **Rediseño de la interfaz:** nuevo estilo común con controles segmentados y tarjetas.
 - **Pestañas de cada sección:** las pestañas internas (Reglas / IP y puertos / Perfiles, Conexiones / Stats / Analizador, Ajustes / Ayuda / Acerca de / Prueba) pasan a un selector segmentado de ancho completo, sin desplazamiento lateral.

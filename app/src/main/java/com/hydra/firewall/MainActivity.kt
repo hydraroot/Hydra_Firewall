@@ -678,7 +678,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.SYSTEM,
-                                    label = if(language.isEnglish()) "System" else "Sistema",
+                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + apps.count { it.isSystem },
                                     selectedColor = Color(0xFF8B6B00),
                                     selectedLabelColor = Color(0xFFFFF4B0),
                                     unselectedLabelColor = Color(0xFF856600),
@@ -805,6 +805,14 @@ fun FirewallScreen(
                                     )
                                 }
                             }
+                            if (!appsLoading && visibleApps.isEmpty()) {
+                                Text(
+                                    if (language.isEnglish()) "No apps match this filter. Tap ↻ to reload the list." else "Ninguna app coincide con este filtro. Tocá ↻ para recargar la lista.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                             LazyColumn(Modifier.fillMaxSize(), state = rulesListState) {
                                 items(visibleApps, key = { "${it.packageName}:${it.uid}" }) { app ->
                                     val rule = remember(ruleVersion) { ruleStore.getRule(app.uid) }
@@ -870,6 +878,24 @@ fun FirewallScreen(
                                             val targetExplicit = if (target == AppCompatibilityMode.NORMAL) explicitRule else false
                                             val targetSummary = describeAppPolicy(target, targetWifi, targetMobile, targetExplicit, false, settingsStore.language.isEnglish())
                                             android.widget.Toast.makeText(context, targetSummary, android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                        extra = {
+                                            AppDependenciesSection(
+                                                app = app,
+                                                english = language.isEnglish(),
+                                                ruleVersion = ruleVersion,
+                                                effective = { uid ->
+                                                    val r = ruleStore.getRule(uid)
+                                                    val auto = essentialAppsStore.isAutoEssential(uid) || (trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, uid))
+                                                    if (!ruleStore.hasExplicitRule(uid) && auto) (true to true) else (r.wifiAllowed to r.mobileAllowed)
+                                                },
+                                                onSet = { uid, wifi, mobile ->
+                                                    ruleStore.setWifiAllowed(uid, wifi)
+                                                    ruleStore.setMobileAllowed(uid, mobile)
+                                                    ruleVersion++
+                                                    notifyRulesChanged(context)
+                                                }
+                                            )
                                         })
                                 }
                             }
@@ -984,6 +1010,18 @@ fun FirewallScreen(
                                         val groupedDomain = DomainResolver.cached(host)
                                         val groupedApp = com.hydra.firewall.vpn.AppNames.label(g.last.uid, g.last.packageName)
                                         val en = language.isEnglish()
+                                        val ruleVersionNow = ruleVersion // re-read when a rule changes so this card updates
+                                        val ruleNow = remember(ruleVersionNow) { ruleStore.getRule(g.last.uid) }
+                                        val appAllowedNow = remember(ruleVersionNow) {
+                                            (!ruleStore.hasExplicitRule(g.last.uid) && essentialAppsStore.isAutoEssential(g.last.uid)) ||
+                                                (ruleNow.wifiAllowed && ruleNow.mobileAllowed)
+                                        }
+                                        val cardReason = remember(g.last.id) {
+                                            ConnectionContext.explain(
+                                                context, g.last.uid, g.last.packageName, g.last.destination, g.last.protocol,
+                                                allowed = g.last.allowed, firstConnection = false, repeatCount = g.count, max = 1
+                                            ).firstOrNull()
+                                        }
                                         HydraCard(
                                             Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedHistoryDetail = g.last },
                                             shape = RoundedCornerShape(16.dp)
@@ -1008,7 +1046,28 @@ fun FirewallScreen(
                                                 )
                                                 val groupedIpBlockedNow = host.isNotBlank() && ipBlockStore.isBlocked(host)
                                                 val groupedPortBlocked = advancedRuleStore.findMatches(g.last.uid, g.last.protocol, extractPort(g.last.destination)).any { !it.allowed }
-                                                if (g.blocked > 0 && !g.last.allowed && !groupedIpBlockedNow && !groupedPortBlocked) {
+                                                if (isUnidentifiedApp(g.last.uid, groupedApp)) {
+                                                    Text(
+                                                        if (en) "App not identified. Open Details to see clues about who started it." else "App no identificada. Abrí Detalles para ver pistas de quién la inició.",
+                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary
+                                                    )
+                                                }
+                                                if (g.blocked > 0 && cardReason != null) {
+                                                    Text(
+                                                        (if (en) "Likely reason: " else "Motivo probable: ") + (if (en) cardReason.en else cardReason.es),
+                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3,
+                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                                if (g.blocked > 0 && !g.last.allowed && appAllowedNow) {
+                                                    Spacer(Modifier.height(6.dp))
+                                                    Text(
+                                                        if (en) "This app is already allowed on Wi‑Fi and mobile. Old attempts stay in the list for a while; if it is still blocked, the cause is another rule (blocklist domain, schedule, IP or port). Open Details."
+                                                        else "Esta app ya está permitida en Wi‑Fi y datos. Los intentos viejos quedan en la lista un rato; si sigue bloqueada, la causa es otra regla (dominio de la lista, horario, IP o puerto). Abrí Detalles.",
+                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                if (g.blocked > 0 && !g.last.allowed && !appAllowedNow && !groupedIpBlockedNow && !groupedPortBlocked) {
                                                     Spacer(Modifier.height(8.dp))
                                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                         Button(
@@ -1017,6 +1076,11 @@ fun FirewallScreen(
                                                                 ruleStore.setMobileAllowed(g.last.uid, true)
                                                                 ruleVersion++
                                                                 notifyRulesChanged(context)
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    if (en) "$groupedApp allowed on Wi‑Fi and mobile. Try the app again." else "$groupedApp permitida en Wi‑Fi y datos. Probá la app de nuevo.",
+                                                                    android.widget.Toast.LENGTH_LONG
+                                                                ).show()
                                                             },
                                                             modifier = Modifier.weight(1f).height(34.dp),
                                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
@@ -1241,6 +1305,7 @@ fun FirewallScreen(
                                             )
                                         }
                                         ConnectionWhyBlock(whyReasons, language.isEnglish())
+                                        OriginHintBlock(record, history, language.isEnglish())
                                         Spacer(Modifier.height(5.dp))
                                         Text(if (language.isEnglish()) "Matching port rules" else "Reglas de puerto coincidentes", style = MaterialTheme.typography.titleSmall)
                                         if (matches.isEmpty()) {
@@ -3814,7 +3879,8 @@ private fun AppRuleRow(
     onCustom: () -> Unit,
     onDetails: () -> Unit,
     onSchedule: () -> Unit,
-    onCompatibility: () -> Unit
+    onCompatibility: () -> Unit,
+    extra: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
     val en = AppSettings(context).language.isEnglish()
@@ -3890,6 +3956,7 @@ private fun AppRuleRow(
                     RuleModePill(Modifier.weight(1f), if (scheduleEnabled) tr(context, "schedule_short_active") else tr(context, "schedule_short"), scheduleEnabled, policyColor, onSchedule)
                     RuleModePill(Modifier.weight(1f), if (favorite) "★" else "☆", favorite, Color(0xFF8A44B8), onFavorite)
                 }
+                extra()
             }
         }
     }
@@ -4226,18 +4293,23 @@ private fun notifyRulesChanged(context: Context) {
 
 private fun loadNetworkApps(context: Context): List<AppEntry> {
     val pm = context.packageManager
+    // getInstalledApplications is much lighter than getInstalledPackages(GET_PERMISSIONS) (hundreds of system apps with
+    // long permission lists). INTERNET is a normal permission, so checkPermission tells whether the app can use the network.
     return runCatching {
-        pm.getInstalledPackages(PackageManager.GET_PERMISSIONS).asSequence()
+        @Suppress("DEPRECATION")
+        pm.getInstalledApplications(0).asSequence()
             .filter { it.packageName != context.packageName }
-            .filter { it.requestedPermissions?.contains(Manifest.permission.INTERNET) == true }
-            .mapNotNull { p ->
-                val info = p.applicationInfo ?: return@mapNotNull null
+            .filter { info ->
+                runCatching { pm.checkPermission(Manifest.permission.INTERNET, info.packageName) == PackageManager.PERMISSION_GRANTED }
+                    .getOrDefault(true)
+            }
+            .map { info ->
                 AppEntry(
-                    label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(p.packageName),
-                    packageName = p.packageName,
+                    label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName),
+                    packageName = info.packageName,
                     uid = info.uid,
                     isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0 || (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0,
-                    processName = info.processName ?: p.packageName
+                    processName = info.processName ?: info.packageName
                 )
             }.distinctBy { "${it.packageName}:${it.uid}" }.sortedBy { it.label.lowercase() }.toList()
     }.getOrDefault(emptyList())
