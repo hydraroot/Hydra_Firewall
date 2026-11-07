@@ -286,7 +286,7 @@ fun FirewallScreen(
     var themeMode by remember { mutableStateOf(settingsStore.themeMode) }
     var filter by remember { mutableStateOf(RuleFilter.ALL) }
     var newOnly by remember { mutableStateOf(false) }
-    var appListFilter by remember { mutableStateOf(AppListFilter.ALL) }
+    var appListFilter by remember { mutableStateOf(AppListFilter.USER) }
     var appSort by remember { mutableStateOf(AppSort.NAME) }
     var ruleSubTab by remember { mutableStateOf(RuleSubTab.APPS) }
     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
@@ -732,12 +732,42 @@ fun FirewallScreen(
                                 )
                             } else HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
                                 HydraChoiceButton(
-                                    selected = filter == RuleFilter.ALL && !newOnly && appListFilter == AppListFilter.ALL,
+                                    selected = !newOnly && appListFilter == AppListFilter.ALL,
                                     label = tr(context,"all"),
                                     selectedColor = Color(0xFFE3D0FF),
                                     selectedLabelColor = Color(0xFF241A34),
-                                    onClick = { filter = RuleFilter.ALL; appListFilter = AppListFilter.ALL; newOnly = false },
+                                    onClick = { appListFilter = AppListFilter.ALL; newOnly = false },
                                     modifier = Modifier.widthIn(min = 82.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                HydraChoiceButton(
+                                    selected = !newOnly && appListFilter == AppListFilter.USER,
+                                    label = (if (language.isEnglish()) "User" else "Usuario") + " · " + apps.count { !it.isSystem },
+                                    selectedColor = Color(0xFF2D79B7),
+                                    selectedLabelColor = Color.White,
+                                    unselectedLabelColor = Color(0xFF2D79B7),
+                                    onClick = { appListFilter = AppListFilter.USER; newOnly = false },
+                                    modifier = Modifier.widthIn(min = 94.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                HydraChoiceButton(
+                                    selected = !newOnly && appListFilter == AppListFilter.SYSTEM,
+                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + apps.count { it.isSystem },
+                                    selectedColor = Color(0xFF8B6B00),
+                                    selectedLabelColor = Color(0xFFFFF4B0),
+                                    unselectedLabelColor = Color(0xFF856600),
+                                    onClick = { systemAppsWarning = true; newOnly = false; appListFilter = AppListFilter.SYSTEM },
+                                    modifier = Modifier.widthIn(min = 94.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                HydraChoiceButton(
+                                    selected = newOnly,
+                                    label = if (language.isEnglish()) "No rules" else "Sin reglas",
+                                    selectedColor = Color(0xFFB8860B),
+                                    selectedLabelColor = Color.White,
+                                    unselectedLabelColor = Color(0xFF9A7209),
+                                    onClick = { newOnly = !newOnly; if (newOnly) appListFilter = AppListFilter.ALL },
+                                    modifier = Modifier.widthIn(min = 94.dp)
                                 )
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
@@ -746,31 +776,8 @@ fun FirewallScreen(
                                     selectedColor = Color(0xFFB83A46),
                                     selectedLabelColor = Color.White,
                                     unselectedLabelColor = Color(0xFF8F2F39),
-                                    onClick = { newOnly = false; filter = if (filter == RuleFilter.BLOCKED) RuleFilter.ALL else RuleFilter.BLOCKED },
+                                    onClick = { filter = if (filter == RuleFilter.BLOCKED) RuleFilter.ALL else RuleFilter.BLOCKED },
                                     modifier = Modifier.widthIn(min = 112.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                HydraChoiceButton(
-                                    selected = newOnly,
-                                    label = if (language.isEnglish()) "New" else "Nuevas",
-                                    selectedColor = Color(0xFF2D79B7),
-                                    selectedLabelColor = Color.White,
-                                    unselectedLabelColor = Color(0xFF2D79B7),
-                                    onClick = { newOnly = !newOnly; if (newOnly) { filter = RuleFilter.ALL; appListFilter = AppListFilter.ALL } },
-                                    modifier = Modifier.widthIn(min = 94.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                HydraChoiceButton(
-                                    selected = appListFilter == AppListFilter.SYSTEM,
-                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + apps.count { it.isSystem },
-                                    selectedColor = Color(0xFF8B6B00),
-                                    selectedLabelColor = Color(0xFFFFF4B0),
-                                    unselectedLabelColor = Color(0xFF856600),
-                                    onClick = {
-                                        if (appListFilter == AppListFilter.SYSTEM) appListFilter = AppListFilter.ALL
-                                        else { systemAppsWarning = true; newOnly = false; appListFilter = AppListFilter.SYSTEM }
-                                    },
-                                    modifier = Modifier.widthIn(min = 94.dp)
                                 )
                             }
                             val query = search.trim().lowercase()
@@ -787,7 +794,9 @@ fun FirewallScreen(
                                 val effectiveMobile = if (!explicit && (autoEssential || trustedAuto)) true else rule.mobileAllowed
                                 filter == RuleFilter.ALL || !effectiveWifi || !effectiveMobile
                             }.filter { app ->
-                                !newOnly || (!app.isSystem && !ruleStore.hasExplicitRule(app.uid))
+                                // "Sin reglas": apps (user or system) with no explicit rule that are not auto-allowed, i.e. blocked by default.
+                                !newOnly || (!ruleStore.hasExplicitRule(app.uid) &&
+                                    !(essentialAppsStore.isAutoEssential(app.uid) || (trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, app.uid))))
                             }.filter { app ->
                                 when (appListFilter) {
                                     AppListFilter.ALL -> true

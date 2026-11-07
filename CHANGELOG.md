@@ -1,3 +1,6 @@
+## 3.1.2 (versionCode 30102)
+- **Reglas, filtros:** botones «Todas» (usuario + sistema), «Usuario» (por defecto), «Sistema», «Sin reglas» (antes «Nuevas»: apps sin regla propia que quedan bloqueadas por defecto, de usuario o de sistema) y «Sin Internet». «Usuario» y «Sistema» muestran cuántas apps hay.
+
 ## 3.1.1 (versionCode 30101)
 - **Reglas:** el botón «Todas» ahora muestra todas las apps, también las de sistema (antes en modo simple filtraba solo las de usuario, por eso no aparecían). Se agrega el botón «Sistema · N» junto a «Nuevas». La lista arranca en «Todas».
 - **GitHub:** la release de cada etiqueta `v*` se publica como versión estable y se marca como «Latest» (antes salía como pre-release).
