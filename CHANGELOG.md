@@ -1,3 +1,7 @@
+## 3.1.1 (versionCode 30101)
+- **Reglas:** el botón «Todas» ahora muestra todas las apps, también las de sistema (antes en modo simple filtraba solo las de usuario, por eso no aparecían). Se agrega el botón «Sistema · N» junto a «Nuevas». La lista arranca en «Todas».
+- **GitHub:** la release de cada etiqueta `v*` se publica como versión estable y se marca como «Latest» (antes salía como pre-release).
+
 ## 3.1.0 (versionCode 30100)
 - **Apps de sistema:** la lista de apps se carga con una consulta más liviana (`getInstalledApplications` + permiso INTERNET) para que aparezcan también las de sistema; el filtro «Sistema» muestra cuántas hay y, si una vista queda vacía, ahora lo dice en pantalla.
 - **Conexiones:** cada tarjeta muestra el motivo probable del bloqueo. «Permitir app» y «Permitir 1 h» confirman con un aviso; si la app ya está permitida, la tarjeta lo dice y explica que el bloqueo viene de otra regla (dominio de la lista, horario, IP o puerto) en vez de repetir botones que no cambian nada.

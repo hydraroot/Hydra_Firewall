@@ -191,4 +191,5 @@ jobs:
           files: |
             Hydra-Firewall-${{ env.RELEASE_TAG }}.apk
             Hydra-Firewall-${{ env.RELEASE_TAG }}.apk.sha256
-          prerelease: true
+          prerelease: false
+          make_latest: true

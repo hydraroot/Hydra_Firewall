@@ -286,7 +286,7 @@ fun FirewallScreen(
     var themeMode by remember { mutableStateOf(settingsStore.themeMode) }
     var filter by remember { mutableStateOf(RuleFilter.ALL) }
     var newOnly by remember { mutableStateOf(false) }
-    var appListFilter by remember { mutableStateOf(AppListFilter.USER) }
+    var appListFilter by remember { mutableStateOf(AppListFilter.ALL) }
     var appSort by remember { mutableStateOf(AppSort.NAME) }
     var ruleSubTab by remember { mutableStateOf(RuleSubTab.APPS) }
     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
@@ -732,11 +732,11 @@ fun FirewallScreen(
                                 )
                             } else HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
                                 HydraChoiceButton(
-                                    selected = filter == RuleFilter.ALL && !newOnly,
+                                    selected = filter == RuleFilter.ALL && !newOnly && appListFilter == AppListFilter.ALL,
                                     label = tr(context,"all"),
                                     selectedColor = Color(0xFFE3D0FF),
                                     selectedLabelColor = Color(0xFF241A34),
-                                    onClick = { filter = RuleFilter.ALL; appListFilter = AppListFilter.USER; newOnly = false },
+                                    onClick = { filter = RuleFilter.ALL; appListFilter = AppListFilter.ALL; newOnly = false },
                                     modifier = Modifier.widthIn(min = 82.dp)
                                 )
                                 Spacer(Modifier.width(5.dp))
@@ -756,7 +756,20 @@ fun FirewallScreen(
                                     selectedColor = Color(0xFF2D79B7),
                                     selectedLabelColor = Color.White,
                                     unselectedLabelColor = Color(0xFF2D79B7),
-                                    onClick = { newOnly = !newOnly; if (newOnly) filter = RuleFilter.ALL },
+                                    onClick = { newOnly = !newOnly; if (newOnly) { filter = RuleFilter.ALL; appListFilter = AppListFilter.ALL } },
+                                    modifier = Modifier.widthIn(min = 94.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                HydraChoiceButton(
+                                    selected = appListFilter == AppListFilter.SYSTEM,
+                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + apps.count { it.isSystem },
+                                    selectedColor = Color(0xFF8B6B00),
+                                    selectedLabelColor = Color(0xFFFFF4B0),
+                                    unselectedLabelColor = Color(0xFF856600),
+                                    onClick = {
+                                        if (appListFilter == AppListFilter.SYSTEM) appListFilter = AppListFilter.ALL
+                                        else { systemAppsWarning = true; newOnly = false; appListFilter = AppListFilter.SYSTEM }
+                                    },
                                     modifier = Modifier.widthIn(min = 94.dp)
                                 )
                             }
