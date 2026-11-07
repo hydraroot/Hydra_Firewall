@@ -1,3 +1,6 @@
+## 3.2.0 (versionCode 30200)
+- **Reglas agrupadas por UID:** las apps que comparten UID (Google, Samsung, apps de sistema…) comparten una sola regla Wi‑Fi/Datos en Android, así que ahora se muestran como una sola fila con un único par de interruptores («App principal +N»; el UID 1000 aparece como «Sistema Android · N»). Al abrir la fila se ven los paquetes que la integran. El modo (Personalizado / Permisivo / Sin firewall) se aplica a todo el grupo. La búsqueda encuentra cualquier paquete del grupo y los contadores «Usuario · N» y «Sistema · N» cuentan grupos.
+
 ## 3.1.2 (versionCode 30102)
 - **Reglas, filtros:** botones «Todas» (usuario + sistema), «Usuario» (por defecto), «Sistema», «Sin reglas» (antes «Nuevas»: apps sin regla propia que quedan bloqueadas por defecto, de usuario o de sistema) y «Sin Internet». «Usuario» y «Sistema» muestran cuántas apps hay.
 

@@ -206,3 +206,18 @@ fun OriginHintBlock(record: ConnectionHistory.Record, history: List<ConnectionHi
         }
     }
 }
+
+/**
+ * One entry per UID. Apps that share a UID are merged into a single representative (user apps first, then by name)
+ * whose [AppEntry.members] lists every package, because Android attributes their traffic to the same UID and Hydra's
+ * Wi‑Fi / mobile rule is stored per UID.
+ */
+fun groupAppsByUid(apps: List<AppEntry>): List<AppEntry> =
+    apps.groupBy { it.uid }.map { (uid, list) ->
+        if (list.size == 1) list[0] else {
+            val sorted = list.sortedWith(compareBy<AppEntry>({ it.isSystem }, { it.label.lowercase() }))
+            val rep = sorted.first()
+            val label = if (uid == 1000) "Sistema Android · ${list.size}" else "${rep.label} +${list.size - 1}"
+            rep.copy(label = label, isSystem = list.all { it.isSystem }, members = sorted)
+        }
+    }

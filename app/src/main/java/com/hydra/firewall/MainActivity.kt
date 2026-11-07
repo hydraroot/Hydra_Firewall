@@ -191,7 +191,18 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-data class AppEntry(val label: String, val packageName: String, val uid: Int, val isSystem: Boolean, val processName: String)
+data class AppEntry(
+    val label: String,
+    val packageName: String,
+    val uid: Int,
+    val isSystem: Boolean,
+    val processName: String,
+    /** Non-empty only for a group of apps that share one UID (and therefore one rule); includes the representative itself. */
+    val members: List<AppEntry> = emptyList()
+)
+
+/** Package names this row stands for: just the app, or every app that shares its UID. */
+fun AppEntry.allPackages(): List<String> = if (members.size > 1) members.map { it.packageName } else listOf(packageName)
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class RuleFilter { ALL, BLOCKED }
@@ -274,6 +285,8 @@ fun FirewallScreen(
     var roaming by remember { mutableStateOf(FirewallVpnService.currentRoaming) }
     var apps by remember { mutableStateOf(emptyList<AppEntry>()) }
     var appsLoading by remember { mutableStateOf(true) }
+    // Apps that share a UID share one rule, so Rules lists one row per UID group.
+    val ruleApps = remember(apps) { groupAppsByUid(apps) }
     var selectedTab by remember { mutableStateOf(MainTab.PROTECTION) }
     var advancedMode by remember { mutableStateOf(settingsStore.advancedMode) }
     val advancedOnlyTabs = setOf(MainTab.IP_PORTS, MainTab.ANALYZER, MainTab.PROFILES, MainTab.SELFTEST)
@@ -678,7 +691,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.SYSTEM,
-                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + apps.count { it.isSystem },
+                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + ruleApps.count { it.isSystem },
                                     selectedColor = Color(0xFF8B6B00),
                                     selectedLabelColor = Color(0xFFFFF4B0),
                                     unselectedLabelColor = Color(0xFF856600),
@@ -742,7 +755,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = !newOnly && appListFilter == AppListFilter.USER,
-                                    label = (if (language.isEnglish()) "User" else "Usuario") + " · " + apps.count { !it.isSystem },
+                                    label = (if (language.isEnglish()) "User" else "Usuario") + " · " + ruleApps.count { !it.isSystem },
                                     selectedColor = Color(0xFF2D79B7),
                                     selectedLabelColor = Color.White,
                                     unselectedLabelColor = Color(0xFF2D79B7),
@@ -752,7 +765,7 @@ fun FirewallScreen(
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
                                     selected = !newOnly && appListFilter == AppListFilter.SYSTEM,
-                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + apps.count { it.isSystem },
+                                    label = (if (language.isEnglish()) "System" else "Sistema") + " · " + ruleApps.count { it.isSystem },
                                     selectedColor = Color(0xFF8B6B00),
                                     selectedLabelColor = Color(0xFFFFF4B0),
                                     unselectedLabelColor = Color(0xFF856600),
@@ -781,9 +794,10 @@ fun FirewallScreen(
                                 )
                             }
                             val query = search.trim().lowercase()
-                            val baseApps = apps.filter { app ->
+                            val baseApps = ruleApps.filter { app ->
                                 true &&
-                                    (query.isEmpty() || app.label.lowercase().contains(query) || app.packageName.lowercase().contains(query) || app.uid.toString().contains(query) || app.processName.lowercase().contains(query))
+                                    (query.isEmpty() || app.label.lowercase().contains(query) || app.packageName.lowercase().contains(query) || app.uid.toString().contains(query) || app.processName.lowercase().contains(query) ||
+                                        app.members.any { m -> m.label.lowercase().contains(query) || m.packageName.lowercase().contains(query) })
                             }.filter { app ->
                                 val rule = ruleStore.getRule(app.uid)
                                 val explicit = ruleStore.hasExplicitRule(app.uid)
@@ -863,7 +877,7 @@ fun FirewallScreen(
                                             android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), wifiAfter, checked, true, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         {
-                                            AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.NORMAL)
+                                            app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.NORMAL) }
                                             ruleVersion++
                                             notifyRulesChanged(context)
                                             android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.NORMAL, effectiveWifi, effectiveMobile, explicitRule, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
@@ -880,7 +894,7 @@ fun FirewallScreen(
                                             val targetMobile = if (!explicitRule) true else effectiveMobile
                                             ruleStore.setWifiAllowed(app.uid, targetWifi)
                                             ruleStore.setMobileAllowed(app.uid, targetMobile)
-                                            AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.ESSENTIAL)
+                                            app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.ESSENTIAL) }
                                             ruleVersion++
                                             notifyRulesChanged(context)
                                             android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.ESSENTIAL, targetWifi, targetMobile, true, false, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
@@ -892,7 +906,7 @@ fun FirewallScreen(
                                         {
                                             val current = AppCompatibilityPolicyStore.getMode(app.packageName)
                                             val target = if (current == AppCompatibilityMode.EXCLUDED) AppCompatibilityMode.NORMAL else AppCompatibilityMode.EXCLUDED
-                                            AppCompatibilityController.setModeAndRestart(context, app.packageName, target)
+                                            app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, target) }
                                             ruleVersion++
                                             notifyRulesChanged(context)
                                             val targetWifi = if (target == AppCompatibilityMode.NORMAL) rule.wifiAllowed else false
@@ -1961,7 +1975,7 @@ fun FirewallScreen(
                     ruleStore.setMobileAllowed(app.uid, currentRule.mobileAllowed)
                 }
                 customProtectionStore.set(app.uid, profile)
-                AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.CUSTOM)
+                app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.CUSTOM) }
                 ruleVersion++
                 notifyRulesChanged(context)
                 selectedCustomApp = null
@@ -2234,7 +2248,7 @@ fun FirewallScreen(
                                 ruleStore.clearRule(app.uid)
                                 ruleStore.clearTemporaryRule(app.uid)
                                 customProtectionStore.clear(app.uid)
-                                AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.NORMAL)
+                                app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.NORMAL) }
                                 ruleVersion++
                                 notifyRulesChanged(context)
                             },
@@ -2263,7 +2277,7 @@ fun FirewallScreen(
                         if (userEssential) {
                             TextButton(
                                 onClick = {
-                                    AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.NORMAL)
+                                    app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.NORMAL) }
                                     ruleVersion++
                                     notifyRulesChanged(context)
                                 },
@@ -2280,7 +2294,7 @@ fun FirewallScreen(
                                     // enabled and let the user disable one afterward.
                                     ruleStore.setWifiAllowed(app.uid, true)
                                     ruleStore.setMobileAllowed(app.uid, true)
-                                    AppCompatibilityController.setModeAndRestart(context, app.packageName, AppCompatibilityMode.ESSENTIAL)
+                                    app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.ESSENTIAL) }
                                     ruleVersion++
                                     notifyRulesChanged(context)
                                 },
@@ -2305,7 +2319,7 @@ fun FirewallScreen(
                                 // block.
                                 ruleStore.setWifiAllowed(app.uid, true)
                                 ruleStore.setMobileAllowed(app.uid, true)
-                                AppCompatibilityController.setModeAndRestart(context, app.packageName, target)
+                                app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, target) }
                                 ruleVersion++
                                 notifyRulesChanged(context)
                             },
@@ -3942,6 +3956,10 @@ private fun AppRuleRow(
                 Column(Modifier.weight(1f).padding(end = 6.dp)) {
                     Text(app.label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     Text(statusLine, fontSize = 10.5.sp, color = policyColor, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    if (app.members.size > 1) Text(
+                        if (en) "${app.members.size} apps share this rule" else "${app.members.size} apps comparten esta regla",
+                        fontSize = 9.5.sp, color = MaterialTheme.colorScheme.tertiary, maxLines = 1
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Switch(checked = wifiAllowed, enabled = !compatibilityExcluded, onCheckedChange = onWifiChanged, modifier = Modifier.height(24.dp).scale(0.78f))
@@ -3969,8 +3987,27 @@ private fun AppRuleRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                val sharedCount = remember(app.uid) { runCatching { context.packageManager.getPackagesForUid(app.uid)?.size ?: 0 }.getOrDefault(0) }
-                if (sharedCount > 1) Text(if (en) "Shared UID" else "UID compartido", fontSize = 9.5.sp, color = MaterialTheme.colorScheme.tertiary)
+                if (app.members.size > 1) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        if (en) "APPS THAT SHARE THIS RULE" else "APPS QUE COMPARTEN ESTA REGLA",
+                        fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        if (en) "Android treats them as one app, so Wi‑Fi, data, mode and schedule apply to all of them together."
+                        else "Android las trata como una sola, así que Wi‑Fi, datos, modo y horario valen para todas juntas.",
+                        fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    app.members.take(12).forEach { m ->
+                        Text(
+                            "• ${m.label}  ${m.packageName}",
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 9.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    if (app.members.size > 12) Text("+ ${app.members.size - 12}", fontSize = 9.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (app.isSystem) Text(tr(context, "system").uppercase(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
