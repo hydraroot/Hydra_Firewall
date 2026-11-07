@@ -502,12 +502,12 @@ fun FirewallScreen(
                     lastInGroup[currentGroup.id] = selectedTab
                     val shown = currentGroup.tabs.filter { it in visibleTabs }
                     if (shown.size > 1) {
-                        HydraHorizontalRow(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(40.dp)) {
-                            shown.forEachIndexed { idx, tab ->
-                                if (idx > 0) Spacer(Modifier.width(8.dp))
-                                HydraChoiceButton(tab == selectedTab, tabTitle(tab), Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { selectedTab = tab })
-                            }
-                        }
+                        HydraSegmented(
+                            options = shown.map { tabTitle(it) },
+                            selected = shown.indexOf(selectedTab).coerceAtLeast(0),
+                            onSelect = { idx -> selectedTab = shown[idx] },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
                     }
                 }
 
@@ -586,21 +586,12 @@ fun FirewallScreen(
                     }
                     MainTab.RULES -> {
                         Column(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
-                            HydraHorizontalRow(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
-                                HydraChoiceButton(
-                                    rulesSubTab == 0,
-                                    if (language.isEnglish()) "APPS" else "APLICACIONES",
-                                    Color(0xFFE3D0FF), Color(0xFF241A34),
-                                    onClick = { rulesSubTab = 0 }, modifier = Modifier.height(26.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                HydraChoiceButton(
-                                    rulesSubTab == 1,
-                                    if (language.isEnglish()) "DOMAINS" else "DOMINIOS",
-                                    Color(0xFFE3D0FF), Color(0xFF241A34),
-                                    onClick = { rulesSubTab = 1 }, modifier = Modifier.height(26.dp)
-                                )
-                            }
+                            HydraSegmented(
+                                options = listOf(if (language.isEnglish()) "APPS" else "APLICACIONES", if (language.isEnglish()) "DOMAINS" else "DOMINIOS"),
+                                selected = rulesSubTab,
+                                onSelect = { rulesSubTab = it },
+                                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                            )
                             if (rulesSubTab == 0) {
                             // Buscador compacto (36 dp): el OutlinedTextField mide como mínimo 56 dp y, forzado a menos,
                             // su etiqueta se montaba sobre la fila de botones de abajo.
@@ -880,7 +871,6 @@ fun FirewallScreen(
                                             val targetSummary = describeAppPolicy(target, targetWifi, targetMobile, targetExplicit, false, settingsStore.language.isEnglish())
                                             android.widget.Toast.makeText(context, targetSummary, android.widget.Toast.LENGTH_SHORT).show()
                                         })
-                                    HorizontalDivider()
                                 }
                             }
                                 if (rulesListState.canScrollForward) {
@@ -931,9 +921,18 @@ fun FirewallScreen(
                         // recomposes the connection list and refreshes BLOCKED/BLOCK IP UI.
                         val currentIpVersion = ipVersion
                         var selectedHistoryDetail by remember { mutableStateOf<ConnectionHistory.Record?>(null) }
+                        var connFilter by remember { mutableStateOf(0) } // 0 = all, 1 = blocked, 2 = allowed
                         Column(Modifier.fillMaxSize().padding(10.dp)) {
-                            Text(tr(context,"history"), style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(4.dp))
+                            HydraSegmented(
+                                options = listOf(
+                                    if (language.isEnglish()) "All" else "Todo",
+                                    if (language.isEnglish()) "Blocked" else "Bloqueadas",
+                                    if (language.isEnglish()) "Allowed" else "Permitidas"
+                                ),
+                                selected = connFilter,
+                                onSelect = { connFilter = it }
+                            )
+                            Spacer(Modifier.height(6.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     HydraChoiceButton(groupedHistory, if (language.isEnglish()) "Grouped" else "Agrupado", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = true }, modifier = Modifier.height(30.dp))
@@ -970,16 +969,75 @@ fun FirewallScreen(
                                         )
                                     }
                                     .sortedByDescending { it.last.timestamp }
+                                    .filter { g -> connFilter == 0 || (connFilter == 1 && g.blocked > 0) || (connFilter == 2 && g.allowed > 0) }
+                                if (groups.isEmpty()) {
+                                    Text(
+                                        if (language.isEnglish()) "No connections in this view yet." else "Todavía no hay conexiones en esta vista.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(vertical = 16.dp)
+                                    )
+                                }
                                 LazyColumn(Modifier.weight(1f)) {
                                     items(groups, key = { "${it.last.id}:${it.count}:$currentIpVersion" }) { g ->
                                         val host = extractHost(g.last.destination)
-                                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                            Text(com.hydra.firewall.vpn.AppNames.label(g.last.uid, g.last.packageName), style = MaterialTheme.typography.titleSmall)
-                                            Text("${g.last.protocol} • ${g.last.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                                            Text("${g.count} eventos • ${if (language.isEnglish()) "allowed" else "permitidos"}: ${g.allowed} • ${if (language.isEnglish()) "blocked" else "bloqueados"}: ${g.blocked}", style = MaterialTheme.typography.bodySmall)
-                                            Text(g.last.time, style = MaterialTheme.typography.labelSmall)
-                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                                TextButton({ selectedHistoryDetail = g.last }) { Text(if (language.isEnglish()) "Details" else "Detalles") }
+                                        val groupedDomain = DomainResolver.cached(host)
+                                        val groupedApp = com.hydra.firewall.vpn.AppNames.label(g.last.uid, g.last.packageName)
+                                        val en = language.isEnglish()
+                                        HydraCard(
+                                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedHistoryDetail = g.last },
+                                            shape = RoundedCornerShape(16.dp)
+                                        ) {
+                                            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    AppInitial(groupedApp)
+                                                    Spacer(Modifier.width(10.dp))
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text(groupedApp, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                        Text(groupedDomain ?: g.last.destination, fontFamily = FontFamily.Monospace, fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                    }
+                                                    Spacer(Modifier.width(8.dp))
+                                                    ConnStatusBadge(allowed = g.blocked == 0, english = en, repeat = g.blocked)
+                                                }
+                                                Spacer(Modifier.height(4.dp))
+                                                Text(
+                                                    "${g.last.protocol} • ${g.last.network.displayName} • ${g.last.time} • ${g.count} ${if (en) "events" else "eventos"}" +
+                                                        (if (g.allowed > 0 && g.blocked > 0) " • ${g.allowed} ${if (en) "allowed" else "permitidos"} / ${g.blocked} ${if (en) "blocked" else "bloqueados"}" else ""),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                val groupedIpBlockedNow = host.isNotBlank() && ipBlockStore.isBlocked(host)
+                                                val groupedPortBlocked = advancedRuleStore.findMatches(g.last.uid, g.last.protocol, extractPort(g.last.destination)).any { !it.allowed }
+                                                if (g.blocked > 0 && !g.last.allowed && !groupedIpBlockedNow && !groupedPortBlocked) {
+                                                    Spacer(Modifier.height(8.dp))
+                                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        Button(
+                                                            onClick = {
+                                                                ruleStore.setWifiAllowed(g.last.uid, true)
+                                                                ruleStore.setMobileAllowed(g.last.uid, true)
+                                                                ruleVersion++
+                                                                notifyRulesChanged(context)
+                                                            },
+                                                            modifier = Modifier.weight(1f).height(34.dp),
+                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                                        ) { Text(if (en) "Allow app" else "Permitir app", fontSize = 12.sp, maxLines = 1) }
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                TempAllowManager.allow(context, g.last.uid, 60)
+                                                                ruleVersion++
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    if (en) "Allowed for 1 hour. Hydra puts the rule back by itself." else "Permitida por 1 hora. Hydra vuelve a poner la regla sola.",
+                                                                    android.widget.Toast.LENGTH_LONG
+                                                                ).show()
+                                                            },
+                                                            modifier = Modifier.weight(1f).height(34.dp),
+                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                                        ) { Text(if (en) "Allow 1 h" else "Permitir 1 h", fontSize = 12.sp, maxLines = 1) }
+                                                    }
+                                                }
+                                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                                                    TextButton({ selectedHistoryDetail = g.last }) { Text(if (en) "Why? / Details" else "¿Por qué? / Detalles") }
                                                 val groupedIpBlocked = host.isNotBlank() && ipBlockStore.isBlocked(host)
                                                 val groupedIpException = host.isNotBlank() && ipBlockStore.isAllowedForUid(g.last.uid, host)
                                                 val groupedHasBlockedEvents = g.blocked > 0
@@ -1020,9 +1078,9 @@ fun FirewallScreen(
                                                     ),
                                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                                 ) { Text(groupedAction, fontSize = 10.sp) }
+                                                }
                                             }
                                         }
-                                        HorizontalDivider()
                                     }
                                 }
                             } else {
@@ -1217,11 +1275,23 @@ fun FirewallScreen(
                         TrafficAnalyzerScreen(context)
                     }
                     MainTab.STATS -> {
+                        var statsRange by remember { mutableStateOf(1) } // 0 = today, 1 = 7 days
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                             contentPadding = PaddingValues(bottom = 24.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            item {
+                                Spacer(Modifier.height(2.dp))
+                                StatsSummary(language.isEnglish(), statsRange, { statsRange = it }, DailyTrafficStore.lastDays(7))
+                            }
+                            item { WeekStackedBarsCard(language.isEnglish(), DailyTrafficStore.lastDays(7)) }
+                            item {
+                                NetworkSplitCard(
+                                    language.isEnglish(),
+                                    history.groupBy { it.network.displayName }.map { (name, list) -> name to list.size }.sortedByDescending { it.second }.take(4)
+                                )
+                            }
                             item {
                                 Text(tr(context,"live_traffic"), style = MaterialTheme.typography.titleMedium)
                                 LiveTrafficChart(trafficHistory)
@@ -3650,7 +3720,7 @@ private fun HydraChoiceButton(
     Box(
         modifier = modifier
             .height(26.dp)
-            .clip(RoundedCornerShape(9.dp))
+            .clip(RoundedCornerShape(50))
             .background(background)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -3747,170 +3817,99 @@ private fun AppRuleRow(
     onCompatibility: () -> Unit
 ) {
     val context = LocalContext.current
+    val en = AppSettings(context).language.isEnglish()
     val policyColor = appRulePolicyColor(compatibilityExcluded, wifiAllowed, mobileAllowed)
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .clickable(onClick = onDetails).padding(10.dp)
+    var expanded by remember { mutableStateOf(false) }
+    val currentMode = AppCompatibilityPolicyStore.getMode(app.packageName)
+    val ruleMode = when {
+        compatibilityExcluded -> AppCompatibilityMode.EXCLUDED
+        customized -> AppCompatibilityMode.CUSTOM
+        currentMode == AppCompatibilityMode.ESSENTIAL_COMPAT -> AppCompatibilityMode.ESSENTIAL_COMPAT
+        userEssential -> AppCompatibilityMode.ESSENTIAL
+        else -> AppCompatibilityMode.NORMAL
+    }
+    // One short line under the app name (the long explanation is still shown in the toast when a switch changes).
+    val statusLine = when (ruleMode) {
+        AppCompatibilityMode.CUSTOM -> if (en) "Custom · protections" else "Personalizado · protecciones"
+        AppCompatibilityMode.EXCLUDED -> if (en) "No firewall · outside Hydra" else "Sin firewall · fuera de Hydra"
+        AppCompatibilityMode.ESSENTIAL -> if (en) "Permissive · flexible filters" else "Permisivo · filtros flexibles"
+        AppCompatibilityMode.ESSENTIAL_COMPAT -> if (en) "Permissive-compat · diagnostic" else "Permisivo-compat · diagnóstico"
+        else -> when {
+            trustedAutoAllowed && !explicitRule -> if (en) "Trusted app · auto-allowed" else "App de confianza · auto-permitida"
+            wifiAllowed && mobileAllowed -> if (en) "Allowed · Wi‑Fi and mobile" else "Permitida · Wi‑Fi y datos"
+            wifiAllowed -> if (en) "Wi‑Fi only · mobile blocked" else "Solo Wi‑Fi · datos bloqueados"
+            mobileAllowed -> if (en) "Mobile only · Wi‑Fi blocked" else "Solo datos · Wi‑Fi bloqueado"
+            explicitRule -> if (en) "Blocked · Wi‑Fi and mobile" else "Bloqueada · Wi‑Fi y datos"
+            else -> if (en) "Blocked · will ask on next connection" else "Bloqueada · preguntará al conectar"
+        }
+    }
+    HydraCard(
+        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppIcon(app, Modifier.size(32.dp))
-            Spacer(Modifier.width(7.dp))
-            Column(Modifier.weight(1f).padding(end = 4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(app.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onFavorite, modifier = Modifier.height(24.dp).width(24.dp), contentPadding = PaddingValues(0.dp)) { Text(if (favorite) "★" else "☆", fontSize = 16.sp) }
+        Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                AppIcon(app, Modifier.size(36.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f).padding(end = 6.dp)) {
+                    Text(app.label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(statusLine, fontSize = 10.5.sp, color = policyColor, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
-                Text("${app.packageName} · UID ${app.uid}", style = MaterialTheme.typography.labelSmall, fontSize = 8.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val sharedCount = remember(app.uid) { runCatching { context.packageManager.getPackagesForUid(app.uid)?.size ?: 0 }.getOrDefault(0) }
-                if (sharedCount > 1) Text(if (AppSettings(context).language.isEnglish()) "UID compartido" else "UID compartido", style = MaterialTheme.typography.labelSmall, fontSize = 7.5.sp, color = MaterialTheme.colorScheme.tertiary)
-                Text(
-                    when {
-                        customized -> if (AppSettings(context).language.isEnglish()) "CUSTOM · PROTECTIONS" else "PERSONALIZADO · PROTECCIONES"
-                        userEssential && AppCompatibilityPolicyStore.getMode(app.packageName) == AppCompatibilityMode.ESSENTIAL_COMPAT -> if (AppSettings(context).language.isEnglish()) "ESSENTIAL-COMPAT · DIAGNOSTIC" else "ESENCIAL-COMPAT · DIAGNÓSTICO"
-                        userEssential -> if (AppSettings(context).language.isEnglish()) "PERMISSIVE · FLEXIBLE FILTERS" else "PERMISIVO · FILTROS FLEXIBLES"
-                        explicitRule -> if (AppSettings(context).language.isEnglish()) "EXPLICIT RULE" else "REGLA EXPLÍCITA"
-                        trustedAutoAllowed -> if (AppSettings(context).language.isEnglish()) "TRUSTED APP · AUTO ALLOW" else "APP DE CONFIANZA · AUTO-PERMITIDA"
-                        autoEssential -> if (AppSettings(context).language.isEnglish()) "SYSTEM CORE · AUTO ALLOW" else "SISTEMA CENTRAL · AUTO-PERMITIDO"
-                        else -> if (AppSettings(context).language.isEnglish()) "NO RULE · DEFAULT BLOCK" else "SIN REGLA · BLOQUEADA POR DEFECTO"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 7.5.sp,
-                    color = policyColor
-                )
-                val language = AppSettings(context).language
-                val ruleMode = when {
-                    compatibilityExcluded -> AppCompatibilityMode.EXCLUDED
-                    customized -> AppCompatibilityMode.CUSTOM
-                    AppCompatibilityPolicyStore.getMode(app.packageName) == AppCompatibilityMode.ESSENTIAL_COMPAT -> AppCompatibilityMode.ESSENTIAL_COMPAT
-                    userEssential -> AppCompatibilityMode.ESSENTIAL
-                    else -> AppCompatibilityMode.NORMAL
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Switch(checked = wifiAllowed, enabled = !compatibilityExcluded, onCheckedChange = onWifiChanged, modifier = Modifier.height(24.dp).scale(0.78f))
+                    Text(tr(context, "wifi"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                val en = language.isEnglish()
-                // Texto corto para la fila (la versión larga hacía 3 líneas y la lista mostraba solo dos apps).
-                val ruleDetail = if (ruleMode == AppCompatibilityMode.NORMAL) when {
-                    trustedAutoAllowed && !explicitRule -> if (en) "TRUSTED APP · automatic allow" else "APP DE CONFIANZA · permiso automático"
-                    wifiAllowed && mobileAllowed -> if (en) "ALLOW · Wi‑Fi and mobile" else "PERMITIR · Wi‑Fi y móvil"
-                    wifiAllowed -> if (en) "WI‑FI ONLY · mobile blocked" else "SOLO WI‑FI · móvil bloqueado"
-                    mobileAllowed -> if (en) "MOBILE ONLY · Wi‑Fi blocked" else "SOLO MÓVIL · Wi‑Fi bloqueado"
-                    explicitRule -> if (en) "BLOCKED · Wi‑Fi and mobile" else "BLOQUEADA · Wi‑Fi y móvil"
-                    else -> if (en) "BLOCKED · will ask on next connection" else "BLOQUEADA · preguntará al conectar"
-                } else describeAppPolicy(ruleMode, wifiAllowed, mobileAllowed, explicitRule, trustedAutoAllowed, en).substringBefore(';')
+                Spacer(Modifier.width(4.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Switch(checked = mobileAllowed, enabled = !compatibilityExcluded, onCheckedChange = onMobileChanged, modifier = Modifier.height(24.dp).scale(0.78f))
+                    Text(if (en) "Data" else "Datos", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (expanded) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RuleModePill(Modifier.weight(1f), if (en) "Custom" else "Personalizado", customized, policyColor, onCustom)
+                    RuleModePill(Modifier.weight(1f), if (en) "Permissive" else "Permisivo", userEssential, policyColor, if (userEssential) onRemoveEssential else onMakeEssential)
+                    RuleModePill(Modifier.weight(1f), if (en) "No firewall" else "Sin firewall", compatibilityExcluded, Color(0xFF3B82C4), onCompatibility)
+                }
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    ruleDetail,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 7.5.sp,
-                    color = policyColor,
-                    maxLines = 2,
+                    "${app.packageName} · UID ${app.uid}",
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 9.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                if (app.isSystem) Text(tr(context, "system").uppercase(), style = MaterialTheme.typography.labelSmall, fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.width(6.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr(context, "wifi"), fontSize = 9.sp); Spacer(Modifier.width(3.dp))
-                    Switch(checked = wifiAllowed, enabled = !compatibilityExcluded, onCheckedChange = onWifiChanged, modifier = Modifier.height(24.dp).scale(0.72f))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr(context, "mobile"), fontSize = 9.sp); Spacer(Modifier.width(3.dp))
-                    Switch(checked = mobileAllowed, enabled = !compatibilityExcluded, onCheckedChange = onMobileChanged, modifier = Modifier.height(24.dp).scale(0.72f))
+                val sharedCount = remember(app.uid) { runCatching { context.packageManager.getPackagesForUid(app.uid)?.size ?: 0 }.getOrDefault(0) }
+                if (sharedCount > 1) Text(if (en) "Shared UID" else "UID compartido", fontSize = 9.5.sp, color = MaterialTheme.colorScheme.tertiary)
+                if (app.isSystem) Text(tr(context, "system").uppercase(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RuleModePill(Modifier.weight(1f), if (en) "Details" else "Detalles", false, policyColor, onDetails)
+                    RuleModePill(Modifier.weight(1f), if (scheduleEnabled) tr(context, "schedule_short_active") else tr(context, "schedule_short"), scheduleEnabled, policyColor, onSchedule)
+                    RuleModePill(Modifier.weight(1f), if (favorite) "★" else "☆", favorite, Color(0xFF8A44B8), onFavorite)
                 }
             }
         }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp)
-                .height(32.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(if (customized) policyColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(onClick = onCustom)
-                    .padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (AppSettings(context).language.isEnglish()) (if (customized) "PERSONALIZED ✓" else "PERSONALIZED") else (if (customized) "PERSONALIZADO ✓" else "PERSONALIZADO"),
-                    fontSize = 8.5.sp,
-                    color = if (customized) policyColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            Spacer(Modifier.width(5.dp))
-            Box(
-                modifier = Modifier
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(if (userEssential) policyColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(onClick = if (userEssential) onRemoveEssential else onMakeEssential)
-                    .padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (AppSettings(context).language.isEnglish()) (if (userEssential) "PERMISSIVE ✓" else "PERMISSIVE") else (if (userEssential) "PERMISIVO ✓" else "PERMISIVO"),
-                    fontSize = 9.sp,
-                    color = if (userEssential) policyColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            Spacer(Modifier.width(5.dp))
-            Box(
-                modifier = Modifier
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(if (compatibilityExcluded) Color(0xFF123B66) else MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(onClick = onCompatibility)
-                    .padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (AppSettings(context).language.isEnglish()) (if (compatibilityExcluded) "NO FIREWALL ✓" else "NO FIREWALL") else (if (compatibilityExcluded) "SIN FIREWALL ✓" else "SIN FIREWALL"),
-                    fontSize = 8.sp,
-                    color = if (compatibilityExcluded) Color(0xFFEAF4FF) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .clickable(onClick = onDetails)
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (AppSettings(context).language.isEnglish()) "Details" else "Detalles",
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            Spacer(Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .clickable(onClick = onSchedule)
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (scheduleEnabled) tr(context, "schedule_short_active") else tr(context, "schedule_short"),
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-        }
+    }
+}
+
+@Composable
+private fun RuleModePill(modifier: Modifier, label: String, active: Boolean, activeColor: Color, onClick: () -> Unit) {
+    Box(
+        modifier
+            .height(34.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (active) activeColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            if (active && label.length > 1) "$label ✓" else label,
+            fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+            color = if (active) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

@@ -1,3 +1,10 @@
+## 3.0.0 (versionCode 30000)
+- **Rediseño de la interfaz:** nuevo estilo común con controles segmentados y tarjetas.
+- **Pestañas de cada sección:** las pestañas internas (Reglas / IP y puertos / Perfiles, Conexiones / Stats / Analizador, Ajustes / Ayuda / Acerca de / Prueba) pasan a un selector segmentado de ancho completo, sin desplazamiento lateral.
+- **Reglas:** cada app es una fila limpia (nombre, estado en una línea, interruptores Wi‑Fi y Datos). Al tocarla se abren el modo (Personalizado / Permisivo / Sin firewall), paquete y UID, Detalles, Horario y favorito. Los filtros pasan a botones redondeados.
+- **Conexiones:** filtro Todo / Bloqueadas / Permitidas; cada grupo es una tarjeta con la app, el dominio (si se conoce), la etiqueta PERMITIDO / BLOQUEADO ×N y, para bloqueos por regla de app, los botones «Permitir app» y «Permitir 1 h». «¿Por qué? / Detalles» abre la explicación.
+- **Estadísticas:** selector Hoy / 7 días con permitido, bloqueado y variación del bloqueo contra ayer; barras apiladas de los últimos 7 días; conexiones por red (Wi‑Fi, datos) según el historial reciente. El resto (tráfico en vivo, consumo por app) sigue debajo.
+
 ## 2.7.0 (versionCode 20700)
 - **Inicio rediseñado («Actividad en vivo»):** fila de estado compacta con el interruptor del firewall, tarjeta de tráfico en vivo (permitido vs. bloqueado, bloqueos de hoy) y las últimas 6 decisiones con app, protocolo, destino y etiqueta permitido/bloqueado. «Ver todo» abre Conexiones. Pausa, Seguridad, resumen de 7 días y los interruptores siguen debajo.
 
