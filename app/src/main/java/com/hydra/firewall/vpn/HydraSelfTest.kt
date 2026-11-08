@@ -226,7 +226,7 @@ object HydraSelfTest {
 
     private fun checkDiagnosticLogWritable(context: Context): CheckResult {
         return try {
-            val dir = context.getExternalFilesDir(null) ?: context.filesDir
+            val dir = DiagnosticLogger.logDir(context)
             val file = File(dir, "hydra-diagnostic.log")
             if (!file.exists()) {
                 CheckResult("log_file", "Log de diagnóstico (ADB)", Status.WARN, "Todavía no se creó ${file.name}; arrancá la VPN primero.")

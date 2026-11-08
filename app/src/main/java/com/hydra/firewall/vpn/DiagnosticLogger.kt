@@ -224,6 +224,15 @@ object DiagnosticLogger {
     // ---- FIX119: log en archivo para leer por ADB (sin UI) ----
     // adb pull /sdcard/Android/data/com.hydra.firewall/files/hydra-diagnostic.log
     private const val LOG_FILE_NAME = "hydra-diagnostic.log"
+
+    /**
+     * Carpeta del log. El log contiene paquete, IP y puerto de cada conexión. En Android 7-10 la carpeta
+     * externa de la app puede leerla cualquier app con READ_EXTERNAL_STORAGE, así que ahí se usa el
+     * almacenamiento interno (privado); solo desde Android 11 (almacenamiento con alcance) se deja en la
+     * carpeta externa para poder bajarlo con `adb pull`.
+     */
+    internal fun logDir(ctx: Context): java.io.File =
+        (if (android.os.Build.VERSION.SDK_INT >= 30) ctx.getExternalFilesDir(null) else null) ?: ctx.filesDir
     private const val MAX_LOG_FILE_BYTES = 3L * 1024 * 1024
     private val fileQueue = java.util.concurrent.LinkedBlockingQueue<String>(20_000)
     @Volatile private var fileWriterStarted = false
@@ -233,7 +242,7 @@ object DiagnosticLogger {
         if (fileWriterStarted) return
         val ctx = appContext ?: return
         fileWriterStarted = true
-        val dir = ctx.getExternalFilesDir(null) ?: ctx.filesDir
+        val dir = logDir(ctx)
         Thread({
             val file = java.io.File(dir, LOG_FILE_NAME)
             var writer: java.io.BufferedWriter? = null

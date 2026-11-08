@@ -40,6 +40,8 @@ class Ipv6FragmentReassembler {
     private data class Entry(
         val key: Key,
         val prefix: ByteArray,
+        /** Posición del byte "Next Header" que apunta al Fragment header (6 si es el de la cabecera base). */
+        val nextHeaderPos: Int,
         val fragmentHeaderOffset: Int,
         val nextHeader: Int,
         val createdAtMs: Long,
@@ -78,6 +80,7 @@ class Ipv6FragmentReassembler {
         var offset = 40
         var extCount = 0
         var extBytes = 0
+        var nextHeaderPos = 6
 
         // Walk only until the Fragment header. Other extension headers are retained
         // in the prefix so the reconstructed packet can be parsed normally later.
@@ -95,6 +98,7 @@ class Ipv6FragmentReassembler {
             }
             if (len < 8 || offset + len > total) return null
             next = packet[offset].toInt() and 0xFF
+            nextHeaderPos = offset
             offset += len
             extBytes += len
         }
@@ -123,13 +127,14 @@ class Ipv6FragmentReassembler {
         val entry = existing ?: Entry(
             key = key,
             prefix = prefix,
+            nextHeaderPos = nextHeaderPos,
             fragmentHeaderOffset = offset,
             nextHeader = followingHeader,
             createdAtMs = now
         )
 
         if (entry.fragmentHeaderOffset != offset || entry.nextHeader != followingHeader ||
-            !entry.prefix.contentEquals(prefix)) {
+            entry.nextHeaderPos != nextHeaderPos || !samePrefix(entry.prefix, prefix)) {
             entries.remove(key)
             return null
         }
@@ -186,7 +191,8 @@ class Ipv6FragmentReassembler {
             System.arraycopy(f.payload, 0, out, entry.fragmentHeaderOffset + f.offset, f.payload.size)
         }
         putU16(out, 4, reconstructedPayloadLength)
-        out[6] = entry.nextHeader.toByte()
+        // El Fragment header desaparece: el último "Next Header" de la cadena pasa a apuntar al protocolo real.
+        out[entry.nextHeaderPos] = entry.nextHeader.toByte()
         entries.remove(key)
         return out
     }
@@ -200,6 +206,19 @@ class Ipv6FragmentReassembler {
             val e = iterator.next().value
             if (now - e.createdAtMs > TIMEOUT_MS) iterator.remove()
         }
+    }
+
+    /**
+     * Compara las partes no fragmentables de dos fragmentos. Se ignora el campo "Payload Length" (bytes 4-5):
+     * cada fragmento tiene el suyo (el último es más chico), y se recalcula al reconstruir.
+     */
+    private fun samePrefix(a: ByteArray, b: ByteArray): Boolean {
+        if (a.size != b.size) return false
+        for (i in a.indices) {
+            if (i == 4 || i == 5) continue
+            if (a[i] != b[i]) return false
+        }
+        return true
     }
 
     private fun u8(b: Byte): Int = b.toInt() and 0xFF
