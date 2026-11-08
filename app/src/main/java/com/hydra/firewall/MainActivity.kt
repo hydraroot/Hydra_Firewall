@@ -850,6 +850,9 @@ fun FirewallScreen(
                                 )
                             }
                             LazyColumn(Modifier.fillMaxSize(), state = rulesListState) {
+                                item(key = "blocked-destinations") {
+                                    Column(Modifier.padding(bottom = 6.dp)) { BlockedDestinationsSection(context, language.isEnglish()) }
+                                }
                                 items(visibleApps, key = { "${it.packageName}:${it.uid}" }) { app ->
                                     val rule = remember(ruleVersion) { ruleStore.getRule(app.uid) }
                                     val explicitRule = ruleStore.hasExplicitRule(app.uid)
@@ -3072,6 +3075,10 @@ private fun ProtectionTabContent(
         Spacer(Modifier.height(6.dp))
         HomeStatusRow(language.isEnglish(), isOn, network, roaming, onToggleVpn)
         Spacer(Modifier.height(10.dp))
+        if (isOn) {
+            HomeAlertsCard(context, language.isEnglish())
+            Spacer(Modifier.height(10.dp))
+        }
         HomeLiveTrafficCard(language.isEnglish(), trafficHistory, blockAdsBlockedToday)
         Spacer(Modifier.height(10.dp))
         HomeRecentDecisionsCard(language.isEnglish(), connectionHistory, onOpenConnections = onOpenConnections)

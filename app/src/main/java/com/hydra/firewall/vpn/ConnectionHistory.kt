@@ -35,6 +35,7 @@ object ConnectionHistory {
     fun init(context: Context) {
         if (initialized) return
         initialized = true
+        AlertEngine.init(context)
         WeeklyStats.init(context)
         AppNames.init(context)
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -105,6 +106,7 @@ object ConnectionHistory {
             }
         }
 
+        if (allowed) AlertEngine.onAllowedConnection(uid, pkg, destination, event)
         buffer.addLast(Record(sequence.incrementAndGet(), now, fmt.format(Date(now)), uid, pkg, protocol, network, destination, source, allowed, event))
         pruneLocked(now)
         while (buffer.size > maxRecords) buffer.removeFirst()

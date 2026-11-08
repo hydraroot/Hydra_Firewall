@@ -1,3 +1,9 @@
+## 3.3.0 (versionCode 30300)
+- **Avisos «¿bloqueamos?»:** cuando una app de usuario se conecta a un destino conocido como amenaza, o a un dominio nuevo para ella (después de haber usado varios), Hydra avisa «La app X se conecta a Y» con un único botón **Bloquear** (y «Dejar»). Aparece como notificación y como tarjeta «Avisos» en Inicio. Límite: 1 aviso por app cada 10 min y 6 por hora (las amenazas conocidas no cuentan para el límite). El sistema Android no genera avisos.
+- **Deshacer 5 s:** al tocar Bloquear el botón pasa a «Deshacer (5…1)»; si se toca en ese tiempo el bloqueo se revierte. La notificación también muestra «Deshacer» durante 5 s.
+- **Reglas → «Destinos bloqueados»:** lista todo lo bloqueado por aviso o por IP manual; cada uno se puede **Desbloquear**, y ese botón también pasa a «Deshacer» durante 5 s.
+- El bloqueo se aplica por IP de destino para todo el dispositivo.
+
 ## 3.2.0 (versionCode 30200)
 - **Reglas agrupadas por UID:** las apps que comparten UID (Google, Samsung, apps de sistema…) comparten una sola regla Wi‑Fi/Datos en Android, así que ahora se muestran como una sola fila con un único par de interruptores («App principal +N»; el UID 1000 aparece como «Sistema Android · N»). Al abrir la fila se ven los paquetes que la integran. El modo (Personalizado / Permisivo / Sin firewall) se aplica a todo el grupo. La búsqueda encuentra cualquier paquete del grupo y los contadores «Usuario · N» y «Sistema · N» cuentan grupos.
 

@@ -86,6 +86,10 @@
         </service>
 
         <receiver
+            android:name=".vpn.AlertActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".security.UpdateInstallReceiver"
             android:exported="false" />
 

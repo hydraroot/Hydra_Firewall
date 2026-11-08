@@ -142,6 +142,67 @@ object NotificationHelper {
     private val accessNotificationIds = ConcurrentHashMap<String, Int>()
     private val nextAccessNotificationId = AtomicInteger(ACCESS_REQUEST_NOTIFICATION_BASE_ID)
 
+    private const val BLOCK_ALERT_NOTIFICATION_BASE_ID = 24000
+
+    private fun blockAlertNotificationId(alertId: Long): Int = BLOCK_ALERT_NOTIFICATION_BASE_ID + (alertId % 900L).toInt()
+
+    private fun alertActionIntent(context: Context, action: String, alertId: Long): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            (alertId % 100000L).toInt() * 4 + (action.hashCode() and 3),
+            Intent(context, AlertActionReceiver::class.java).setAction(action).putExtra(AlertActionReceiver.EXTRA_ID, alertId),
+            PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+
+    /** "La app X se conecta a Y — ¿la bloqueamos?" con botones Bloquear / Dejar. */
+    fun notifyBlockAlert(context: Context, alert: AlertStore.Alert) {
+        ensureSecurityChannel(context)
+        val english = AppSettings(context).language.isEnglish() ||
+            (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        val title = if (english) "${alert.appLabel} connects to ${alert.host}" else "${alert.appLabel} se conecta a ${alert.host}"
+        val text = when (alert.reason) {
+            AlertStore.Reason.THREAT -> if (english) "Known threat destination. Block it?" else "Destino conocido como amenaza. ¿Lo bloqueamos?"
+            AlertStore.Reason.NEW_DESTINATION -> if (english) "New destination for this app. Block it?" else "Destino nuevo para esta app. ¿Lo bloqueamos?"
+        }
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+        val n = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .addAction(0, if (english) "Block" else "Bloquear", alertActionIntent(context, AlertActionReceiver.ACTION_BLOCK, alert.id))
+            .addAction(0, if (english) "Leave" else "Dejar", alertActionIntent(context, AlertActionReceiver.ACTION_DISMISS, alert.id))
+            .build()
+        runCatching { (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(blockAlertNotificationId(alert.id), n) }
+    }
+
+    /** Tras bloquear desde la notificación: aviso corto de 5 s con "Deshacer". */
+    fun notifyBlockUndo(context: Context, alert: AlertStore.Alert) {
+        ensureSecurityChannel(context)
+        val english = AppSettings(context).language.isEnglish() ||
+            (AppSettings(context).language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        val n = NotificationCompat.Builder(context, SECURITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setContentTitle(if (english) "Blocked: ${alert.host}" else "Bloqueado: ${alert.host}")
+            .setContentText(if (english) "${alert.appLabel} can no longer reach it. Undo within 5 s." else "${alert.appLabel} ya no puede llegar. Deshacer en 5 s.")
+            .setTimeoutAfter(AlertStore.UNDO_WINDOW_MS)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .addAction(0, if (english) "Undo" else "Deshacer", alertActionIntent(context, AlertActionReceiver.ACTION_UNDO, alert.id))
+            .build()
+        runCatching { (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(blockAlertNotificationId(alert.id), n) }
+    }
+
+    fun cancelBlockAlert(context: Context, alertId: Long) {
+        runCatching { (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(blockAlertNotificationId(alertId)) }
+    }
+
     private fun ensureSecurityChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
