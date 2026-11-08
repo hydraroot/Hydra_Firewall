@@ -84,4 +84,19 @@ class AppUpdaterProgressTest {
         assertNull(AppUpdater.fraction(10, 0))
         assertNull(AppUpdater.fraction(10, -1))
     }
+
+    @Test fun ignoresPrereleases() {
+        val json = """[
+          {"tag_name":"v9.9.9","prerelease":true,"assets":[{"name":"a.apk","browser_download_url":"https://e/a.apk"}]},
+          {"tag_name":"v1.2.4","assets":[{"name":"b.apk","browser_download_url":"https://e/b.apk"}]}
+        ]"""
+        assertEquals("1.2.4", AppUpdater.parseReleases(json)!!.version)
+    }
+
+    @Test fun absurdVersionNumbersAreRejectedInsteadOfCrashing() {
+        assertNull(AppUpdater.parseVersion("v99999999999.0.0"))
+        assertNull(AppUpdater.parseVersion("1234567.1.1"))
+        assertEquals(listOf(3, 4, 5), AppUpdater.parseVersion("v3.4.5"))
+        assertFalse(AppUpdater.isNewer("v99999999999.0.0", "1.0.0"))
+    }
 }

@@ -46,6 +46,58 @@ object ConfigPortability {
     private val SAFE_IP = Regex("^[0-9A-Fa-f:.]{2,45}$")
     private val SAFE_PROTOCOL = Regex("^[A-Z0-9]{1,8}$")
     private val NEVER_IMPORT = setOf("invalid_uid_allowed")
+
+    /**
+     * Ajustes que cambian la POSTURA de seguridad (abrir el firewall por defecto, apagar la protección,
+     * cambiar el resolvedor DNS…). Un archivo ajeno no debe poder tocarlos sin que el usuario lo vea:
+     * el plan los marca en [ImportPlan.sensitive] y la app solo los aplica si el usuario lo acepta
+     * explícitamente. Además cada valor se valida de forma estricta ([isValidSensitive]).
+     */
+    val SENSITIVE_KEYS: Map<String, Set<String>> = mapOf(
+        PREF_RULES to setOf(
+            "default_wifi_allowed", "default_mobile_allowed", "policy_mode", "global_block_all",
+            "threat_protection_enabled", "ask_on_first_connection", "allow_local_network",
+            "secure_dns_enabled", "secure_dns_provider", "secure_dns_transport",
+            "secure_dns_custom_ipv4", "secure_dns_custom_ipv6", "secure_dns_custom_hostname",
+            "secure_dns_custom_doh_url"
+        ),
+        PREF_SETTINGS to setOf("trusted_apps_enabled")
+    )
+
+    private val ENUM_NAME = Regex("^[A-Z_]{1,24}$")
+    private val DNS_IP_LIST = Regex("^[0-9A-Fa-f:.]{2,45}(,\\s*[0-9A-Fa-f:.]{2,45}){0,3}$")
+    private val DNS_HOST = Regex("^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$")
+    private val DNS_DOH_URL = Regex("^https://[A-Za-z0-9.-]{1,253}(:[0-9]{1,5})?(/[A-Za-z0-9._~%/=&?+-]{0,200})?$")
+    private val BLOCKED_IP = Regex("^[0-9A-Fa-f:.]{2,45}(/[0-9]{1,3})?$")
+
+    /** true si la clave no es sensible, o si es sensible y su valor tiene el tipo y el formato esperados. */
+    internal fun isValidSensitive(pref: String, key: String, value: Any?): Boolean {
+        if (SENSITIVE_KEYS[pref]?.contains(key) != true) return true
+        return when (key) {
+            "policy_mode", "secure_dns_provider", "secure_dns_transport" -> value is String && ENUM_NAME.matches(value)
+            "secure_dns_custom_ipv4", "secure_dns_custom_ipv6" -> value is String && (value.isEmpty() || DNS_IP_LIST.matches(value))
+            "secure_dns_custom_hostname" -> value is String && (value.isEmpty() || DNS_HOST.matches(value))
+            "secure_dns_custom_doh_url" -> value is String && (value.isEmpty() || DNS_DOH_URL.matches(value))
+            else -> value is Boolean
+        }
+    }
+
+    private fun sanitizeBlockedIps(v: Set<*>): Set<String> =
+        v.mapNotNull { it as? String }.filter { BLOCKED_IP.matches(it) }.toSet()
+
+    /**
+     * Quita de un JSON de reglas avanzadas las reglas comodín que PERMITEN (`uid = -1`, `allowed = true`),
+     * que abrirían puertos para todas las apps. Si el JSON no es válido devuelve "[]".
+     */
+    fun stripWildcardAllow(json: String): String {
+        val arr = runCatching { MiniJson.parse(json) as? List<*> }.getOrNull() ?: return "[]"
+        return MiniJson.write(arr.filterNot { o ->
+            val m = o as? Map<*, *>
+            m != null && (m["uid"] as? Number)?.toLong() == -1L && m["allowed"] == true
+        })
+    }
+
+    private fun isWildcardAllow(r: AdvRule) = r.app == "*" && r.allowed
     private const val FIRST_APP_UID = 10000
     private const val MAX_STRING = 200_000
     private const val MAX_SET = 100_000
@@ -82,13 +134,19 @@ object ConfigPortability {
         val ipApplied: Int,
         val ipSkipped: Int,
         val ignoredKeys: List<String>,
-        val essentialApplied: Int = 0
+        val essentialApplied: Int = 0,
+        /** "pref/clave" de ajustes sensibles que trae el archivo (ver [SENSITIVE_KEYS]). */
+        val sensitiveKeys: List<String> = emptyList(),
+        /** Reglas avanzadas comodín que permiten (todas las apps) y que el archivo trae. */
+        val wildcardAllowRules: Int = 0
     )
 
     data class ImportPlan(
         val removeKeys: Map<String, Set<String>>,
         val put: Map<String, Map<String, Any?>>,
-        val report: ImportReport
+        val report: ImportReport,
+        /** "pref/clave" que solo se aplican si el usuario acepta los ajustes sensibles. */
+        val sensitive: Set<String> = emptySet()
     )
 
     // ------------------------------------------------------------------------------------- tipos
@@ -322,6 +380,7 @@ object ConfigPortability {
         val remove = linkedMapOf<String, MutableSet<String>>()
         val put = linkedMapOf<String, MutableMap<String, Any?>>()
         val ignored = mutableListOf<String>()
+        val sensitive = linkedSetOf<String>()
         var globalCount = 0
 
         fun putKey(pref: String, key: String, value: Any?) { put.getOrPut(pref) { linkedMapOf() }[key] = value }
@@ -340,7 +399,10 @@ object ConfigPortability {
                     else -> true
                 }
                 if (!allowed) { ignored += "$pref/$key"; continue }
-                putKey(pref, key, value)
+                if (!isValidSensitive(pref, key, value)) { ignored += "$pref/$key"; continue }
+                val finalValue = if (pref == PREF_IPS && key == KEY_BLOCKED_IPS) sanitizeBlockedIps(value as Set<*>) else value
+                putKey(pref, key, finalValue)
+                if (SENSITIVE_KEYS[pref]?.contains(key) == true) sensitive += "$pref/$key"
                 globalCount++
             }
         }
@@ -382,6 +444,7 @@ object ConfigPortability {
                 "uid" to uid.toLong(), "protocol" to r.protocol, "start" to s.toLong(), "end" to e.toLong(), "allowed" to r.allowed
             )
         }
+        val wildcardAllow = parsed.advanced.count { isWildcardAllow(it) }
         val deduped = advOut.distinctBy { "${it["uid"]}:${it["protocol"]}:${it["start"]}:${it["end"]}" }
             .sortedWith(compareBy({ it["uid"] as Long }, { it["protocol"] as String }, { it["start"] as Long }, { it["end"] as Long }))
         putKey(PREF_ADVANCED, KEY_RULES_JSON, MiniJson.write(deduped))
@@ -417,8 +480,11 @@ object ConfigPortability {
                 ipApplied = ipOut.size,
                 ipSkipped = ipSkipped,
                 ignoredKeys = ignored,
-                essentialApplied = essentialCount
-            )
+                essentialApplied = essentialCount,
+                sensitiveKeys = sensitive.toList(),
+                wildcardAllowRules = wildcardAllow
+            ),
+            sensitive = sensitive
         )
     }
 }

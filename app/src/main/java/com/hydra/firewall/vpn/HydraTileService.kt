@@ -23,13 +23,18 @@ class HydraTileService : TileService() {
         super.onClick()
         runCatching {
             when {
-                FirewallVpnService.isRunning -> PauseManager.pause(this, 15)
+                // Con el bloqueo por PIN activo, pausar la protección exige abrir la app (que pide el PIN).
+                FirewallVpnService.isRunning ->
+                    if (isAppLockActive()) openApp() else PauseManager.pause(this, 15)
                 PauseManager.isPaused(this) -> if (!PauseManager.resume(this)) openApp()
                 else -> startFirewall()
             }
         }.onFailure { openApp() }
         refresh()
     }
+
+    private fun isAppLockActive(): Boolean =
+        runCatching { LockStore(this).let { it.enabled && it.configured } }.getOrDefault(true)
 
     private fun startFirewall() {
         if (VpnService.prepare(this) != null) {

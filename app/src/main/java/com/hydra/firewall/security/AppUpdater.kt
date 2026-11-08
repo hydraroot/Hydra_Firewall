@@ -45,6 +45,8 @@ object AppUpdater {
     private const val KEY_LAST_MSG = "last_message"
     private const val CHECK_INTERVAL_MS = 20L * 60L * 60L * 1000L
     private const val MAX_APK_BYTES = 200L * 1024L * 1024L
+    /** Tope para las respuestas de texto (lista de releases y archivo .sha256). */
+    private const val MAX_TEXT_BYTES = 2L * 1024L * 1024L
     private val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "hydra-app-updater").apply { isDaemon = true } }
 
     private fun prefs(c: Context) = c.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -106,8 +108,8 @@ object AppUpdater {
     // ---- version helpers (pure, unit-tested) ------------------------------------------------------------
 
     internal fun parseVersion(raw: String): List<Int>? {
-        val m = Regex("""(\d+)\.(\d+)\.(\d+)""").find(raw) ?: return null
-        return m.groupValues.drop(1).map { it.toInt() }
+        val m = Regex("""(?<![0-9])(\d{1,6})\.(\d{1,6})\.(\d{1,6})(?![0-9])""").find(raw) ?: return null
+        return m.groupValues.drop(1).map { it.toIntOrNull() ?: return null }
     }
 
     /** true if [remote] is strictly newer than [local] (both MAJOR.MINOR.PATCH, optional leading "v"). */
@@ -123,7 +125,7 @@ object AppUpdater {
         var best: Release? = null
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
-            if (o.optBoolean("draft")) continue
+            if (o.optBoolean("draft") || o.optBoolean("prerelease")) continue
             val tag = o.optString("tag_name")
             val ver = parseVersion(tag)?.joinToString(".") ?: continue
             val assets = o.optJSONArray("assets") ?: continue
@@ -219,6 +221,8 @@ object AppUpdater {
         val ownCerts = certs(own)
         // If Android cannot read the signature of a file that is not installed yet (it happens on some devices) we do
         // not block: the installer itself refuses an APK signed with a different key, so that is the real lock.
+        // Desde API 28 Android SÍ expone la firma de un APK no instalado: si viene vacía es un archivo anómalo.
+        require(!(Build.VERSION.SDK_INT >= 28 && newCerts.isEmpty())) { "unreadable_signature" }
         require(signaturesCompatible(ownCerts, newCerts)) {
             "signature_differs (${ownCerts.firstOrNull()?.take(12) ?: "?"} → ${newCerts.firstOrNull()?.take(12) ?: "?"})"
         }
@@ -240,16 +244,22 @@ object AppUpdater {
         params.setAppPackageName(context.packageName)
         if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         val id = installer.createSession(params)
-        installer.openSession(id).use { session ->
-            file.inputStream().use { input ->
-                session.openWrite("hydra.apk", 0, file.length()).use { out ->
-                    input.copyTo(out); session.fsync(out)
+        try {
+            installer.openSession(id).use { session ->
+                file.inputStream().use { input ->
+                    session.openWrite("hydra.apk", 0, file.length()).use { out ->
+                        input.copyTo(out); session.fsync(out)
+                    }
                 }
+                val intent = Intent(context, UpdateInstallReceiver::class.java).setAction(ACTION_INSTALL_RESULT)
+                    .putExtra("version", version).putExtra("background", background)
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+                session.commit(PendingIntent.getBroadcast(context, id, intent, flags).intentSender)
             }
-            val intent = Intent(context, UpdateInstallReceiver::class.java).setAction(ACTION_INSTALL_RESULT)
-                .putExtra("version", version).putExtra("background", background)
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
-            session.commit(PendingIntent.getBroadcast(context, id, intent, flags).intentSender)
+        } catch (t: Throwable) {
+            // No dejar sesiones huérfanas si la escritura o el commit fallan.
+            runCatching { installer.abandonSession(id) }
+            throw t
         }
         setPhase(Phase.INSTALLING)
         setMessage(context, "INSTALLING:$version")
@@ -278,7 +288,17 @@ object AppUpdater {
         val c = open(context, url)
         try {
             if (c.responseCode !in 200..299) error("http_${c.responseCode}")
-            return c.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+            if (c.contentLengthLong > MAX_TEXT_BYTES) error("text_too_large")
+            val out = java.io.ByteArrayOutputStream()
+            c.inputStream.use { input ->
+                val buf = ByteArray(8 * 1024)
+                while (true) {
+                    val n = input.read(buf); if (n < 0) break
+                    if (out.size() + n > MAX_TEXT_BYTES) error("text_too_large")
+                    out.write(buf, 0, n)
+                }
+            }
+            return out.toString(Charsets.UTF_8.name())
         } finally { c.disconnect() }
     }
 

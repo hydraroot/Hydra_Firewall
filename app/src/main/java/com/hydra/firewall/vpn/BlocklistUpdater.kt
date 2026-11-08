@@ -50,6 +50,38 @@ object BlocklistUpdater {
 
     private val executor = Executors.newSingleThreadExecutor()
 
+    /**
+     * Dominios que ninguna lista descargada puede bloquear: son los que Hydra necesita para actualizarse
+     * y para resolver DNS cifrado. Una lista envenenada que los incluyera dejaría al firewall sin
+     * actualizaciones ni DNS (denegación de servicio sobre la propia protección).
+     */
+    private val PROTECTED_DOMAINS = setOf(
+        "github.com", "githubusercontent.com", "githubassets.com",
+        "cloudflare-dns.com", "dns.google", "dns.quad9.net", "one.one.one.one"
+    )
+
+    internal fun isProtectedDomain(domain: String): Boolean =
+        PROTECTED_DOMAINS.any { domain == it || domain.endsWith(".$it") }
+
+    /** Corta la lectura al pasar [limit] bytes, aunque el servidor no envíe Content-Length (chunked). */
+    private class LimitedInputStream(private val inner: java.io.InputStream, private val limit: Long) : java.io.InputStream() {
+        private var total = 0L
+        private fun account(n: Int): Int {
+            if (n > 0) {
+                total += n
+                if (total > limit) throw java.io.IOException("source_too_large")
+            }
+            return n
+        }
+        override fun read(): Int {
+            val b = inner.read()
+            if (b >= 0) account(1)
+            return b
+        }
+        override fun read(b: ByteArray, off: Int, len: Int): Int = account(inner.read(b, off, len))
+        override fun close() = inner.close()
+    }
+
     data class Source(
         val id: String,
         val label: String,
@@ -160,7 +192,7 @@ object BlocklistUpdater {
 
     private data class SourceResult(val id: String, val label: String, val count: Int, val date: String?)
 
-    private fun parseDomain(line: String): String? {
+    internal fun parseDomain(line: String): String? {
         var l = line.trim()
         if (l.isEmpty() || l.startsWith("#") || l.startsWith("!") || l.startsWith("[") || l.startsWith(";") ) return null
         if (l.startsWith("||")) {
@@ -178,6 +210,7 @@ object BlocklistUpdater {
         if (l in EXCLUDED) return null
         if (l.contains('/') || l.contains(':') || l.contains(' ')) return null
         if (!DOMAIN_PATTERN.matcher(l).matches()) return null
+        if (isProtectedDomain(l)) return null
         return l
     }
 
@@ -194,7 +227,7 @@ object BlocklistUpdater {
                     var date: String? = null
                     var count = 0
                     val unique = HashSet<String>(16_384)
-                    BufferedReader(InputStreamReader(conn.inputStream, StandardCharsets.UTF_8)).use { reader ->
+                    BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
                         while (true) {
                             val line = reader.readLine() ?: break
                             if (line.length > 4096) continue
@@ -235,7 +268,7 @@ object BlocklistUpdater {
                     if (length > MAX_SOURCE_BYTES) throw IllegalStateException("${source.id}_too_large")
                     var date: String? = null
                     var added = 0
-                    BufferedReader(InputStreamReader(conn.inputStream, StandardCharsets.UTF_8)).use { reader ->
+                    BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
                         while (true) {
                             val line = reader.readLine() ?: break
                             if (line.length > 4096) continue
@@ -268,7 +301,7 @@ object BlocklistUpdater {
                         val code = conn.responseCode
                         if (code !in 200..299) throw IllegalStateException("${source.id}_http_$code")
                         var remoteDate: String? = null
-                        BufferedReader(InputStreamReader(conn.inputStream, StandardCharsets.UTF_8)).use { reader ->
+                        BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
                             var n = 0
                             while (n < 120 && remoteDate == null) {
                                 val line = reader.readLine() ?: break

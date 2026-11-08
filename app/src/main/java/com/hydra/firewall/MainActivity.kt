@@ -108,6 +108,9 @@ class MainActivity : AppCompatActivity() {
         // Material 3 Scaffold below applies safe system-bar insets to its content.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Anti-tapjacking: ignora toques cuando otra app dibuja encima (un overlay podría engañar para apagar el firewall).
+        window.decorView.filterTouchesWhenObscured = true
+        applySecureFlag()
         // After a self-update Android restarts Hydra: say so, so the restart does not look like a crash.
         com.hydra.firewall.security.AppUpdater.consumeJustUpdated(this)?.let { from ->
             val en = AppSettings(this).language.let { it.isEnglish() || (it == AppLanguage.SYSTEM && java.util.Locale.getDefault().language.equals("en", true)) }
@@ -132,6 +135,18 @@ class MainActivity : AppCompatActivity() {
                 FirewallScreen(onToggle = ::handleToggle, onRequestNotifications = ::requestNotifications, onExportHistory = ::exportHistoryCsv, onKillSwitch = ::configureKillSwitch)
             }
         }
+    }
+
+    /** Con el bloqueo por PIN activo: sin capturas de pantalla ni miniatura en Recientes. */
+    private fun applySecureFlag() {
+        val locked = runCatching { lockStore.enabled && lockStore.configured }.getOrDefault(false)
+        if (locked) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applySecureFlag()
     }
 
     override fun onStop() {
@@ -4448,6 +4463,9 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
     var pin2 by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var cryptoBusy by remember { mutableStateOf(false) }
+    var showDisableDialog by remember { mutableStateOf(false) }
+    var disablePin by remember { mutableStateOf("") }
+    var disableError by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     SettingSwitchRow(tr(context, "lock_app"), tr(context, "lock_sub"), enabled) { checked ->
@@ -4458,11 +4476,52 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
             } else {
                 pin = ""; pin2 = ""; pinError = false; showPinDialog = true
             }
+        } else if (lockStore.configured) {
+            // Desactivar el bloqueo exige el PIN actual (la pantalla puede haber quedado abierta).
+            disablePin = ""; disableError = false; showDisableDialog = true
         } else {
             lockStore.enabled = false
             enabled = false
             onChanged()
         }
+    }
+
+    if (showDisableDialog) {
+        AlertDialog(
+            containerColor = hydraDialogColors().first,
+            titleContentColor = hydraDialogColors().second,
+            textContentColor = hydraDialogColors().third,
+            onDismissRequest = { showDisableDialog = false },
+            title = { Text(if (AppSettings(context).language.isEnglish()) "Turn off lock" else "Desactivar bloqueo") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(disablePin, { if (it.length <= 8 && it.all(Char::isDigit)) { disablePin = it; disableError = false } }, singleLine = true,
+                        label = { Text(if (AppSettings(context).language.isEnglish()) "Current PIN" else "PIN actual") }, visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
+                    if (disableError) Text(if (AppSettings(context).language.isEnglish()) "Invalid PIN or temporarily locked." else "PIN incorrecto o bloqueado temporalmente.", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (cryptoBusy) return@TextButton
+                    val typed = disablePin
+                    cryptoBusy = true
+                    scope.launch(Dispatchers.Default) {
+                        val ok = lockStore.verifyPin(typed)
+                        withContext(Dispatchers.Main) {
+                            cryptoBusy = false
+                            if (ok) {
+                                lockStore.enabled = false
+                                enabled = false
+                                showDisableDialog = false
+                                onChanged()
+                            } else disableError = true
+                        }
+                    }
+                }, enabled = !cryptoBusy && disablePin.length in 4..8) { Text(tr(context, "save")) }
+            },
+            dismissButton = { TextButton(onClick = { showDisableDialog = false }) { Text(tr(context, "cancel")) } }
+        )
     }
 
     SettingSwitchRow(tr(context, "use_fingerprint"), tr(context, "fingerprint_sub"), biometric) { checked ->

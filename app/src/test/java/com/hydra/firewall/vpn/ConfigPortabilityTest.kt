@@ -233,5 +233,77 @@ class ConfigPortabilityTest {
         assertNull(plan.put[CP.PREF_APP_PREFS])
         assertTrue(plan.report.ignoredKeys.any { it.startsWith(CP.PREF_APP_PREFS) })
     }
-}
 
+    private fun hostileFile(globalRules: String, advanced: String = "[]", ips: String = "{}") = """
+        {"format":"hydra-config","version":1,
+         "global":{"firewall_rules":$globalRules,"firewall_ips":$ips,"firewall_settings":{"trusted_apps_enabled":true}},
+         "apps":{},"advanced_rules":$advanced,"ip_exceptions":[]}
+    """.trimIndent()
+
+    @Test
+    fun securityPostureKeysAreFlaggedAsSensitive() {
+        val json = hostileFile("""{"default_wifi_allowed":true,"policy_mode":"BLACKLIST","threat_protection_enabled":false,"secure_dns_provider":"CUSTOM"}""")
+        val plan = CP.plan(CP.parse(json), emptyMap()) { null }
+        assertTrue(plan.sensitive.contains("${CP.PREF_RULES}/default_wifi_allowed"))
+        assertTrue(plan.sensitive.contains("${CP.PREF_RULES}/threat_protection_enabled"))
+        assertTrue(plan.sensitive.contains("${CP.PREF_RULES}/secure_dns_provider"))
+        assertTrue(plan.sensitive.contains("${CP.PREF_SETTINGS}/trusted_apps_enabled"))
+        assertEquals(plan.sensitive.toList(), plan.report.sensitiveKeys)
+    }
+
+    @Test
+    fun nonSensitiveKeysAreNotFlagged() {
+        val plan = CP.plan(CP.parse(export().json), emptyMap()) { null }
+        assertFalse(plan.sensitive.contains("${CP.PREF_SETTINGS}/language"))
+        assertFalse(plan.sensitive.contains("${CP.PREF_SETTINGS}/ui_refresh_seconds"))
+    }
+
+    @Test
+    fun hostileDnsValuesAreRejected() {
+        val json = hostileFile(
+            """{"secure_dns_custom_hostname":"evil.com/../x","secure_dns_custom_ipv4":"1.1.1.1;rm","secure_dns_custom_doh_url":"http://evil.com/dns-query",""" +
+                """"secure_dns_provider":"custom value","default_wifi_allowed":"yes"}"""
+        )
+        val plan = CP.plan(CP.parse(json), emptyMap()) { null }
+        val rules = plan.put[CP.PREF_RULES].orEmpty()
+        assertFalse(rules.containsKey("secure_dns_custom_hostname"))
+        assertFalse(rules.containsKey("secure_dns_custom_ipv4"))
+        assertFalse(rules.containsKey("secure_dns_custom_doh_url"))
+        assertFalse(rules.containsKey("secure_dns_provider"))
+        assertFalse("tipo equivocado", rules.containsKey("default_wifi_allowed"))
+        assertEquals(5, plan.report.ignoredKeys.count { it.startsWith(CP.PREF_RULES) })
+    }
+
+    @Test
+    fun validDnsValuesAreAccepted() {
+        val json = hostileFile(
+            """{"secure_dns_custom_hostname":"dns.example.org","secure_dns_custom_ipv4":"9.9.9.9, 149.112.112.112",""" +
+                """"secure_dns_custom_doh_url":"https://dns.example.org/dns-query","secure_dns_provider":"CUSTOM"}"""
+        )
+        val rules = CP.plan(CP.parse(json), emptyMap()) { null }.put[CP.PREF_RULES].orEmpty()
+        assertEquals("dns.example.org", rules["secure_dns_custom_hostname"])
+        assertEquals("9.9.9.9, 149.112.112.112", rules["secure_dns_custom_ipv4"])
+        assertEquals("https://dns.example.org/dns-query", rules["secure_dns_custom_doh_url"])
+        assertEquals("CUSTOM", rules["secure_dns_provider"])
+    }
+
+    @Test
+    fun blockedIpListIsSanitized() {
+        val json = hostileFile("{}", ips = """{"blocked_ips":["1.2.3.4","10.0.0.0/8","evil host","1.1.1.1;x","2001:db8::1"]}""")
+        val ips = CP.plan(CP.parse(json), emptyMap()) { null }.put[CP.PREF_IPS]!![CP.KEY_BLOCKED_IPS] as Set<*>
+        assertEquals(setOf("1.2.3.4", "10.0.0.0/8", "2001:db8::1"), ips)
+    }
+
+    @Test
+    fun wildcardAllowRulesAreCountedAndCanBeStripped() {
+        val adv = """[{"app":"*","protocol":"TCP","start":1,"end":65535,"allowed":true},
+                      {"app":"*","protocol":"UDP","start":53,"end":53,"allowed":false}]"""
+        val plan = CP.plan(CP.parse(hostileFile("{}", advanced = adv)), emptyMap()) { null }
+        assertEquals(1, plan.report.wildcardAllowRules)
+        val stripped = CP.stripWildcardAllow(plan.put[CP.PREF_ADVANCED]!![CP.KEY_RULES_JSON] as String)
+        val list = MiniJson.parse(stripped) as List<*>
+        assertEquals(1, list.size)
+        assertEquals("UDP", (list[0] as Map<*, *>)["protocol"])
+        assertEquals("[]", CP.stripWildcardAllow("no es json"))
+    }
+}

@@ -83,7 +83,12 @@ object ConfigTransfer {
     fun hasBackup(context: Context): Boolean = File(context.filesDir, BACKUP_FILE).isFile
 
     /** Guarda una copia del estado actual (para "Deshacer") y aplica el plan. @return claves omitidas por tipo distinto. */
-    fun apply(context: Context, plan: ConfigPortability.ImportPlan, saveBackup: Boolean = true): Int {
+    fun apply(
+        context: Context,
+        plan: ConfigPortability.ImportPlan,
+        saveBackup: Boolean = true,
+        includeSensitive: Boolean = false
+    ): Int {
         val app = context.applicationContext
         if (saveBackup) {
             runCatching { File(app.filesDir, BACKUP_FILE).writeText(export(app).json, Charsets.UTF_8) }
@@ -94,7 +99,14 @@ object ConfigTransfer {
         for (name in prefNames) {
             val editor = app.getSharedPreferences(name, Context.MODE_PRIVATE).edit()
             plan.removeKeys[name].orEmpty().forEach { editor.remove(it) }
-            for ((key, value) in plan.put[name].orEmpty()) {
+            for ((rawKey, rawValue) in plan.put[name].orEmpty()) {
+                val key = rawKey
+                // Los ajustes sensibles (ver ConfigPortability.SENSITIVE_KEYS) solo entran si el usuario los aceptó.
+                if (!includeSensitive && "$name/$key" in plan.sensitive) { skipped++; continue }
+                // Las reglas comodín que permiten (todas las apps) tampoco, salvo aceptación explícita.
+                val value = if (!includeSensitive && name == ConfigPortability.PREF_ADVANCED &&
+                    key == ConfigPortability.KEY_RULES_JSON && rawValue is String)
+                    ConfigPortability.stripWildcardAllow(rawValue) else rawValue
                 val existing = current[name]?.get(key)
                 if (existing != null && !sameType(existing, value)) { skipped++; continue }
                 when (value) {
@@ -121,7 +133,8 @@ object ConfigTransfer {
         val f = File(context.filesDir, BACKUP_FILE)
         if (!f.isFile) return null
         val (_, plan) = prepare(context, f.readText(Charsets.UTF_8))
-        apply(context, plan, saveBackup = false)
+        // La copia es el estado propio anterior del usuario: se restaura completo.
+        apply(context, plan, saveBackup = false, includeSensitive = true)
         return plan.report
     }
 
@@ -158,6 +171,7 @@ fun ConfigTransferCard(context: Context = LocalContext.current, english: Boolean
     var status by remember { mutableStateOf<String?>(null) }
     var pending by remember { mutableStateOf<Pair<ConfigPortability.ParsedConfig, ConfigPortability.ImportPlan>?>(null) }
     var hasBackup by remember { mutableStateOf(ConfigTransfer.hasBackup(context)) }
+    var includeSensitive by remember { mutableStateOf(false) }
 
     fun t(es: String, en: String) = if (english) en else es
     // El estado en pantalla se pierde cuando la pestaña se recompone tras importar; el Toast sí se ve.
@@ -237,8 +251,9 @@ fun ConfigTransferCard(context: Context = LocalContext.current, english: Boolean
 
     pending?.let { (parsed, plan) ->
         val r = plan.report
+        val hasSensitive = r.sensitiveKeys.isNotEmpty() || r.wildcardAllowRules > 0
         AlertDialog(
-            onDismissRequest = { pending = null },
+            onDismissRequest = { pending = null; includeSensitive = false },
             title = { Text(t("Importar configuración", "Import configuration")) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -268,6 +283,25 @@ fun ConfigTransferCard(context: Context = LocalContext.current, english: Boolean
                         Spacer(Modifier.height(6.dp))
                         Text(t("Ajustes ignorados por seguridad: ${r.ignoredKeys.size}", "Settings ignored for safety: ${r.ignoredKeys.size}"), style = MaterialTheme.typography.bodySmall)
                     }
+                    if (hasSensitive) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            t("Ajustes que cambian tu nivel de seguridad (NO se aplican salvo que lo marques):",
+                                "Settings that change your security level (NOT applied unless you tick the box):"),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        r.sensitiveKeys.take(20).forEach { Text("• " + it.substringAfter('/'), style = MaterialTheme.typography.bodySmall) }
+                        if (r.sensitiveKeys.size > 20) Text("… +${r.sensitiveKeys.size - 20}", style = MaterialTheme.typography.bodySmall)
+                        if (r.wildcardAllowRules > 0) Text(
+                            t("• ${r.wildcardAllowRules} regla(s) avanzada(s) que PERMITEN puertos a todas las apps",
+                                "• ${r.wildcardAllowRules} advanced rule(s) that ALLOW ports for all apps"),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(checked = includeSensitive, onCheckedChange = { includeSensitive = it })
+                            Text(t("Aplicar también estos ajustes sensibles", "Also apply these sensitive settings"), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Text(
                         t(
@@ -281,19 +315,21 @@ fun ConfigTransferCard(context: Context = LocalContext.current, english: Boolean
             confirmButton = {
                 TextButton(onClick = {
                     val plan0 = plan
+                    val withSensitive = includeSensitive
+                    includeSensitive = false
                     pending = null
                     scope.launch {
-                        val skipped = withContext(Dispatchers.IO) { runCatching { ConfigTransfer.apply(context, plan0) }.getOrNull() }
+                        val skipped = withContext(Dispatchers.IO) { runCatching { ConfigTransfer.apply(context, plan0, includeSensitive = withSensitive) }.getOrNull() }
                         hasBackup = ConfigTransfer.hasBackup(context)
                         status = if (skipped == null) t("Falló la importación.", "Import failed.")
                         else t("Configuración importada. Para asegurar que todo se aplique, cerrá y abrí la app.", "Configuration imported. To make sure everything applies, close and reopen the app.") +
-                            (if (skipped > 0) t(" ($skipped ajustes omitidos por tipo distinto)", " ($skipped settings skipped: different type)") else "")
+                            (if (skipped > 0) t(" ($skipped ajustes omitidos: sensibles sin aceptar o de otro tipo)", " ($skipped settings skipped: sensitive not accepted or different type)") else "")
                         toast(status.orEmpty())
                         if (skipped != null) onImported()
                     }
                 }) { Text(t("Importar", "Import")) }
             },
-            dismissButton = { TextButton(onClick = { pending = null }) { Text(t("Cancelar", "Cancel")) } }
+            dismissButton = { TextButton(onClick = { pending = null; includeSensitive = false }) { Text(t("Cancelar", "Cancel")) } }
         )
     }
 }

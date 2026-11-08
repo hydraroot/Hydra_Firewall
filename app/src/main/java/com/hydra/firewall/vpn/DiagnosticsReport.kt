@@ -10,10 +10,18 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Plain-text report the user can paste into a bug report. It never contains destinations, domains, IP addresses or
- * connection history: only versions, switches and the titles of the latest security events.
+ * Plain-text report the user can paste into a bug report. It never contains destinations, domains, IP addresses,
+ * installed-app package names or connection history: only versions, switches and the titles of the latest
+ * security events, with anything that looks like a package name or host name replaced by `<redacted>`.
  */
 object DiagnosticsReport {
+    private val DOTTED_NAME = Regex("""[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+){2,}""")
+    private val IPV4 = Regex("""\b\d{1,3}(?:\.\d{1,3}){3}\b""")
+
+    /** Hides package names (com.bank.app), host names and IPv4 addresses that event titles may carry. */
+    internal fun redactTitle(title: String): String =
+        title.replace(IPV4, "<redacted>").replace(DOTTED_NAME, "<redacted>")
+
     fun build(context: Context): String {
         val app = context.applicationContext
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
@@ -33,7 +41,7 @@ object DiagnosticsReport {
         sb.appendLine("Latest security events (title only):")
         val events = runCatching { SecurityEventStore.snapshot(app).take(20) }.getOrDefault(emptyList())
         if (events.isEmpty()) sb.appendLine("- none")
-        events.forEach { sb.appendLine("- ${fmt.format(Date(it.time))} [${it.severity}] ${it.title}") }
+        events.forEach { sb.appendLine("- ${fmt.format(Date(it.time))} [${it.severity}] ${redactTitle(it.title)}") }
         return sb.toString()
     }
 }
