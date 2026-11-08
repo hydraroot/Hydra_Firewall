@@ -1,3 +1,6 @@
+## 3.4.7 (versionCode 30407)
+- **Corrección — auto-actualización:** la 3.4.5 rechazaba el APK nuevo con «unreadable_signature» en dispositivos donde Android no expone la firma de un APK aún no instalado (ya estaba documentado en el código). Se quita ese rechazo: vuelve a delegarse en el instalador de Android, que sí rechaza una firma distinta. Las versiones 3.4.5 y 3.4.6 instaladas no pueden actualizarse solas a esta: hay que instalar la 3.4.7 a mano una vez.
+
 ## 3.4.6 (versionCode 30406)
 Segunda pasada de auditoría: fuzzing de los parsers de red (2,85 millones de entradas: TLS ClientHello, QUIC, DNS, IPv4/IPv6 y fragmentos; sin excepciones ni lentitud) y barrido de patrones de riesgo.
 - **Corrección — reensamblado de fragmentos IPv6:** nunca reensamblaba un paquete real. Comparaba la cabecera base completa entre fragmentos, incluido «Payload Length», que en el último fragmento es siempre menor; el resultado era descartar todo datagrama IPv6 fragmentado (UDP/QUIC grandes). Ahora se ignora ese campo y se recalcula al reconstruir.

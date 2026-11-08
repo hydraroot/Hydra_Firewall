@@ -221,8 +221,6 @@ object AppUpdater {
         val ownCerts = certs(own)
         // If Android cannot read the signature of a file that is not installed yet (it happens on some devices) we do
         // not block: the installer itself refuses an APK signed with a different key, so that is the real lock.
-        // Desde API 28 Android SÍ expone la firma de un APK no instalado: si viene vacía es un archivo anómalo.
-        require(!(Build.VERSION.SDK_INT >= 28 && newCerts.isEmpty())) { "unreadable_signature" }
         require(signaturesCompatible(ownCerts, newCerts)) {
             "signature_differs (${ownCerts.firstOrNull()?.take(12) ?: "?"} → ${newCerts.firstOrNull()?.take(12) ?: "?"})"
         }
