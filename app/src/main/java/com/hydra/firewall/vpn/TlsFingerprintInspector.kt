@@ -12,7 +12,12 @@ import java.io.ByteArrayOutputStream
  * instead of buffering forever.
  */
 object TlsFingerprintInspector {
-    private const val MAX_BUFFER = 8 * 1024
+    /**
+     * Un registro TLS lleva como máximo 16 384 bytes (+5 de cabecera). Con 8 KB, una app podía rellenar el
+     * ClientHello (extensión padding) para pasar el tope y que no se leyera el SNI; con este valor se cubre
+     * cualquier ClientHello que viaje en un solo registro.
+     */
+    private const val MAX_BUFFER = 16 * 1024 + 5
 
     class Accumulator {
         val buffer = ByteArrayOutputStream(512)

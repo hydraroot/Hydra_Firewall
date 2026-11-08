@@ -50,6 +50,7 @@ object DomainBlockStore {
     private val initialized = AtomicBoolean(false)
     private val domains = AtomicReference<HashSet<String>>(HashSet())
     private val blockedTodayCount = AtomicReference(0L)
+    @Volatile private var lastCountPersistMs = 0L
     private val appContextRef = AtomicReference<Context?>(null)
 
     @Synchronized
@@ -168,7 +169,12 @@ object DomainBlockStore {
                 val updated = blockedTodayCount.get() + 1
                 blockedTodayCount.set(updated)
                 WeeklyStats.recordAdBlock()
-                prefs?.edit()?.putLong(KEY_BLOCKED_TODAY_COUNT, updated)?.apply()
+                // Persistir como mucho cada 5 s: antes se escribía el XML de preferencias por cada dominio bloqueado.
+                val nowMs = System.currentTimeMillis()
+                if (nowMs - lastCountPersistMs >= 5_000L) {
+                    lastCountPersistMs = nowMs
+                    prefs?.edit()?.putLong(KEY_BLOCKED_TODAY_COUNT, updated)?.apply()
+                }
                 return true
             }
             val dot = d.indexOf('.')

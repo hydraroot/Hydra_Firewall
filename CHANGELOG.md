@@ -1,3 +1,7 @@
+## 3.4.8 (versionCode 30408)
+- **Seguridad — bloqueo por SNI:** el inspector de TLS se rendía a los 8 KB, así que una app podía rellenar el ClientHello (padding) para que no se leyera el SNI y evadir el bloqueo por dominio. El tope pasa a 16 389 bytes (un registro TLS completo). Sigue sin verse el SNI si el ClientHello se parte en varios registros, usa ECH o no trae SNI (límite inherente de no descifrar). Test nuevo con un ClientHello de unos 12 KB.
+- **Rendimiento:** el contador «bloqueados hoy» escribía las preferencias por cada dominio bloqueado; ahora a lo sumo cada 5 s.
+
 ## 3.4.7 (versionCode 30407)
 - **Corrección — auto-actualización:** la 3.4.5 rechazaba el APK nuevo con «unreadable_signature» en dispositivos donde Android no expone la firma de un APK aún no instalado (ya estaba documentado en el código). Se quita ese rechazo: vuelve a delegarse en el instalador de Android, que sí rechaza una firma distinta. Las versiones 3.4.5 y 3.4.6 instaladas no pueden actualizarse solas a esta: hay que instalar la 3.4.7 a mano una vez.
 
