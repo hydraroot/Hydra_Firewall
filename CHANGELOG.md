@@ -1,3 +1,8 @@
+## 3.4.2 (versionCode 30402)
+- **Rendimiento — TCP Window Scale:** el SYN-ACK que arma Hydra enviaba una opción TCP mal formada (no cumplía RFC 1323) y nunca negociaba escalado de ventana de su lado, aunque sí leía el de la app. En redes con latencia alta (4G, etc.) esto podía limitar la ventana anunciada a ~64 KB en vez de aprovechar el ancho de banda real disponible. Ahora Hydra ofrece una opción Window Scale válida (shift 7, hasta ~8 MB de ventana) en cada SYN-ACK.
+- Se agregó un test de regresión (`TcpPacketBuilderOptionsTest`) que verifica que la opción generada se parsea correctamente de vuelta con el mismo parser que usa el motor en paquetes reales.
+- Sigue sin tocarse: DNS/TLS/QUIC a fondo, motores de IA, compatibilidad Android, resto de la Fase 6 (performance real en dispositivo).
+
 ## 3.4.1 (versionCode 30401)
 - **Seguridad — atribución de UID:** la ventana en la que Hydra podía atribuir tráfico de una app a otra por coincidencia de puerto (cuando falla la resolución directa del UID) se redujo de 15-30 s a 500-800 ms, acotándola a la demora real de resolución en vez de cubrir una "sesión" completa. Reduce el riesgo de que tráfico de una app bloqueada pase como si fuera de una app permitida que usó el mismo puerto momentos antes.
 - **Límite de conexiones TCP simultáneas:** subido de 128 a 512 para todo el dispositivo. Si igualmente se alcanza de forma sostenida, ahora queda un aviso en Seguridad → Eventos («Demasiadas conexiones activas») en vez de fallar en silencio.

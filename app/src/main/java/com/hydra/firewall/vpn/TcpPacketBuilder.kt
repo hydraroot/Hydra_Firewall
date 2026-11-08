@@ -13,7 +13,31 @@ object TcpPacketBuilder {
     private const val FLAG_PSH = 0x08
     private const val FLAG_ACK = 0x10
 
+    // F5 fix (security/performance audit): RFC 1323 Window Scale is a per-
+    // direction option that each side must advertise in its own SYN/SYN-ACK
+    // for that side's scale to apply. The old SYN-ACK here sent a malformed
+    // 4-byte "3, 3, 0, 0" block -- not a valid WS option (kind=3, length=3,
+    // shift) -- so Hydra never actually negotiated scaling, yet
+    // TcpForwardingEngine.updatePeerWindow() still applied the *client's*
+    // SYN windowScale unconditionally. HYDRA_WINDOW_SCALE_SHIFT is the shift
+    // Hydra now genuinely offers (shift 7 => up to ~8MB advertised window,
+    // comfortably covering high-BDP mobile/4G links without touching
+    // RECEIVE_BUFFER_LIMIT, which already caps real buffering).
+    const val HYDRA_WINDOW_SCALE_SHIFT = 7
+
     private val ipIdentification = AtomicInteger((System.nanoTime() and 0xFFFF).toInt())
+
+    /**
+     * Pure, session-independent builder for the SYN options block, split out
+     * so it can be unit-tested without a real TcpSession/SocketChannel
+     * (F5 fix regression test lives in TcpPacketBuilderOptionsTest).
+     */
+    fun buildSynOptions(localMss: Int): ByteArray = byteArrayOf(
+        2, 4,
+        ((localMss ushr 8) and 0xFF).toByte(), (localMss and 0xFF).toByte(),
+        3, 3, HYDRA_WINDOW_SCALE_SHIFT.toByte(),
+        1
+    )
 
     fun build(
         session: TcpSession,
@@ -31,12 +55,7 @@ object TcpPacketBuilder {
         val dst = session.key.srcAddr as? Inet4Address
             ?: throw IllegalArgumentException("Solo soporta TCP/IPv4 en esta alpha")
 
-        val options = if (syn) byteArrayOf(
-            2, 4,
-            ((session.localMss ushr 8) and 0xFF).toByte(), (session.localMss and 0xFF).toByte(),
-            3, 3, 0,
-            0
-        ) else ByteArray(0)
+        val options = if (syn) buildSynOptions(session.localMss) else ByteArray(0)
 
         val tcpHeaderLength = TCP_HEADER + options.size
         val totalLength = IP_HEADER + tcpHeaderLength + payload.size
