@@ -312,6 +312,7 @@ fun FirewallScreen(
     var networkRuleSubTab by remember { mutableStateOf(0) }
     var rulesSubTab by remember { mutableStateOf(0) }
     var history by remember { mutableStateOf(ConnectionHistory.snapshot()) }
+    var seenBlockId by remember { mutableStateOf(ConnectionHistory.snapshot().maxOfOrNull { it.id } ?: 0L) }
     var stats by remember { mutableStateOf(TrafficStatsStore.snapshotAll()) }
     var trafficTotals by remember { mutableStateOf(TrafficStatsStore.totals()) }
     var trafficHistory by remember { mutableStateOf(listOf(0f to 0f)) }
@@ -437,6 +438,9 @@ fun FirewallScreen(
         MainTab.ABOUT -> tr(context,"about")
     }.uppercase()
 
+    androidx.compose.runtime.LaunchedEffect(selectedTab, history) {
+        if (selectedTab == MainTab.CONNECTIONS) seenBlockId = history.maxOfOrNull { it.id } ?: seenBlockId
+    }
     FirewallLocalTheme(darkTheme = darkTheme) {
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
@@ -451,7 +455,12 @@ fun FirewallScreen(
                             onClick = {
                                 selectedTab = lastInGroup[g.id]?.takeIf { it in shown } ?: shown.first()
                             },
-                            icon = { NavGlyph(g.glyph, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                            icon = {
+                                val newBlocks = if (MainTab.CONNECTIONS in g.tabs && !selected) history.count { !it.allowed && it.id > seenBlockId } else 0
+                                BadgedBox(badge = { if (newBlocks > 0) Badge { Text(if (newBlocks > 99) "99+" else newBlocks.toString()) } }) {
+                                    NavGlyph(g.glyph, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            },
                             label = { Text(groupLabel(g), fontSize = 11.sp, maxLines = 1) }
                         )
                     }
@@ -3075,6 +3084,10 @@ private fun ProtectionTabContent(
         Spacer(Modifier.height(6.dp))
         HomeStatusRow(language.isEnglish(), isOn, network, roaming, onToggleVpn)
         Spacer(Modifier.height(10.dp))
+        var showAssistant by remember { mutableStateOf(false) }
+        HomeHealthCard(context, language.isEnglish(), isOn, blockAdsBlockedToday) { showAssistant = true }
+        Spacer(Modifier.height(10.dp))
+        if (showAssistant) AppNotWorkingAssistant(context, language.isEnglish()) { showAssistant = false }
         if (isOn) {
             HomeAlertsCard(context, language.isEnglish())
             Spacer(Modifier.height(10.dp))
@@ -3958,7 +3971,13 @@ private fun AppRuleRow(
     ) {
         Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(app, Modifier.size(36.dp))
+                Box(Modifier.size(36.dp)) {
+                    AppIcon(app, Modifier.size(36.dp))
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).size(11.dp).clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface).padding(2.dp).clip(CircleShape).background(policyColor)
+                    )
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f).padding(end = 6.dp)) {
                     Text(app.label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

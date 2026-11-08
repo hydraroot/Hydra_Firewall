@@ -1,3 +1,9 @@
+## 3.4.0 (versionCode 30400)
+- **Inicio con estado de salud:** tarjeta con anillo de puntaje (100 = todo en orden; baja si hay avisos pendientes o el firewall está apagado), título claro y chips (estado, bloqueos de hoy, avisos), más el botón **«Una app no funciona»**.
+- **Asistente «Una app no funciona»:** Empezar → probás la app → Listo. Hydra muestra qué bloqueó en ese lapso, agrupado por app y clasificado como *Servicio*, *Rastreador* o *Desconocido*, con **Permitir app**, **Permitir 1 h** o **Ignorar**. Si no bloqueó nada, lo dice y sugiere dónde mirar.
+- **Reglas:** cada app muestra un punto de color sobre el ícono (verde = Wi‑Fi y datos, ámbar = una sola red, rojo = bloqueada, azul = sin firewall).
+- **Navegación:** la pestaña de Actividad muestra un badge con los bloqueos nuevos desde la última vez que la abriste.
+
 ## 3.3.0 (versionCode 30300)
 - **Avisos «¿bloqueamos?»:** cuando una app de usuario se conecta a un destino conocido como amenaza, o a un dominio nuevo para ella (después de haber usado varios), Hydra avisa «La app X se conecta a Y» con un único botón **Bloquear** (y «Dejar»). Aparece como notificación y como tarjeta «Avisos» en Inicio. Límite: 1 aviso por app cada 10 min y 6 por hora (las amenazas conocidas no cuentan para el límite). El sistema Android no genera avisos.
 - **Deshacer 5 s:** al tocar Bloquear el botón pasa a «Deshacer (5…1)»; si se toca en ese tiempo el bloqueo se revierte. La notificación también muestra «Deshacer» durante 5 s.
