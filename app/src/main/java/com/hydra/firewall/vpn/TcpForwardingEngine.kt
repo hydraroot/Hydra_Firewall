@@ -42,12 +42,30 @@ class TcpForwardingEngine(
         private const val CONNECT_TIMEOUT_MS = 10_000L
         private const val IDLE_TIMEOUT_MS = 5 * 60_000L
         private const val READ_CHUNK = 16 * 1024
-        private const val MAX_SESSIONS = 128
+        // F4 (security audit): 128 was a device-wide cap with no user-visible
+        // signal on exhaustion -- new connections silently got RST'd. Each
+        // session here is one SocketChannel plus small buffers (no fixed
+        // READ_CHUNK-sized buffer is retained per idle session), so the
+        // per-session footprint is modest; 512 gives a real margin for a
+        // browser with several tabs plus background apps without materially
+        // changing worst-case memory. This is a conservative bump based on
+        // code-level reasoning only -- actual per-session memory under load
+        // still needs to be measured on a real device (Phase 6 of the audit)
+        // before raising it further.
+        private const val MAX_SESSIONS = 512
+        // How often (in limit-reached events) to escalate a sustained
+        // exhaustion into a user-visible security event, so the user isn't
+        // left wondering why connections are failing with no signal from
+        // Hydra at all (previously: internal diagnostic log only).
+        private const val SESSION_LIMIT_NOTIFY_EVERY = 50
         private const val MAX_QUEUED_PACKETS = 2048
         private const val MAX_QUEUED_BYTES = 4 * 1024 * 1024
         private const val MAX_DRAIN_PER_LOOP = 256
         private val random = SecureRandom()
     }
+
+    private val sessionLimitHits = java.util.concurrent.atomic.AtomicLong(0)
+    @Volatile private var sessionLimitNotifiedAtCount = -1L
 
     private val running = AtomicBoolean(false)
     private val packetQueue = ConcurrentLinkedQueue<PendingTunPacket>()
@@ -268,9 +286,34 @@ class TcpForwardingEngine(
         updateInterestOps(session)
     }
 
+    /**
+     * F4 (security audit): hitting MAX_SESSIONS previously produced only an
+     * internal diagnostic log line -- from the user's side, new connections
+     * just started failing with no indication Hydra was the cause. This
+     * surfaces a sustained exhaustion (not a single transient spike) as a
+     * SecurityEventStore entry, which the user can already see in the
+     * existing Security events screen, without adding a new notification
+     * channel or UI.
+     */
+    private fun notifySessionLimitIfSustained(hits: Long) {
+        if (hits % SESSION_LIMIT_NOTIFY_EVERY != 0L) return
+        if (sessionLimitNotifiedAtCount == hits) return
+        sessionLimitNotifiedAtCount = hits
+        SecurityEventStore.record(
+            service,
+            "TCP_SESSION_LIMIT",
+            "Too many active connections",
+            "Hydra's connection limit ($MAX_SESSIONS) was reached $hits time(s) in a row; " +
+                "new TCP connections are being refused until existing ones close.",
+            Severity.INFO
+        )
+    }
+
     private fun createSession(key: SessionKey, tcp: TcpHeader, packetSize: Int): TcpSession? {
         if (sessionCounter.get() >= MAX_SESSIONS) {
-            DiagnosticLogger.logServiceEvent("TCP SESSION LIMIT REACHED: $MAX_SESSIONS")
+            val hits = sessionLimitHits.incrementAndGet()
+            DiagnosticLogger.logServiceEvent("TCP SESSION LIMIT REACHED: $MAX_SESSIONS (hit #$hits)")
+            notifySessionLimitIfSustained(hits)
             sendStatelessResetForSyn(key, tcp)
             return null
         }

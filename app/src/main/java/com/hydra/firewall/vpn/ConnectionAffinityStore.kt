@@ -33,8 +33,21 @@ class ConnectionAffinityStore {
     )
 
     companion object {
-        private const val TCP_TTL_MS = 30_000L
-        private const val UDP_TTL_MS = 15_000L
+        // F3 fix (security audit): the local-endpoint key is effectively just
+        // (protocol, sourcePort) inside a VpnService tunnel, because every app
+        // shares the same virtual source address (e.g. 10.0.0.2). Ephemeral
+        // ports are assigned by the kernel for the whole device and are
+        // routinely reused across unrelated apps within seconds. The original
+        // 15-30s TTLs turned this into a cross-app attribution window, not the
+        // "race during /proc/net lookup" the mechanism was meant to cover.
+        // Shrinking the TTL to match that actual race (low hundreds of ms)
+        // reduces the exposure window by 1-2 orders of magnitude without
+        // touching the call sites. This is the minimal/low-risk mitigation;
+        // the audit's recommended complete fix is to stop caching by port
+        // across distinct flows entirely and instead re-query
+        // getConnectionOwnerUid() per 4-tuple on every resolution miss.
+        private const val TCP_TTL_MS = 800L
+        private const val UDP_TTL_MS = 500L
         private const val MAX_ENTRIES = 4096
     }
 

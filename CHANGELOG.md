@@ -1,3 +1,8 @@
+## 3.4.1 (versionCode 30401)
+- **Seguridad — atribución de UID:** la ventana en la que Hydra podía atribuir tráfico de una app a otra por coincidencia de puerto (cuando falla la resolución directa del UID) se redujo de 15-30 s a 500-800 ms, acotándola a la demora real de resolución en vez de cubrir una "sesión" completa. Reduce el riesgo de que tráfico de una app bloqueada pase como si fuera de una app permitida que usó el mismo puerto momentos antes.
+- **Límite de conexiones TCP simultáneas:** subido de 128 a 512 para todo el dispositivo. Si igualmente se alcanza de forma sostenida, ahora queda un aviso en Seguridad → Eventos («Demasiadas conexiones activas») en vez de fallar en silencio.
+- Cambios de una auditoría de seguridad en curso sobre el motor de red; no incluye todavía las fases de DNS/TLS/QUIC, motores de IA ni compatibilidad/performance.
+
 ## 3.4.0 (versionCode 30400)
 - **Inicio con estado de salud:** tarjeta con anillo de puntaje (100 = todo en orden; baja si hay avisos pendientes o el firewall está apagado), título claro y chips (estado, bloqueos de hoy, avisos), más el botón **«Una app no funciona»**.
 - **Asistente «Una app no funciona»:** Empezar → probás la app → Listo. Hydra muestra qué bloqueó en ese lapso, agrupado por app y clasificado como *Servicio*, *Rastreador* o *Desconocido*, con **Permitir app**, **Permitir 1 h** o **Ignorar**. Si no bloqueó nada, lo dice y sugiere dónde mirar.
