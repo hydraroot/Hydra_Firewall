@@ -32,6 +32,15 @@ class HydraMh100kApkAiTest {
     }
 
     @Test
+    fun modelWithNonFiniteWeightIsRejected() {
+        val model = javaClass.classLoader!!.getResourceAsStream("hydra_apk_ai_mh100k_v2.bin")!!.readBytes()
+        // Primer entry: hash(8) + weight float32 en offset 20 + 8 = 28 -> NaN (0x7FC00000 little-endian).
+        model[28] = 0x00; model[29] = 0x00; model[30] = 0xC0.toByte(); model[31] = 0x7F
+        val ok = runCatching { HydraMh100kApkAi.loadModelForTest(model) }.isFailure
+        assertTrue(ok)
+    }
+
+    @Test
     fun extractorRecognizesSelectedPermissionHash() {
         val model = javaClass.classLoader!!.getResourceAsStream("hydra_apk_ai_mh100k_v2.bin")!!.readBytes()
         HydraMh100kApkAi.loadModelForTest(model)

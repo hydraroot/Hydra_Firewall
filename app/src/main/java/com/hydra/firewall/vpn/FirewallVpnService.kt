@@ -171,11 +171,13 @@ class FirewallVpnService : VpnService() {
         DecisionRequestManager.restorePendingNotifications(this)
         DomainBlockStore.init(this)
         AppCompatibilityPolicyStore.init(this)
-        ThreatSignatureStore.init(this)
         ThreatSignatureUpdater.scheduleDaily(this)
-        ThreatSignatureUpdater.updateIfDue(this)
+        // La carga del pack (verificación ECDSA + parseo) es pesada: fuera del hilo principal para evitar ANR.
         // Incremental: only apps that changed (or all, if the pack changed) are checked; otherwise it does nothing.
-        runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
+        ThreatSignatureStore.initInBackground(this) {
+            ThreatSignatureUpdater.updateIfDue(this)
+            runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
+        }
         TlsFingerprintStore.init(this)
         AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)

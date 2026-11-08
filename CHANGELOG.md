@@ -1,3 +1,16 @@
+## 3.4.4 (versionCode 30404)
+- **Seguridad — escáner de apps instaladas (AppThreatScanner):** si una app no se podía escanear (APK ilegible, excepción, o más de 512 MB) se trataba como «limpia»: se borraba su hallazgo previo y se la marcaba como ya revisada, lo que permitía evadir el escáner inflando el APK. Ahora lo no escaneable no modifica hallazgos, no se marca como visto (se reintenta) y deja un evento «N app(s) no se pudieron escanear».
+- **Seguridad — baseline de APK (BaselineStore):** al superar 500 apps se descartaba el baseline recién creado (esa app quedaba en «primera vez» para siempre y no detectaba cambios de certificado). Ahora se descartan los más viejos.
+- **Comportamiento (AppBehaviorBaselineStore):** una muestra ahora es una observación espaciada (mínimo 15 min por app) y no cada refresco de la pantalla; antes unos pocos refrescos hacían que una anomalía pasara a ser «lo normal». El perfil se cachea en memoria (antes se parseaba y reescribía el JSON completo por app en cada refresco) y, con el cupo lleno, se descarta la app observada hace más tiempo en vez de la nueva.
+- **MH-100K:** el presupuesto de strings por DEX se limita al tamaño del archivo (offsets superpuestos podían forzar ~96 MB de heap) y el modelo se rechaza si tiene pesos/intercepto no finitos.
+- **ApkScanner:** la pista estática «su» coincidía con casi cualquier DEX («support», «result»…); ahora busca `/system/xbin/su` y `/system/bin/su`.
+
+## 3.4.3 (versionCode 30403)
+- **Estabilidad — arranque de la VPN:** la carga del pack de amenazas (verificación de firmas ECDSA + parseo del JSON) ya no corre en el hilo principal del Service; se hace en un hilo de fondo para evitar ANR al encender el firewall. `ThreatSignatureStore.init()` pasa a ser thread-safe y, si no hay ningún pack válido, reintenta como máximo una vez por minuto en vez de recargar en cada consulta de red.
+- **Estabilidad — YARA-lite:** `HydraYaraLite.parse()` rechaza fuentes de más de 512 KB y limita a 2000 reglas por fuente.
+- **Seguridad — análisis de APK (MH-100K):** la lectura de `classes.dex` y `AndroidManifest.xml` ahora se acota por bytes realmente descomprimidos y no por el tamaño declarado en el header del ZIP, que controla el APK analizado (defensa ante zip bombs).
+- Auditoría: DNS/TLS/QUIC revisado sin hallazgos de código (limitación de QUIC con DoH propio ya documentada en LIMITATIONS.md). Pendiente: el baseline de comportamiento se actualiza en cada refresco de UI, no en cadencia fija.
+
 ## 3.4.2 (versionCode 30402)
 - **Rendimiento — TCP Window Scale:** el SYN-ACK que arma Hydra enviaba una opción TCP mal formada (no cumplía RFC 1323) y nunca negociaba escalado de ventana de su lado, aunque sí leía el de la app. En redes con latencia alta (4G, etc.) esto podía limitar la ventana anunciada a ~64 KB en vez de aprovechar el ancho de banda real disponible. Ahora Hydra ofrece una opción Window Scale válida (shift 7, hasta ~8 MB de ventana) en cada SYN-ACK.
 - Se agregó un test de regresión (`TcpPacketBuilderOptionsTest`) que verifica que la opción generada se parsea correctamente de vuelta con el mismo parser que usa el motor en paquetes reales.

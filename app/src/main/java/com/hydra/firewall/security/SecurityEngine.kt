@@ -147,7 +147,9 @@ object BaselineStore {
         val current = all(context).associateBy { it.packageName }.toMutableMap()
         current[baseline.packageName] = baseline
         val a = JSONArray()
-        current.values.take(500).forEach { b ->
+        // Si se supera el tope se descartan los baselines MÁS VIEJOS; antes se perdía el recién agregado y esa app
+        // quedaba en FIRST_SEEN para siempre (sin detectar cambios de certificado).
+        current.values.sortedByDescending { it.updatedAt }.take(500).forEach { b ->
             a.put(JSONObject().apply {
                 put("package", b.packageName)
                 put("versionCode", b.versionCode)

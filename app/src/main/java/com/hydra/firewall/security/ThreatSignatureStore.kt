@@ -33,7 +33,13 @@ object ThreatSignatureStore {
     private const val MAX_URLS = 250_000
     private const val MAX_YARA_RULES = 5_000
     private val initialized = AtomicBoolean(false)
-    private val active = AtomicReference(Pack.empty())
+    private val EMPTY_PACK = Pack.empty()
+    private val active = AtomicReference(EMPTY_PACK)
+    @Volatile private var lastLoadAttemptMs = 0L
+    private const val RELOAD_RETRY_MS = 60_000L
+    private val loaderExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "hydra-threat-pack-loader").apply { isDaemon = true }
+    }
     private val contextRef = AtomicReference<Context?>(null)
     private val dailyBlocks = AtomicReference(0L)
 
@@ -53,14 +59,36 @@ object ThreatSignatureStore {
 
     data class NetworkMatch(val match: ThreatSignatureMatch, val normalized: String)
 
+    /**
+     * Idempotente y thread-safe: llamadas concurrentes esperan a que termine la primera carga en vez de
+     * ver un pack vacío. La carga es pesada (hasta 3 verificaciones ECDSA + parseo JSON), por eso
+     * FirewallVpnService la invoca desde un hilo de fondo (ver [initInBackground]).
+     */
+    @Synchronized
     fun init(context: Context) {
-        contextRef.set(context.applicationContext)
-        ThreatIntelDomainStore.init(context.applicationContext)
+        val app = context.applicationContext
+        contextRef.set(app)
+        ThreatIntelDomainStore.init(app)
         if (initialized.compareAndSet(false, true)) {
-            loadBestPack(context.applicationContext)
-            refreshDailyCounter(context.applicationContext)
-        } else if (active.get() == Pack.empty()) {
-            loadBestPack(context.applicationContext)
+            lastLoadAttemptMs = System.currentTimeMillis()
+            loadBestPack(app)
+            refreshDailyCounter(app)
+        } else if (active.get() === EMPTY_PACK) {
+            // Sin pack válido: reintentar, pero no en cada consulta del camino de paquetes.
+            val now = System.currentTimeMillis()
+            if (now - lastLoadAttemptMs >= RELOAD_RETRY_MS) {
+                lastLoadAttemptMs = now
+                loadBestPack(app)
+            }
+        }
+    }
+
+    /** Carga el pack fuera del hilo llamador (p. ej. main thread de un Service) y luego ejecuta [onReady]. */
+    fun initInBackground(context: Context, onReady: (() -> Unit)? = null) {
+        val app = context.applicationContext
+        loaderExecutor.execute {
+            runCatching { init(app) }.onFailure { Log.w(TAG, "Background init failed", it) }
+            runCatching { onReady?.invoke() }.onFailure { Log.w(TAG, "onReady failed", it) }
         }
     }
 
@@ -252,7 +280,7 @@ object ThreatSignatureStore {
             .mapNotNull { ThreatSignatureVerifier.verifyAndExtract(it)?.let(::parsePayload) }
             .filter { it.expiresAt <= 0L || it.expiresAt >= System.currentTimeMillis() }
             .maxByOrNull { it.generatedAt }
-        active.set(parsed ?: Pack.empty())
+        active.set(parsed ?: EMPTY_PACK)
     }
 
     private fun parsePayload(payload: String): Pack? = runCatching {

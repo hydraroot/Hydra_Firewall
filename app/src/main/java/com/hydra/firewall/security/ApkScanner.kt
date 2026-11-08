@@ -33,7 +33,7 @@ class ApkScanner(private val context: Context) {
             "WebView", "addJavascriptInterface", "setJavaScriptEnabled",
             "setWebContentsDebuggingEnabled", "setAllowFileAccessFromFileURLs",
             "setAllowUniversalAccessFromFileURLs", "DexClassLoader", "Runtime.exec",
-            "ProcessBuilder", "su", "AccessibilityService", "DeviceAdminReceiver"
+            "ProcessBuilder", "/system/xbin/su", "/system/bin/su", "AccessibilityService", "DeviceAdminReceiver"
         )
     }
 

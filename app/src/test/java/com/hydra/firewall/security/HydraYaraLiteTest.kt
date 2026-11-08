@@ -10,6 +10,12 @@ import java.util.zip.ZipOutputStream
 
 class HydraYaraLiteTest {
     @Test
+    fun parseRejectsOversizedSourceInsteadOfHanging() {
+        val huge = "rule A { strings: ${'$'}a = \"x\" ascii condition: any of them }" + " ".repeat(600 * 1024)
+        assertTrue(HydraYaraLite.parse(huge).isEmpty())
+    }
+
+    @Test
     fun parsesAndMatchesAndroidRule() {
         val source = """
             rule Hydra_Test_Android {

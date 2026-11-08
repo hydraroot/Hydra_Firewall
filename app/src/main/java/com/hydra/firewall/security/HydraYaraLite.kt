@@ -39,10 +39,16 @@ object HydraYaraLite {
         data class AtLeast(val count: Int) : Condition()
     }
 
+    /** Cota de entrada: el parser usa regex lazy O(n) por cada `rule {` abierta; acotamos n y la cantidad de reglas. */
+    private const val MAX_SOURCE_CHARS = 512 * 1024
+    private const val MAX_RULES_PER_SOURCE = 2_000
+
     fun parse(source: String): List<Rule> {
+        if (source.length > MAX_SOURCE_CHARS) return emptyList()
         val result = mutableListOf<Rule>()
         val ruleRegex = Regex("(?is)\\brule\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\{(.*?)\\n?\\}")
         for (m in ruleRegex.findAll(source)) {
+            if (result.size >= MAX_RULES_PER_SOURCE) break
             val name = m.groupValues[1]
             val body = m.groupValues[2]
             val meta = parseMeta(body)

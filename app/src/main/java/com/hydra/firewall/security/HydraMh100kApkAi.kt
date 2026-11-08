@@ -176,11 +176,13 @@ object HydraMh100kApkAi {
             hashes[i] = u64(bytes, offset)
             weights[i] = float32(bytes, offset + 8)
             modes[i] = bytes[offset + 12]
+            require(weights[i].isFinite()) { "Non-finite MH-100K weight at index $i" }
             require(modes[i].toInt() == PRESENCE_MODE || modes[i].toInt() == ABSENCE_MODE) {
                 "Invalid MH-100K feature mode at index $i"
             }
             offset += ENTRY_BYTES
         }
+        require(float32(bytes, 16).isFinite()) { "Non-finite MH-100K intercept" }
         return Model(
             version = "hydra-apk-ai-mh100k-v2",
             hashes = hashes,
@@ -294,8 +296,8 @@ class Mh100kStaticFeatureExtractor {
                         if (file == apkFile) {
                             val entry = zip.getEntry("AndroidManifest.xml")
                             if (entry != null && entry.size in 1L..MANIFEST_LIMIT) {
-                                val bytes = zip.getInputStream(entry).use { it.readBytes() }
-                                extractManifestStrings(bytes).forEach {
+                                val bytes = zip.getInputStream(entry).use { readBounded(it, MANIFEST_LIMIT) }
+                                if (bytes != null) extractManifestStrings(bytes).forEach {
                                     if (recordIntent(it)) intentFeaturesObserved++
                                 }
                             }
@@ -315,7 +317,15 @@ class Mh100kStaticFeatureExtractor {
                                 errors += "MH-100K: DEX omitido por límite de tamaño: ${entryDex.name}"
                                 continue
                             }
-                            val dexBytes = zip.getInputStream(entryDex).use { it.readBytes() }
+                            // entry.size sale del header del ZIP (controlado por el APK): se acota la lectura real.
+                            val dexBytes = zip.getInputStream(entryDex).use {
+                                readBounded(it, minOf(MAX_DEX_BYTES_PER_FILE, MAX_TOTAL_DEX_BYTES - totalDexBytes))
+                            }
+                            if (dexBytes == null) {
+                                incomplete = true
+                                errors += "MH-100K: DEX excede el límite al descomprimir: ${entryDex.name}"
+                                continue
+                            }
                             totalDexBytes += dexBytes.size
                             val result = scanDex(
                                 dexBytes,
@@ -379,6 +389,22 @@ class Mh100kStaticFeatureExtractor {
         parser.forEachInvokedMethod(deadlineMs, allStrings) { hash -> present.add(hash) }
         apiCalls = parser.invokeCount
         return DexScanResult(apiCalls, newIntent, parser.incomplete)
+    }
+
+    /** Lee como máximo [limit] bytes; devuelve null si el stream tiene más (header de tamaño mentiroso / zip bomb). */
+    private fun readBounded(input: java.io.InputStream, limit: Long): ByteArray? {
+        if (limit <= 0L) return null
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        var total = 0L
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            total += n
+            if (total > limit) return null
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
     }
 
     private fun extractManifestStrings(bytes: ByteArray): List<String> {
@@ -501,7 +527,9 @@ class Mh100kStaticFeatureExtractor {
             val count = u32(56)
             val off = u32(60)
             if (count <= 0 || count > 500_000 || off < 0 || off.toLong() + count.toLong() * 4L > bytes.size) return emptyArray()
-            var budget = STRING_TOTAL_BUDGET_BYTES
+            // Un DEX legítimo no puede tener más caracteres de strings que bytes tiene el archivo; con offsets
+            // superpuestos uno malicioso sí podría (hasta STRING_TOTAL_BUDGET_BYTES de heap).
+            var budget = minOf(STRING_TOTAL_BUDGET_BYTES, bytes.size.toLong())
             return Array(count) { index ->
                 val rel = u32(off + index * 4)
                 val at = rel.coerceAtLeast(0)

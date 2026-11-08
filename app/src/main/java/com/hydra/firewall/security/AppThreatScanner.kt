@@ -301,6 +301,7 @@ object AppThreatScanner {
                 }.getOrDefault(emptyList())
                 val p = prefs(app)
                 var done = 0
+                var skipped = 0
                 progressTotal = apps.size; progressDone = 0
                 for (info in apps) {
                     done++
@@ -308,11 +309,21 @@ object AppThreatScanner {
                     onProgress?.invoke(done, apps.size)
                     val stamp = seenStamp(app, info.packageName, pack)
                     if (!force && p.getString(SEEN_PREFIX + info.packageName, null) == stamp) continue
-                    val finding = runCatching { scanOne(app, info.packageName) }.getOrNull()
-                    recordResult(app, info.packageName, finding)
+                    val outcome = runCatching { scanOne(app, info.packageName) }
+                    if (outcome.isFailure) {
+                        // No se pudo escanear: no se toca el hallazgo previo y no se marca como visto (se reintenta).
+                        skipped++
+                        continue
+                    }
+                    recordResult(app, info.packageName, outcome.getOrNull())
                     p.edit().putString(SEEN_PREFIX + info.packageName, stamp).apply()
                 }
                 p.edit().putLong(KEY_LAST_FULL, System.currentTimeMillis()).putString(KEY_LAST_PACK, pack).apply()
+                if (skipped > 0) {
+                    runCatching {
+                        SecurityEventStore.record(app, "APP_SCAN_SKIPPED", "$skipped app(s) could not be scanned", "unreadable or larger than ${MAX_APK_BYTES / (1024 * 1024)} MB", Severity.LOW)
+                    }
+                }
                 progressDone = 0; progressTotal = 0
                 // Mark "not running" BEFORE telling the UI, so the button is enabled when it reacts.
                 fullScanRunning.set(false)
@@ -381,9 +392,12 @@ object AppThreatScanner {
     private fun scanOne(context: Context, packageName: String): Finding? {
         val pm = context.packageManager
         val info = pm.getApplicationInfo(packageName, 0)
-        val path = info.sourceDir ?: return null
+        // null = "se escaneó y está limpio". Lo que no se pudo escanear lanza excepción: tratarlo como limpio
+        // permitiría evadir el escáner (p. ej. inflando el APK por encima del límite) y borraría hallazgos previos.
+        val path = info.sourceDir ?: throw IllegalStateException("no_source_dir")
         val file = File(path)
-        if (!file.isFile || !file.canRead() || file.length() > MAX_APK_BYTES) return null
+        if (!file.isFile || !file.canRead()) throw IllegalStateException("unreadable_apk")
+        if (file.length() > MAX_APK_BYTES) throw IllegalStateException("apk_too_large")
         val splits = info.splitSourceDirs?.map(::File).orEmpty().filter { it.isFile && it.canRead() }
         val matches = ThreatSignatureStore.scanApk(context, file, splits)
         if (matches.isEmpty()) return null
