@@ -1,3 +1,9 @@
+## 3.6.3 (versionCode 30603)
+Refresh visual identity with the Neon Tech interface. No firewall, VPN, packet-processing, DNS, SNI, rule, or security decision behavior is intentionally changed.
+- **Theme:** dark navy surfaces, cyan/turquoise accents, refined typography and rounded component shapes.
+- **Consistency:** shared cards, segmented controls, dialogs, navigation and security section chips use the same palette.
+- **Preference:** fresh installs start in the dark Neon Tech theme; an existing explicit light/dark/system choice is preserved.
+
 ## 3.6.2 (versionCode 30602)
 Unificación de políticas compartidas entre IPv4 e IPv6, sin mezclar los formatos de paquete específicos de cada familia.
 - **SNI/TCP:** IPv4 e IPv6 usan ahora el mismo inspector y la misma decisión de amenazas, reglas de dominio personalizadas, blocklist pública, compatibilidad y ajuste SNI.

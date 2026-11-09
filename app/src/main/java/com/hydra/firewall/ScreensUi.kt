@@ -61,7 +61,7 @@ fun HydraSegmented(
                 Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(9.dp))
-                    .background(if (on) MaterialTheme.colorScheme.surface else Color.Transparent)
+                    .background(if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
                     .clickable { onSelect(i) }
                     .padding(vertical = 8.dp, horizontal = 2.dp),
                 contentAlignment = Alignment.Center
@@ -70,7 +70,7 @@ fun HydraSegmented(
                     label,
                     fontSize = 11.sp,
                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     textAlign = TextAlign.Center
                 )

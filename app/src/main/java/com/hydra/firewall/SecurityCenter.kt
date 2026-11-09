@@ -511,8 +511,8 @@ private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         label = { Text(label, fontSize = 11.sp) },
         colors = AssistChipDefaults.assistChipColors(
-            containerColor = if (selected) Color(0xFFE3D0FF) else MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = if (selected) Color(0xFF241A34) else MaterialTheme.colorScheme.onSurfaceVariant
+            containerColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         ),
         modifier = Modifier.padding(end = 6.dp)
     )
@@ -876,7 +876,7 @@ private fun updateWatchSection(
         item { Text(if (english) "Nothing flagged." else "Nada marcado.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     } else {
         items(anomalies.take(80)) { a ->
-            SmallCard(background = Color(0xFFFCE9B5)) {
+            SmallCard(background = MaterialTheme.colorScheme.surfaceVariant) {
                 Text(a.packageName, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 Text("${a.destination}:${a.port}", fontSize = 12.sp)
                 Text(
@@ -1448,7 +1448,7 @@ private fun apkScannerSection(
             }
             if (r.errors.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                SmallCard(background = Color(0xFFFFE7C2)) {
+                SmallCard(background = MaterialTheme.colorScheme.surfaceVariant) {
                     Text(if (english) "Scanner notes" else "Notas del analizador", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     r.errors.forEach { Text(it, fontSize = 10.sp) }
                 }

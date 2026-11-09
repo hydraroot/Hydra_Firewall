@@ -240,17 +240,14 @@ sealed class BlockAdsCheckState {
 }
 
 @Composable
-private fun hydraDialogColors(): Triple<Color, Color, Color> {
-    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    return if (dark) {
-        Triple(Color(0xFF1C1B1F), Color(0xFFE6E1E5), Color(0xFFE6E1E5))
-    } else {
-        Triple(Color(0xFFFFFBFE), Color(0xFF1C1B1F), Color(0xFF1C1B1F))
-    }
-}
+private fun hydraDialogColors(): Triple<Color, Color, Color> = Triple(
+    MaterialTheme.colorScheme.surface,
+    MaterialTheme.colorScheme.onSurface,
+    MaterialTheme.colorScheme.onSurfaceVariant
+)
 
 
-private fun Modifier.hydraNeon(active: Boolean, color: Color = Color(0xFF00C9B7)): Modifier =
+private fun Modifier.hydraNeon(active: Boolean, color: Color = Color(0xFF00DDF5)): Modifier =
     if (active) this.shadow(
         elevation = 2.dp,
         shape = RoundedCornerShape(12.dp),
@@ -457,9 +454,16 @@ fun FirewallScreen(
     }
     FirewallLocalTheme(darkTheme = darkTheme) {
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
+                ) {
                     navGroups.forEach { g ->
                         val shown = g.tabs.filter { it in visibleTabs }
                         if (shown.isEmpty()) return@forEach
@@ -475,15 +479,27 @@ fun FirewallScreen(
                                     NavGlyph(g.glyph, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             },
-                            label = { Text(groupLabel(g), fontSize = 11.sp, maxLines = 1) }
+                            label = { Text(groupLabel(g), fontSize = 11.sp, maxLines = 1) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                     }
                 }
             }
         ) { padding ->
-            Column(modifier = modifier.fillMaxSize().padding(padding)) {
+            Column(
+                modifier = modifier.fillMaxSize().padding(padding)
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -534,6 +550,7 @@ fun FirewallScreen(
                         drawCircle(toggleBorder, radius = r - 1f, style = Stroke(width = 2f))
                     }
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.32f))
                 run {
                     lastInGroup[currentGroup.id] = selectedTab
                     val shown = currentGroup.tabs.filter { it in visibleTabs }
@@ -685,8 +702,8 @@ fun FirewallScreen(
                                 HydraChoiceButton(
                                     selected = filter == RuleFilter.ALL && appListFilter == AppListFilter.ALL,
                                     label = tr(context,"all"),
-                                    selectedColor = Color(0xFFE3D0FF),
-                                    selectedLabelColor = Color(0xFF241A34),
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                                     onClick = { filter = RuleFilter.ALL; appListFilter = AppListFilter.ALL; systemAppsWarning = true },
                                     modifier = Modifier.widthIn(min = 82.dp)
                                 )
@@ -735,7 +752,7 @@ fun FirewallScreen(
                                 HydraChoiceButton(
                                     selected = false,
                                     label = "↻",
-                                    selectedColor = Color(0xFFE3D0FF),
+                                    selectedColor = MaterialTheme.colorScheme.primary,
                                     onClick = { refreshTrigger++; ruleVersion++ },
                                     modifier = Modifier.width(44.dp),
                                     fontSize = 14.sp
@@ -744,8 +761,8 @@ fun FirewallScreen(
                                 HydraChoiceButton(
                                     selected = !newOnly && appListFilter == AppListFilter.ALL,
                                     label = tr(context,"all"),
-                                    selectedColor = Color(0xFFE3D0FF),
-                                    selectedLabelColor = Color(0xFF241A34),
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                                     onClick = { appListFilter = AppListFilter.ALL; newOnly = false },
                                     modifier = Modifier.widthIn(min = 82.dp)
                                 )
@@ -963,11 +980,11 @@ fun FirewallScreen(
                     MainTab.IP_PORTS -> {
                         Column(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
                             HydraHorizontalRow(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                                HydraChoiceButton(networkRuleSubTab == 0, "IP'S", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 0 }, modifier = Modifier.height(30.dp))
+                                HydraChoiceButton(networkRuleSubTab == 0, "IP'S", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { networkRuleSubTab = 0 }, modifier = Modifier.height(30.dp))
                                 Spacer(Modifier.width(8.dp))
-                                HydraChoiceButton(networkRuleSubTab == 1, "PUERTOS", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 1 }, modifier = Modifier.height(30.dp))
+                                HydraChoiceButton(networkRuleSubTab == 1, "PUERTOS", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { networkRuleSubTab = 1 }, modifier = Modifier.height(30.dp))
                                 Spacer(Modifier.width(8.dp))
-                                HydraChoiceButton(networkRuleSubTab == 2, if (language.isEnglish()) "CLEANUP" else "LIMPIEZA", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { networkRuleSubTab = 2 }, modifier = Modifier.height(30.dp))
+                                HydraChoiceButton(networkRuleSubTab == 2, if (language.isEnglish()) "CLEANUP" else "LIMPIEZA", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { networkRuleSubTab = 2 }, modifier = Modifier.height(30.dp))
                             }
                             when (networkRuleSubTab) {
                                 0 -> IpRulesPanel(context, language.isEnglish(), ipBlockStore, ipVersion, { ipVersion++; notifyRulesChanged(context) })
@@ -995,9 +1012,9 @@ fun FirewallScreen(
                             Spacer(Modifier.height(6.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    HydraChoiceButton(groupedHistory, if (language.isEnglish()) "Grouped" else "Agrupado", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = true }, modifier = Modifier.height(30.dp))
+                                    HydraChoiceButton(groupedHistory, if (language.isEnglish()) "Grouped" else "Agrupado", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { groupedHistory = true }, modifier = Modifier.height(30.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    HydraChoiceButton(!groupedHistory, if (language.isEnglish()) "Detail" else "Detalle", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { groupedHistory = false }, modifier = Modifier.height(30.dp))
+                                    HydraChoiceButton(!groupedHistory, if (language.isEnglish()) "Detail" else "Detalle", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { groupedHistory = false }, modifier = Modifier.height(30.dp))
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton({ ConnectionHistory.clear(); history = emptyList() }) { Text(tr(context,"clear")) }
@@ -1667,14 +1684,14 @@ fun FirewallScreen(
                             Text(tr(context,"language"), style = MaterialTheme.typography.titleMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(AppLanguage.SYSTEM to tr(context,"system_language"), AppLanguage.ES to tr(context,"spanish"), AppLanguage.EN to tr(context,"english")).forEach { (mode, label) ->
-                                    HydraChoiceButton(language == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { language = mode; settingsStore.language = mode }, modifier = Modifier.height(30.dp))
+                                    HydraChoiceButton(language == mode, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { language = mode; settingsStore.language = mode }, modifier = Modifier.height(30.dp))
                                     Spacer(Modifier.width(8.dp))
                                 }
                             }
                             Text(tr(context,"appearance"), style = MaterialTheme.typography.titleMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(ThemeMode.SYSTEM to tr(context,"system_language"), ThemeMode.LIGHT to if (language.isEnglish()) "Light" else "Claro", ThemeMode.DARK to if (language.isEnglish()) "Dark" else "Oscuro").forEach { (mode,label) ->
-                                    HydraChoiceButton(themeMode == mode, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick={ themeMode=mode; settingsStore.themeMode=mode }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(8.dp))
+                                    HydraChoiceButton(themeMode == mode, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick={ themeMode=mode; settingsStore.themeMode=mode }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(8.dp))
                                 }
                             }
                             SettingsBlockTitle(if (language.isEnglish()) "Data and backups" else "Copias y datos")
@@ -1701,14 +1718,14 @@ fun FirewallScreen(
                             Text(if (language.isEnglish()) "Automatic history cleanup" else "Limpiar historial automáticamente", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(12 to "12 h", 24 to if (language.isEnglish()) "24 h" else "24 h", 24 * 7 to tr(context,"days7"), 24 * 30 to tr(context,"days30"), 0 to tr(context,"never")).forEach { (hours, label) ->
-                                    HydraChoiceButton(retentionHours == hours, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { retentionHours = hours; ConnectionHistory.setRetentionHours(context, hours); history = ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
+                                    HydraChoiceButton(retentionHours == hours, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { retentionHours = hours; ConnectionHistory.setRetentionHours(context, hours); history = ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
                                     Spacer(Modifier.width(8.dp))
                                 }
                             }
                             Text(if (language.isEnglish()) "Maximum history records" else "Máximo de registros del historial", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(250,500,1000).forEach { n ->
-                                    HydraChoiceButton(historyMaxRecords == n, n.toString(), Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { historyMaxRecords=n; appSettings.historyMaxRecords=n; ConnectionHistory.setMaxRecords(context,n); history=ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
+                                    HydraChoiceButton(historyMaxRecords == n, n.toString(), MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { historyMaxRecords=n; appSettings.historyMaxRecords=n; ConnectionHistory.setMaxRecords(context,n); history=ConnectionHistory.snapshot() }, modifier=Modifier.height(30.dp))
                                     Spacer(Modifier.width(6.dp))
                                 }
                             }
@@ -1810,7 +1827,7 @@ fun FirewallScreen(
                             Text(if (language.isEnglish()) "UI refresh" else "Actualización de interfaz", style = MaterialTheme.typography.bodyMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(1,2,3,5).forEach { sec ->
-                                    HydraChoiceButton(uiRefreshSeconds == sec, "${sec}s", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { uiRefreshSeconds = sec; appSettings.uiRefreshSeconds = sec }, modifier = Modifier.height(30.dp)); Spacer(Modifier.width(6.dp))
+                                    HydraChoiceButton(uiRefreshSeconds == sec, "${sec}s", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { uiRefreshSeconds = sec; appSettings.uiRefreshSeconds = sec }, modifier = Modifier.height(30.dp)); Spacer(Modifier.width(6.dp))
                                 }
                             }
                             Spacer(Modifier.height(14.dp)); HorizontalDivider(); Spacer(Modifier.height(14.dp))
@@ -2553,8 +2570,8 @@ private fun PortRulesPanel(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            HydraChoiceButton(scopeGlobal, "GLOBAL", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { scopeGlobal = true; selectedUid = null }, modifier = Modifier.height(30.dp))
-            HydraChoiceButton(!scopeGlobal, if (english) "APPLICATION" else "APLICACIÓN", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { scopeGlobal = false }, modifier = Modifier.height(30.dp))
+            HydraChoiceButton(scopeGlobal, "GLOBAL", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { scopeGlobal = true; selectedUid = null }, modifier = Modifier.height(30.dp))
+            HydraChoiceButton(!scopeGlobal, if (english) "APPLICATION" else "APLICACIÓN", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { scopeGlobal = false }, modifier = Modifier.height(30.dp))
             Spacer(Modifier.weight(1f))
             OutlinedButton(
                 onClick = { clearCurrentScope() },
@@ -2611,9 +2628,9 @@ private fun PortRulesPanel(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            HydraChoiceButton(protocol == "TCP", "TCP", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { protocol = "TCP" }, modifier=Modifier.height(30.dp))
+            HydraChoiceButton(protocol == "TCP", "TCP", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { protocol = "TCP" }, modifier=Modifier.height(30.dp))
             Spacer(Modifier.width(4.dp))
-            HydraChoiceButton(protocol == "UDP", "UDP", Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { protocol = "UDP" }, modifier=Modifier.height(30.dp))
+            HydraChoiceButton(protocol == "UDP", "UDP", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { protocol = "UDP" }, modifier=Modifier.height(30.dp))
             Spacer(Modifier.width(8.dp))
             HydraChoiceButton(allow, if (allow) (if (english) "ALLOW" else "PERMITIR") else (if (english) "BLOCK" else "BLOQUEAR"), if (allow) Color(0xFFD5F5E3) else Color(0xFFF1D0D0), if (allow) Color(0xFF145A32) else Color(0xFF7A1E1E), onClick = { allow = !allow }, modifier=Modifier.height(30.dp))
         }
@@ -2929,7 +2946,7 @@ private fun AdvancedRulesEditor(context: Context, apps: List<AppEntry>, store: A
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         var expanded by remember { mutableStateOf(false) }
         Box { TextButton({ expanded = true }) { Text(apps.firstOrNull { it.uid == selectedUid }?.label ?: if(english) "Choose app" else "Elegir app") }; DropdownMenu(expanded, { expanded=false }) { apps.take(80).forEach { a -> DropdownMenuItem(text={Text(a.label)}, onClick={selectedUid=a.uid; expanded=false}) } } }
-        Spacer(Modifier.width(4.dp)); HydraChoiceButton(protocol == "TCP", "TCP", Color(0xFFE3D0FF), Color(0xFF241A34), onClick={ protocol="TCP" }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(4.dp)); HydraChoiceButton(protocol == "UDP", "UDP", Color(0xFFE3D0FF), Color(0xFF241A34), onClick={ protocol="UDP" }, modifier=Modifier.height(30.dp))
+        Spacer(Modifier.width(4.dp)); HydraChoiceButton(protocol == "TCP", "TCP", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick={ protocol="TCP" }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(4.dp)); HydraChoiceButton(protocol == "UDP", "UDP", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick={ protocol="UDP" }, modifier=Modifier.height(30.dp))
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
         OutlinedTextField(portText,{portText=it},Modifier.weight(1f),singleLine=true,label={Text(if(english) "Port or range (443 or 8000-8080)" else "Puerto o rango (443 o 8000-8080)")})
@@ -4080,7 +4097,7 @@ private fun TrafficAnalyzerScreen(context: Context) {
                 "DNS" to "DNS",
                 "BLOCKED" to if (english) "Blocked" else "Bloqueados"
             ).forEach { (key, label) ->
-                HydraChoiceButton(filter == key, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = { filter = key }, modifier = Modifier.height(30.dp))
+                HydraChoiceButton(filter == key, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = { filter = key }, modifier = Modifier.height(30.dp))
             }
             HydraChoiceButton(false, if (english) "Clear" else "Borrar", Color(0xFFB83A46), Color.White, onClick = {
                 TrafficAnalyzerStore.clear(); events = emptyList(); selectedEvent = null
@@ -4176,7 +4193,7 @@ private fun TrafficAnalyzerScreen(context: Context) {
                         isPolicyBlocked -> if (english) "Allow IP" else "Permitir IP"
                         else -> if (english) "Block IP" else "Bloquear IP"
                     }
-                    HydraChoiceButton(isBlocked || isException, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = {
+                    HydraChoiceButton(isBlocked || isException, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = {
                         when {
                             isBlocked -> ipBlockStore.remove(e.destination)
                             isException -> ipBlockStore.removeAllowedForUid(e.uid, e.destination)
@@ -4549,7 +4566,7 @@ private fun ScheduleEditor(context: Context, initial: RuleStore.Schedule, onChan
             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 dayLabels.forEachIndexed { i, label ->
                     val selected = (schedule.daysMask and (1 shl i)) != 0
-                    HydraChoiceButton(selected, label, Color(0xFFE3D0FF), Color(0xFF241A34), onClick = {
+                    HydraChoiceButton(selected, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick = {
                         val mask = if (selected) schedule.daysMask and (1 shl i).inv() else schedule.daysMask or (1 shl i)
                         schedule = schedule.copy(daysMask = mask)
                         onChanged(schedule)

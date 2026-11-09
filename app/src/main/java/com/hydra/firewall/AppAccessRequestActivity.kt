@@ -599,9 +599,9 @@ private fun PromptAction(
 private fun settingsTheme(context: android.content.Context): ThemeMode {
     return runCatching {
         context.getSharedPreferences("firewall_settings", android.content.Context.MODE_PRIVATE)
-            .getString("theme_mode", ThemeMode.SYSTEM.name)
+            .getString("theme_mode", ThemeMode.DARK.name)
             ?.let(ThemeMode::valueOf)
-    }.getOrNull() ?: ThemeMode.SYSTEM
+    }.getOrNull() ?: ThemeMode.DARK
 }
 
 private fun formatEndpoint(addr: java.net.InetAddress, port: Int): String {
