@@ -1,15 +1,13 @@
 package com.hydra.firewall.vpn
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.util.Log
 import com.hydra.firewall.security.LegacyTlsTrust
+import com.hydra.firewall.security.PhysicalNetworkHttp
+import com.hydra.firewall.security.ThreatSignatureUpdater
 import com.hydra.firewall.security.ThreatIntelDomainStore
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 import java.util.regex.Pattern
@@ -157,65 +155,19 @@ object BlocklistUpdater {
         setRequestProperty("Accept-Encoding", "identity")
     }
 
-    private fun physicalNetworks(context: Context): List<android.net.Network> {
-        val cm = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        return cm.allNetworks.mapNotNull { network ->
-            val caps = cm.getNetworkCapabilities(network) ?: return@mapNotNull null
-            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return@mapNotNull null
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return@mapNotNull null
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) network else null
-        }
-    }
-
-    private const val MAX_REDIRECTS = 3
-
-    /**
-     * Sigue como máximo [MAX_REDIRECTS] redirecciones (301/302/303/307/308), solo hacia HTTPS, usando la
-     * misma red física que la conexión original. Sin esto, una fuente que redirige (p. ej. a otra ruta del
-     * mismo servicio) fallaba con `_http_30x` porque `instanceFollowRedirects` está desactivado a propósito.
-     */
-    private fun followRedirects(
-        context: Context,
-        first: HttpsURLConnection,
-        opener: (URL) -> java.net.URLConnection
-    ): HttpsURLConnection {
-        var conn = first
-        var hops = 0
-        while (true) {
-            val code = conn.responseCode
-            if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) return conn
-            val location = conn.getHeaderField("Location")
-            val base = conn.url
-            conn.disconnect()
-            if (location.isNullOrBlank() || hops >= MAX_REDIRECTS) throw IllegalStateException("redirect_failed")
-            val next = URL(base, location)
-            if (!next.protocol.equals("https", true)) throw IllegalStateException("redirect_not_https")
-            conn = configure(context, opener(next) as HttpsURLConnection)
-            hops++
-        }
-    }
-
     private fun open(context: Context, urls: List<String>): HttpsURLConnection {
         var last: Throwable? = null
-        for (network in physicalNetworks(context)) {
-            for (raw in urls) {
-                try {
-                    val conn = configure(context, network.openConnection(URL(raw)) as HttpsURLConnection)
-                    if (conn.url.protocol.equals("https", true)) return followRedirects(context, conn) { u -> network.openConnection(u) }
-                    conn.disconnect()
-                } catch (t: Throwable) { last = t }
-            }
-        }
         for (raw in urls) {
             try {
-                val conn = configure(context, URL(raw).openConnection() as HttpsURLConnection)
-                if (conn.url.protocol.equals("https", true)) return followRedirects(context, conn) { u -> u.openConnection() }
-                conn.disconnect()
-            } catch (t: Throwable) { last = t }
+                return PhysicalNetworkHttp.open(context.applicationContext, raw) { connection ->
+                    configure(context, connection)
+                }
+            } catch (t: Throwable) {
+                last = t
+                Log.w(TAG, "Physical-network blocklist download failed", t)
+            }
         }
-        throw last ?: IllegalStateException("no_update_endpoint")
+        throw last ?: IllegalStateException("no_physical_network")
     }
 
     private data class SourceResult(val id: String, val label: String, val count: Int, val date: String?)
@@ -244,7 +196,7 @@ object BlocklistUpdater {
 
     private fun downloadSource(context: Context, source: Source): SourceResult {
         var last: Throwable? = null
-        for (networkAttempt in 0..physicalNetworks(context).size) {
+        for (networkAttempt in 0..ThreatSignatureUpdater.physicalNetworks(context).size) {
             try {
                 val conn = open(context, source.urls)
                 try {

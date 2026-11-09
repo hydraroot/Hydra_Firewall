@@ -2,7 +2,7 @@
 
 ## Requisitos
 - JDK 17
-- Android SDK con plataforma 35 (Android Studio lo instala solo)
+- Android SDK con plataforma 36 (Android Studio lo instala solo)
 - Un celular con Android 7.0+ y depuración USB (para instalar por `adb`), o transferir la APK a mano
 
 ## 1. Probar rápido (APK debug)

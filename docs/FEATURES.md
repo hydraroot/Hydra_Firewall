@@ -29,7 +29,6 @@ one of these *modes*:
 | **Allow** | The app goes through Hydra with the normal protections (domain blocklist, secure DNS, SNI/QUIC filtering, threat protection). Wi‑Fi and mobile switches decide where it may connect. |
 | **Block** | No network access for the app. |
 | **Permissive** | The app stays inside Hydra, but compatibility layers are relaxed (optional domain and QUIC filtering) for apps that break under filtering. Strong threat/IP protection stays on. Wi‑Fi/mobile switches still apply, and Permissive does **not** exempt the app from *Block all*. |
-| **Permissive‑compat** | A temporary **diagnostic** variant of Permissive: the normal ad/tracker blocklist and QUIC domain filter are bypassed to find out whether filtering is what breaks an app. |
 | **Personalized** | You choose which protections apply to that app only: ad/tracker blocklist, secure DNS, HTTPS SNI filter, QUIC protection, known-threat protection, block local network. Wi‑Fi/mobile stay separate switches. |
 | **No firewall** | The app is **excluded from the VPN** and uses Android's normal network. Hydra does not filter or see its traffic, and the Wi‑Fi/mobile switches do not apply. Meant for banking or special apps that refuse to work through a filtered network. |
 | **System essential** | Some system components are allowed automatically so the phone keeps working. Threat/IP rules and global lockdown still apply. |
@@ -214,7 +213,7 @@ notification and a card in Security.
 | Mode | Tabs |
 |---|---|
 | **Normal** (default) | Home · Apps (Rules) · Activity (Connections · Statistics) · Security (a single screen) · More (Settings with the basics · Help · About) |
-| **Advanced** | Adds IP/Ports (with Cleanup) · Profiles · Analyzer · Test, the Security sections (Quarantine, Update watch, APK scanner, Traffic correlation, Doze) and the technical settings (global mode, secure DNS, IPv6/roaming/screen-off, performance, permissive apps) |
+| **Advanced** | Adds IP/Ports (with Cleanup) · Profiles · Analyzer, the Security sections (Quarantine, Update watch, APK scanner, Traffic correlation, Doze) and the technical settings (global mode, secure DNS, IPv6/roaming/screen-off, performance, permissive apps) |
 
 A short guide is shown the first time Hydra opens; it ends by choosing Normal or Advanced mode.
 

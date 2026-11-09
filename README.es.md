@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: candidata para prueba cerrada** (versión `3.4.2`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala primero con apps no críticas.
+> **Estado: beta / validación previa a publicación** (versión `3.6.1`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -123,7 +123,7 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 Cada puntaje viene con un resultado simple: **0–49 parece normal, 50–89 dudosa, 90–100 sospechosa** (cuanto más alto, más sospechosa), según cuán acertado fue el modelo con ese puntaje en las pruebas. Si se pudo analizar muy poco código de la app, el resultado es **sin conclusión**.
 
-**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus, listas, huella TLS) en un solo lugar.
+**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus y listas de dominios) en un solo lugar.
 
 Junto con las reglas YARA‑Lite, el pack de amenazas firmado y la línea base de comportamiento por app (se aprende localmente cuando activás el registro de tráfico), alimentan el **Centro de seguridad** para que decidas con más información. La decisión siempre es tuya.
 
@@ -143,7 +143,7 @@ Cómo se protege el pack de amenazas:
 
 - Se acepta **solo si su firma ECDSA P‑256 / SHA‑256 se verifica** con la clave pública compilada en la app; los packs alterados se descartan.
 - El feed debe usar `https://` y las descargas están limitadas a 20 MB.
-- Las descargas van por la **red física** (fuera del túnel de Hydra) para que una regla de bloqueo no pueda impedir la actualización.
+- Las descargas del pack, las listas y la propia app usan una **red física explícita**, fuera del túnel de Hydra. Si no hay una disponible, fallan sin recurrir a la red predeterminada. Se permiten como máximo tres redirecciones HTTPS sobre esa misma red.
 - Los packs publicados por el workflow vencen a los 14 días; un pack vencido se ignora y se usa el incluido. El pack incluido en el APK es solo una semilla mínima (sin vencimiento y casi sin indicadores): la protección real viene del pack descargado.
 - Podés verificar un pack publicado vos mismo: `python tools/verify_threat_pack.py <archivo o URL>`.
 
@@ -214,7 +214,7 @@ fuera de Play Store. Verificá el SHA‑256 que figura en las notas de la versi�
 ./build.sh release      # APK release (firmada si configuraste keystore)
 ```
 
-En Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) compila y testea en cada push.
+En Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) ejecuta pruebas Android y Python en cada push/PR y publica una APK debug como artefacto. Un tag `vX.Y.Z` crea un Release firmado si están configurados los secrets de firma.
 
 > El ID de aplicación de esta versión para Google Play es `com.hydra.firewall`, igual al de la app creada en Play Console. Mantenelo sin cambios en futuras actualizaciones. Las compilaciones locales anteriores con `com.hydraroot.firewall` o `com.example.firewall` se tratan como apps distintas; exportá tu configuración desde una versión anterior antes de cambiar e importala en esta.
 >

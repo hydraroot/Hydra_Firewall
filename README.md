@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: closed-testing candidate** (version `3.4.2`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Try it first with non-critical apps.
+> **Status: beta / pre-release validation** (version `3.6.1`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -128,7 +128,7 @@ How the threat pack is protected:
 
 - It is accepted **only if its ECDSA P‑256 / SHA‑256 signature verifies** against the public key compiled into the app; tampered packs are discarded.
 - The feed must use `https://`, and downloads are capped at 20 MB.
-- Downloads go over the **physical network** (outside Hydra's own tunnel) so a block rule cannot prevent the update.
+- Threat-pack, blocklist and app-update downloads use an explicitly selected **physical network** outside Hydra's tunnel. If none is available, they fail closed instead of falling back to the process default network. Redirects are limited to three HTTPS hops on that same network.
 - Packs published by the workflow expire after 14 days; an expired pack is ignored and the bundled one is used. The pack bundled inside the APK is only a minimal seed (no expiry, almost no indicators): real protection comes from the downloaded pack.
 - You can verify a published pack yourself: `python tools/verify_threat_pack.py <file or URL>`.
 
@@ -186,7 +186,7 @@ Hydra includes three very small models that run **entirely on your phone** (no c
 
 Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful, 90–100 suspicious** (the higher, the more suspicious), based on how often the model was right at that score in testing. If too little of the app's code could be analyzed, the result is **no conclusion**.
 
-**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus, blocklists, TLS fingerprint) in one place.
+**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus and domain blocklists) in one place.
 
 Together with the YARA‑Lite rules, and the signed threat pack, they feed **Security Center** so you can decide with more information. The decision is always yours.
 
@@ -214,7 +214,7 @@ Check the SHA‑256 shown in the release notes.
 ./build.sh release      # release APK (signed if you configured a keystore)
 ```
 
-Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) builds and tests every push.
+Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) runs Android and Python tests on every push/PR and uploads a debug APK. A `vX.Y.Z` tag creates a signed GitHub Release when the signing secrets are configured.
 
 > The Google Play application ID for this release is `com.hydra.firewall`, matching the app created in Play Console. Keep it unchanged for future updates. Older local builds using `com.hydraroot.firewall` or `com.example.firewall` are treated as different apps; export your settings from an older build before switching and import them into this release.
 >

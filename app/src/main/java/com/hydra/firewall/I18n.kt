@@ -113,7 +113,7 @@ fun tr(context: Context, key: String): String {
         "block_ipv6" -> if (en) "Block IPv6" else "Bloquear IPv6"
         "block_ipv6_sub" -> if (en) "Drops all IPv6 traffic; apps fall back to IPv4 (where every filter applies). Use if you see IPv6 leaks." else "Descarta todo el tráfico IPv6; las apps usan IPv4 (donde aplican todos los filtros). Útil si ves fugas por IPv6."
         "advanced_mode" -> if (en) "Advanced mode" else "Modo avanzado"
-        "advanced_mode_sub" -> if (en) "Shows extra tabs: IP/Ports, Analyzer, Profiles and Test. Rules you already created stay active even when their tab is hidden." else "Muestra pestañas extra: IP/Puertos, Analizador, Perfiles y Prueba. Las reglas ya creadas siguen activas aunque su pestaña esté oculta."
+        "advanced_mode_sub" -> if (en) "Shows extra tabs: IP/Ports, Analyzer and Profiles. Rules you already created stay active even when their tab is hidden." else "Muestra pestañas extra: IP/Puertos, Analizador y Perfiles. Las reglas ya creadas siguen activas aunque su pestaña esté oculta."
         "allow_local" -> if (en) "Allow local network" else "Permitir red local"
         "allow_local_sub" -> if (en) "Allows access to private and link-local IPv4 ranges." else "Permite acceso a redes privadas y link-local IPv4."
         "block_roaming" -> if (en) "Block while roaming" else "Bloquear durante roaming"

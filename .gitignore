@@ -1,42 +1,32 @@
+# Local Android / Gradle state
+.gradle/
+**/build/
 local.properties
+*.iml
+.idea/
+.vscode/
+
+# Local signing material and secrets
+/secrets/
 *.jks
 *.keystore
-*.pem
-!app/src/main/res/raw/*.pem
-.gradle/
-build/
-app/build/
-.idea/
-*.iml
-captures/
-.externalNativeBuild/
-.cxx/
-secrets/
-
-# Claves y credenciales (nunca subir)
 *.p12
 *.pfx
-*.pk8
-*.key
-keystore.properties
-.env
-.env.*
 
-# Compilados
+# Build outputs
 *.apk
 *.aab
 *.ap_
-*.hprof
 
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-
-# IDE / sistema / logs
-.vscode/
-.kotlin/
-*.log
+# OS / editor noise
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/

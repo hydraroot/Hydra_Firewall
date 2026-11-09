@@ -1,4 +1,4 @@
-name: Android CI and Release
+name: Android CI
 
 on:
   push:
@@ -6,190 +6,178 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Etiqueta existente para generar/publicar el Release (ej. v1.0.0). Vacío = solo CI.'
-        required: false
-        type: string
 
 permissions:
   contents: read
 
-jobs:
-  verify:
-    name: Tests y APK Debug
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout del código
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.release_tag || github.ref }}
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v6
+jobs:
+  android:
+    name: Android tests and debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
+      HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Instalar plataforma Android 36
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Android platform 36
+        run: sdkmanager "platforms;android-36"
 
-      - name: Configurar caché de Gradle
-        uses: gradle/actions/setup-gradle@v6
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Configurar Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
+      - name: Make build scripts executable
+        run: chmod +x ./gradlew ./build.sh
 
-      - name: Tests de herramientas del feed de amenazas
-        run: python -m unittest discover -s tools -v
+      - name: Run Android unit tests and build debug APK
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
 
-      - name: Tests unitarios y compilación Debug
-        env:
-          HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
-          HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
-        run: |
-          chmod +x ./gradlew
-          ./gradlew --no-daemon testDebugUnitTest assembleDebug
-
-      - name: Subir reportes de pruebas
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: hydra-test-reports
-          path: app/build/reports/tests/
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Subir APK Debug (solo pruebas)
-        uses: actions/upload-artifact@v7
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
         with:
           name: hydra-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
-      # APK firmado con TU clave de release en cada push: Android lo instala como ACTUALIZACIÓN
-      # (sin desinstalar) siempre que el versionCode sea mayor. Requiere los 4 secretos de firma.
-      - name: Compilar APK firmado actualizable
-        env:
-          HYDRA_KEYSTORE_FILE: hydra-release.jks
-          HYDRA_KEYSTORE_BASE64: ${{ secrets.HYDRA_KEYSTORE_BASE64 }}
-          HYDRA_KEYSTORE_PASSWORD: ${{ secrets.HYDRA_KEYSTORE_PASSWORD }}
-          HYDRA_KEY_ALIAS: ${{ secrets.HYDRA_KEY_ALIAS }}
-          HYDRA_KEY_PASSWORD: ${{ secrets.HYDRA_KEY_PASSWORD }}
-          HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
-          HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "${HYDRA_KEYSTORE_BASE64}" || -z "${HYDRA_KEYSTORE_PASSWORD}" || -z "${HYDRA_KEY_ALIAS}" ]]; then
-            echo "::notice::Sin secretos de firma: no se genera el APK actualizable (solo el debug de prueba). Ver docs/es/VERSIONING.md."
-            exit 0
-          fi
-          printf '%s' "$HYDRA_KEYSTORE_BASE64" | base64 --decode > "$HYDRA_KEYSTORE_FILE"
-          test -s "$HYDRA_KEYSTORE_FILE"
-          trap 'rm -f "$HYDRA_KEYSTORE_FILE"' EXIT
-          ./gradlew --no-daemon assembleRelease
-          VERSION="$(grep '^VERSION_NAME=' version.properties | cut -d= -f2 | tr -d '\r ')"
-          mkdir -p signed
-          cp app/build/outputs/apk/release/app-release.apk "signed/Hydra-Firewall-${VERSION}.apk"
-
-      - name: Subir APK firmado actualizable
-        uses: actions/upload-artifact@v7
+  python-tools:
+    name: Python tools and bundled threat pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
         with:
-          name: hydra-release-apk
-          path: signed/*.apk
-          if-no-files-found: ignore
-          retention-days: 30
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install threat-pack verifier
+        run: python -m pip install --upgrade pip cryptography
+
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tools -p 'test_*.py' -v
+
+      - name: Verify bundled threat-pack signature
+        run: python tools/verify_threat_pack.py app/src/main/assets/hydra_threat_pack_v1.json
 
   release:
-    name: Compilar Release firmado y publicar APK
-    needs: verify
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+    name: Signed GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, python-tools]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     env:
-      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-      HYDRA_KEYSTORE_FILE: hydra-release.jks
-      HYDRA_KEYSTORE_PASSWORD: ${{ secrets.HYDRA_KEYSTORE_PASSWORD }}
-      HYDRA_KEY_ALIAS: ${{ secrets.HYDRA_KEY_ALIAS }}
-      HYDRA_KEY_PASSWORD: ${{ secrets.HYDRA_KEY_PASSWORD }}
-      HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
       HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
-      HYDRA_KEYSTORE_BASE64: ${{ secrets.HYDRA_KEYSTORE_BASE64 }}
+      HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
     steps:
-      - name: Checkout del código etiquetado
-        uses: actions/checkout@v7
+      - name: Check out source
+        uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          persist-credentials: false
 
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v6
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Instalar plataforma Android 36
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Android platform 36
+        run: sdkmanager "platforms;android-36"
 
-      - name: Configurar caché de Gradle
-        uses: gradle/actions/setup-gradle@v6
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Verificar secretos de firma
+      - name: Validate release tag
         shell: bash
         run: |
           set -euo pipefail
-          for name in HYDRA_KEYSTORE_BASE64 HYDRA_KEYSTORE_PASSWORD HYDRA_KEY_ALIAS HYDRA_KEY_PASSWORD; do
-            if [[ -z "${!name}" ]]; then
-              echo "::error::Falta el secreto ${name}. Configurá los cuatro secretos de firma en Settings > Secrets and variables > Actions."
-              exit 1
-            fi
-          done
+          version="$(sed -n 's/^VERSION_NAME=//p' version.properties | head -n1)"
+          test "$GITHUB_REF_NAME" = "v$version" || {
+            echo "Tag $GITHUB_REF_NAME does not match version.properties (v$version)." >&2
+            exit 1
+          }
 
-      - name: Compilar APK Release y AAB firmados
+      - name: Configure release signing
+        id: signing
+        env:
+          HYDRA_KEYSTORE_BASE64: ${{ secrets.HYDRA_KEYSTORE_BASE64 }}
+          HYDRA_KEYSTORE_PASSWORD: ${{ secrets.HYDRA_KEYSTORE_PASSWORD }}
+          HYDRA_KEY_ALIAS: ${{ secrets.HYDRA_KEY_ALIAS }}
+          HYDRA_KEY_PASSWORD: ${{ secrets.HYDRA_KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s' "$HYDRA_KEYSTORE_BASE64" | base64 --decode > "$HYDRA_KEYSTORE_FILE"
-          test -s "$HYDRA_KEYSTORE_FILE"
-          trap 'rm -f "$HYDRA_KEYSTORE_FILE"' EXIT
-          chmod +x ./gradlew
-          ./gradlew --no-daemon clean assembleRelease bundleRelease
-          test -f app/build/outputs/apk/release/app-release.apk
-          test -f app/build/outputs/bundle/release/app-release.aab
-          cp app/build/outputs/apk/release/app-release.apk "Hydra-Firewall-${RELEASE_TAG}.apk"
-          sha256sum "Hydra-Firewall-${RELEASE_TAG}.apk" > "Hydra-Firewall-${RELEASE_TAG}.apk.sha256"
+          if [[ -z "$HYDRA_KEYSTORE_BASE64" || -z "$HYDRA_KEYSTORE_PASSWORD" || -z "$HYDRA_KEY_ALIAS" || -z "$HYDRA_KEY_PASSWORD" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release APK skipped: configure all four HYDRA_KEYSTORE_* secrets."
+            exit 0
+          fi
+          key_file="$RUNNER_TEMP/hydra-release.jks"
+          printf '%s' "$HYDRA_KEYSTORE_BASE64" | base64 --decode > "$key_file"
+          chmod 600 "$key_file"
+          keytool -list -keystore "$key_file" -storepass "$HYDRA_KEYSTORE_PASSWORD" -alias "$HYDRA_KEY_ALIAS" >/dev/null
+          {
+            echo "HYDRA_KEYSTORE_FILE=$key_file"
+            echo "HYDRA_KEYSTORE_PASSWORD=$HYDRA_KEYSTORE_PASSWORD"
+            echo "HYDRA_KEY_ALIAS=$HYDRA_KEY_ALIAS"
+            echo "HYDRA_KEY_PASSWORD=$HYDRA_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
-      - name: Subir APK y AAB como artefactos de Actions
-        uses: actions/upload-artifact@v7
+      - name: Build signed release APK and checksum
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon assembleRelease
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+
+      - name: Upload signed release APK artifact
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          name: Hydra-Firewall-${{ env.RELEASE_TAG }}-Release
+          name: hydra-release-apk
           path: |
-            Hydra-Firewall-${{ env.RELEASE_TAG }}.apk
-            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
-      - name: Adjuntar APK firmado al GitHub Release
+      - name: Publish signed GitHub Release
+        if: steps.signing.outputs.ready == 'true'
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: Hydra Firewall ${{ env.RELEASE_TAG }}
-          body: |
-            Signed Android Release build of Hydra Firewall.
-
-            The APK attached here is a public direct-download build. Testers enrolled in the restricted Google Play closed test should use the Google Play testing link.
-          files: |
-            Hydra-Firewall-${{ env.RELEASE_TAG }}.apk
-            Hydra-Firewall-${{ env.RELEASE_TAG }}.apk.sha256
-          prerelease: false
+          token: ${{ github.token }}
+          generate_release_notes: true
           make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256

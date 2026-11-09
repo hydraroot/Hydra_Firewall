@@ -12,7 +12,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
@@ -268,19 +267,17 @@ object AppUpdater {
     private fun isMetered(context: Context): Boolean =
         (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).isActiveNetworkMetered
 
-    private fun open(context: Context, url: String): HttpURLConnection {
-        require(url.startsWith("https://")) { "https_required" }
-        var conn: HttpURLConnection? = null
-        for (n in ThreatSignatureUpdater.physicalNetworks(context)) {
-            conn = runCatching { n.openConnection(URL(url)) as HttpURLConnection }.getOrNull()
-            if (conn != null) break
+    private fun open(context: Context, url: String): HttpURLConnection =
+        PhysicalNetworkHttp.open(context.applicationContext, url) { connection ->
+            LegacyTlsTrust.configure(context.applicationContext, connection)
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 30_000
+            connection.requestMethod = "GET"
+            connection.useCaches = false
+            connection.setRequestProperty("User-Agent", "Hydra-Firewall/${BuildConfig.VERSION_NAME}")
+            connection.setRequestProperty("Accept", "application/vnd.github+json, application/octet-stream, */*")
+            connection.setRequestProperty("Cache-Control", "no-cache")
         }
-        val c = conn ?: (URL(url).openConnection() as HttpURLConnection)
-        c.connectTimeout = 15_000; c.readTimeout = 30_000; c.instanceFollowRedirects = true; c.useCaches = false
-        c.setRequestProperty("User-Agent", "Hydra-Firewall/${BuildConfig.VERSION_NAME}")
-        c.setRequestProperty("Accept", "application/vnd.github+json, application/octet-stream, */*")
-        return c
-    }
 
     private fun httpText(context: Context, url: String): String {
         val c = open(context, url)

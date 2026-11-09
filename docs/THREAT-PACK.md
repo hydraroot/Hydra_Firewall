@@ -8,7 +8,7 @@ pack is discarded.
 - The pack bundled in the app (`assets/hydra_threat_pack_v1.json`) contains **YARA‑Lite rules only** and is signed with the project's original key — the same public key that is in `app/build.gradle.kts` and in `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`. Both must match; `ThreatKeyConsistencyTest` checks it.
 - A blank `HYDRA_THREAT_PUBLIC_KEY` is treated as unset (the default key is used).
 - **The default build already has a feed URL:** `https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json`. The app checks for a new pack about **once every 24 hours** (inexact alarm, scheduled when the VPN service starts and after boot), or on demand with *Update now* in Security Center. Override it at build time with `HYDRA_THREAT_FEED_URL`.
-- The feed must use `https://`, downloads are capped at 20 MB and go over the physical network.
+- The feed must use `https://`, downloads are capped at 20 MB and use only an explicitly selected physical network. If no physical network is available, the updater fails closed; it never falls back to the process default network (which may be the VPN). Redirects are followed manually, at most three hops, only to HTTPS and on the same physical network.
 - **A build with nothing configured** uses the default key, and the bundled pack verifies against it, so the YARA‑Lite feed starts with content. This is what a normal public build does.
 - **Warning if you set `HYDRA_THREAT_PUBLIC_KEY` to your own key** (see below): the app stops accepting the default key, so the bundled pack in `assets/` is rejected until you re-sign it with your private key by running `tools/rebuild_bundled_pack.sh`. If you set `HYDRA_THREAT_PUBLIC_KEY` in GitHub (Settings → Variables) for the CI workflow but do not re-sign the bundled pack in the repo, the public build made by that Action will have an empty/rejected bundled feed.
 
@@ -19,7 +19,7 @@ pack is discarded.
 1. `tools/generate_signing_key.sh` → creates `secrets/hydra_threat_signing_key.pem` (private — back it up, never commit it) and the public key in Base64.
 2. In `local.properties` set `HYDRA_THREAT_PUBLIC_KEY=<public>` and `HYDRA_THREAT_FEED_URL=<your feed URL>`.
 3. `tools/rebuild_bundled_pack.sh` → re-signs the bundled pack with your key (otherwise the app would reject the original and start with no signatures).
-4. In GitHub add the secret `HYDRA_THREAT_SIGNING_KEY` (the PEM contents) and, optionally, `ABUSECH_AUTH_KEY` (free at https://auth.abuse.ch/). `.github/workflows/threat-pack.yml` generates and publishes the pack daily to the `threat-pack` branch.
+4. In GitHub add the secret `HYDRA_THREAT_SIGNING_KEY` (the PEM contents) and, optionally, `ABUSECH_AUTH_KEY` (free at https://auth.abuse.ch/). `.github/workflows/threat-pack.yml` generates and publishes the pack daily to the `threat-pack` branch. The private key must match the public key compiled into the app (or the `HYDRA_THREAT_PUBLIC_KEY` repository variable); the workflow checks this before publishing.
 5. Build the app (`./build.sh`).
 
 If you have the project's original private key you can skip 1–2 and use it in 3.

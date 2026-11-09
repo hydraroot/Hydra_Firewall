@@ -1,4 +1,13 @@
-## 3.5.0 (versionCode 30500)
+## 3.6.1 (versionCode 30601)
+Correcciones de publicación y de la cadena de actualización.
+- **Red de actualizaciones:** el pack de amenazas, las listas de dominios y el actualizador de Hydra usan exclusivamente conexiones abiertas sobre una red física explícita. Se elimina la alternativa de la red predeterminada, que podía ser la propia VPN.
+- **Redirecciones:** los tres actualizadores siguen manualmente hasta 3 redirecciones HTTPS y mantienen cada salto en la misma red física. Se rechazan los descensos a HTTP, credenciales embebidas y bucles.
+- **Pruebas:** se agregan tests unitarios para la política de redirecciones HTTPS.
+- **Publicación:** se incorporan workflows de GitHub Actions para pruebas Android/Python, APK de depuración, Releases firmadas con los secrets configurados y publicación diaria del pack firmado (si está configurada la clave).
+- **Documentación:** se sincronizan las funciones y la versión de los README, la guía de compilación, permisos y versionado; se agregan `.gitignore` y `.gitattributes`.
+- **Ayuda y guías:** se corrigen los filtros de Apps y se eliminan las referencias a la pestaña Prueba y al modo Permissive-compat retirados.
+
+## 3.6.0 (versionCode 30600)
 Recorte de funciones de bajo valor o con riesgo.
 - **Limpieza:** el parser del ClientHello ya solo extrae el SNI (se quitan cifrados, extensiones, curvas, ALPN y versiones que solo usaba JA3).
 - **Privacidad:** el log de diagnóstico (`hydra-diagnostic.log`) ya no se escribe en builds release y se borra el que hubiera de versiones anteriores.
@@ -9,7 +18,7 @@ Recorte de funciones de bajo valor o con riesgo.
 - **Modos por app:** se retira `ESSENTIAL_COMPAT` (se comportaba como `ESSENTIAL`); lo guardado y los backups viejos se migran a `ESSENTIAL`.
 - **Se quita** «Apps de confianza» (auto-permitir apps instaladas desde Play). Quien lo tenía activo vuelve a recibir el aviso de primera conexión.
 - **Listas de dominios:** se siguen hasta 3 redirecciones, solo hacia HTTPS.
-- **Pendiente:** unificar los motores IPv4/IPv6 (requiere compilar y correr tests); la huella digital sigue siendo una comodidad sobre el PIN, no una barrera criptográfica.
+- La unificación de motores IPv4/IPv6 no forma parte de esta versión; la huella digital sigue siendo una comodidad sobre el PIN, no una barrera criptográfica.
 
 ## 3.4.8 (versionCode 30408)
 - **Seguridad — bloqueo por SNI:** el inspector de TLS se rendía a los 8 KB, así que una app podía rellenar el ClientHello (padding) para que no se leyera el SNI y evadir el bloqueo por dominio. El tope pasa a 16 389 bytes (un registro TLS completo). Sigue sin verse el SNI si el ClientHello se parte en varios registros, usa ECH o no trae SNI (límite inherente de no descifrar). Test nuevo con un ClientHello de unos 12 KB.

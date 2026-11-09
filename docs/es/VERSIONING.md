@@ -25,8 +25,7 @@ Android solo actualiza una app si **(1)** el APK está firmado con la **misma cl
 `versionCode` es **mayor** (o igual). Los APK *debug* que genera GitHub Actions se firman con una clave temporal
 distinta en cada ejecución, por eso Android los trata como "otra app" y obliga a desinstalar.
 
-La solución es firmar siempre con **tu** clave de release. El workflow ya lo hace: en cada push, si están
-configurados los secretos, genera el artefacto **`hydra-release-apk`** (un `.apk` firmado con tu clave).
+La solución es firmar siempre con **tu** clave de release. En cada push y pull request el workflow corre las pruebas y genera una APK debug. Al subir un tag `vX.Y.Z`, si están configurados los cuatro secrets, genera el artefacto **`hydra-release-apk`** y publica el APK firmado como activo del GitHub Release.
 
 ## Configurar la firma (una sola vez)
 

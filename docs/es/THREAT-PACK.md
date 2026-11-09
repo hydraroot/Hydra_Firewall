@@ -7,7 +7,8 @@ Solo se instala si la firma verifica con la clave pública compilada en la app; 
 - El pack incluido en la app (`assets/hydra_threat_pack_v1.json`) trae **solo reglas YARA‑Lite** y está firmado con la clave original del proyecto (la misma clave pública que está en `app/build.gradle.kts` y en `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`; ambas deben coincidir — lo comprueba `ThreatKeyConsistencyTest`).
 - Una variable `HYDRA_THREAT_PUBLIC_KEY` vacía se trata como no definida (usa la clave por defecto).
 - **Build sin configurar nada** (sin `HYDRA_THREAT_PUBLIC_KEY` en `local.properties` ni como variable de CI): la app usa esa clave por defecto, y el pack incluido verifica correctamente contra ella — el feed de reglas YARA‑Lite arranca con contenido, no vacío. Esto es lo que pasa en un build público normal.
-- La actualización automática está **desactivada** hasta que compiles la app con `HYDRA_THREAT_FEED_URL`.
+- **El build por defecto ya tiene una URL de feed:** `https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json`. La app comprueba si hay un pack nuevo aproximadamente cada 24 horas o a pedido. El workflow `.github/workflows/threat-pack.yml` lo genera y publica a diario si configurás `HYDRA_THREAT_SIGNING_KEY` con una clave que coincida con la pública compilada (o con `HYDRA_THREAT_PUBLIC_KEY` en las variables del repositorio). Si falta el secret, la publicación se omite y la app conserva el pack incluido.
+- El feed debe usar `https://`, las descargas tienen un límite de 20 MB y usan solo una red física explícita. Si no hay una red física disponible, la actualización falla sin recurrir a la red predeterminada del proceso (que podría ser la VPN). Las redirecciones se siguen manualmente: como máximo tres saltos, solo a HTTPS y siempre sobre esa misma red física.
 - **Atención si seteás `HYDRA_THREAT_PUBLIC_KEY` con tu propia clave** (ver sección siguiente): a partir de ahí la app deja de aceptar la clave por defecto, así que el pack incluido en `assets/` queda rechazado hasta que lo vuelvas a firmar con tu clave privada corriendo `tools/rebuild_bundled_pack.sh`. Si configurás `HYDRA_THREAT_PUBLIC_KEY` en GitHub (Settings → Variables) para el workflow de CI pero no re‑firmás el pack bundleado del repo, el build público que arma esa Action sí te va a quedar con el feed incluido vacío/rechazado.
 
 ## Verificar un pack
@@ -15,9 +16,9 @@ Solo se instala si la firma verifica con la clave pública compilada en la app; 
 
 ## Activarlo con tu propia clave (recomendado)
 1. `tools/generate_signing_key.sh` → crea `secrets/hydra_threat_signing_key.pem` (privada, backup, nunca al repo) y la pública en Base64.
-2. En `local.properties` poné `HYDRA_THREAT_PUBLIC_KEY=<pública>` y `HYDRA_THREAT_FEED_URL=https://raw.githubusercontent.com/Hydraroot/HYDRA_FIREWALL/threat-pack/hydra_threat_pack.json`.
+2. En `local.properties` poné `HYDRA_THREAT_PUBLIC_KEY=<pública>` y `HYDRA_THREAT_FEED_URL=https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json`.
 3. `tools/rebuild_bundled_pack.sh` → re‑firma el pack incluido con tu clave (si no, la app rechazaría el original y arrancaría sin firmas).
-4. En GitHub cargá el secret `HYDRA_THREAT_SIGNING_KEY` (contenido del PEM) y, opcional, `ABUSECH_AUTH_KEY` (gratis en https://auth.abuse.ch/). `.github/workflows/threat-pack.yml` genera y publica el pack a diario en la rama `threat-pack`.
+4. En GitHub cargá el secret `HYDRA_THREAT_SIGNING_KEY` (contenido del PEM) y, opcional, `ABUSECH_AUTH_KEY`, `URLHAUS_AUTH_KEY` o `THREATFOX_AUTH_KEY` (gratis en https://auth.abuse.ch/). `.github/workflows/threat-pack.yml` comprueba que la clave privada corresponda a la pública compilada, exige al menos 10 indicadores válidos, genera el pack con vencimiento de 14 días y lo publica en la rama `threat-pack`.
 5. Compilá la app (`./build.sh`).
 
 Si tenés la clave privada original del proyecto, podés saltear 1–2 y usarla en 3.

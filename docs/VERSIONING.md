@@ -13,5 +13,5 @@ The version lives in one file: [`version.properties`](../version.properties) (`V
 Android only updates an app when the APK is signed with the **same key** and the `versionCode` is **not lower**.
 Debug APKs built by GitHub Actions use a different temporary key every run, so they force an uninstall. Configure the
 four signing secrets (`HYDRA_KEYSTORE_BASE64`, `HYDRA_KEYSTORE_PASSWORD`, `HYDRA_KEY_ALIAS`, `HYDRA_KEY_PASSWORD`) and the
-CI publishes a signed `hydra-release-apk` artifact on every push that installs as an update. Full guide (Spanish):
+CI publishes a signed `hydra-release-apk` artifact and GitHub Release when you push a `vX.Y.Z` tag. Pushes and pull requests still build the debug APK and run tests. Full guide (Spanish):
 [`es/VERSIONING.md`](es/VERSIONING.md). Keep an offline backup of the keystore: without it you cannot update the installed app.

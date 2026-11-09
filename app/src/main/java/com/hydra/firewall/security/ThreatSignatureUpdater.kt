@@ -8,8 +8,6 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import java.io.ByteArrayOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
@@ -108,63 +106,44 @@ object ThreatSignatureUpdater {
     }
 
     private fun download(context: Context, rawUrl: String): String {
-        var lastError: Throwable? = null
-
-        fun attempt(opener: () -> HttpURLConnection): String {
-            val conn = opener().apply {
-                if (this is HttpsURLConnection) {
-                    LegacyTlsTrust.configure(context.applicationContext, this)
-                }
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                requestMethod = "GET"
-                instanceFollowRedirects = true
-                useCaches = false
-                setRequestProperty("User-Agent", "Hydra-Firewall/${com.hydra.firewall.BuildConfig.VERSION_NAME}")
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("Accept-Encoding", "identity")
-                setRequestProperty("Cache-Control", "no-cache")
-            }
-            try {
-                val code = conn.responseCode
-                if (code !in 200..299) throw IllegalStateException("http_$code")
-                if (!conn.url.protocol.equals("https", ignoreCase = true)) throw IllegalStateException("feed_downgraded_to_http")
-                val declared = conn.contentLengthLong
-                if (declared > 20L * 1024L * 1024L) throw IllegalStateException("pack_too_large")
-
-                val out = ByteArrayOutputStream(if (declared in 1..(20L * 1024L * 1024L)) declared.toInt() else 64 * 1024)
-                val buffer = ByteArray(32 * 1024)
-                var total = 0L
-                conn.inputStream.use { input ->
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n <= 0) break
-                        total += n
-                        if (total > 20L * 1024L * 1024L) throw IllegalStateException("pack_too_large")
-                        out.write(buffer, 0, n)
-                    }
-                }
-                return out.toString(StandardCharsets.UTF_8.name())
-            } finally {
-                conn.disconnect()
-            }
+        val conn = PhysicalNetworkHttp.open(context.applicationContext, rawUrl) { connection ->
+            LegacyTlsTrust.configure(context.applicationContext, connection)
+            connection.connectTimeout = CONNECT_TIMEOUT_MS
+            connection.readTimeout = READ_TIMEOUT_MS
+            connection.requestMethod = "GET"
+            connection.useCaches = false
+            connection.setRequestProperty("User-Agent", "Hydra-Firewall/${com.hydra.firewall.BuildConfig.VERSION_NAME}")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("Accept-Encoding", "identity")
+            connection.setRequestProperty("Cache-Control", "no-cache")
         }
-
-        for (network in physicalNetworks(context)) {
-            try {
-                return attempt { network.openConnection(URL(rawUrl)) as HttpURLConnection }
-            } catch (t: Throwable) {
-                lastError = t
-                Log.w(TAG, "Physical-network threat feed failed", t)
-            }
-        }
-
         try {
-            return attempt { URL(rawUrl).openConnection() as HttpURLConnection }
-        } catch (t: Throwable) {
-            lastError = t
+            val code = conn.responseCode
+            if (code !in 200..299) throw IllegalStateException("http_$code")
+            if (!conn.url.protocol.equals("https", ignoreCase = true)) {
+                throw IllegalStateException("feed_downgraded_to_http")
+            }
+            val declared = conn.contentLengthLong
+            if (declared > 20L * 1024L * 1024L) throw IllegalStateException("pack_too_large")
+
+            val out = ByteArrayOutputStream(if (declared in 1..(20L * 1024L * 1024L)) declared.toInt() else 64 * 1024)
+            val buffer = ByteArray(32 * 1024)
+            var total = 0L
+            conn.inputStream.use { input ->
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    if (n == 0) continue
+                    total += n
+                    if (total > 20L * 1024L * 1024L) throw IllegalStateException("pack_too_large")
+                    out.write(buffer, 0, n)
+                }
+            }
+            return out.toString(StandardCharsets.UTF_8.name())
+        } finally {
+            conn.disconnect()
         }
-        throw lastError ?: IllegalStateException("no_threat_feed_network")
     }
+
 
 }

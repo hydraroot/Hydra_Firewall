@@ -1,49 +1,112 @@
-name: Threat pack (firmado, diario)
-
-# Genera app-compatible hydra_threat_pack.json firmado y lo publica en la rama `threat-pack`.
-# URL para la app (HYDRA_THREAT_FEED_URL):
-#   https://raw.githubusercontent.com/Hydraroot/HYDRA_FIREWALL/threat-pack/hydra_threat_pack.json
-#
-# Secrets necesarios (Settings > Secrets and variables > Actions):
-#   HYDRA_THREAT_SIGNING_KEY  -> contenido del PEM privado (tools/generate_signing_key.sh)
-#   ABUSECH_AUTH_KEY          -> opcional pero recomendado: clave gratis de https://auth.abuse.ch/ (URLhaus/ThreatFox)
+name: Signed threat pack
 
 on:
   schedule:
-    - cron: '17 5 * * *'
+    - cron: '23 4 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: signed-threat-pack
+  cancel-in-progress: false
+
 jobs:
-  pack:
+  build-and-publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Generar y firmar el pack
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pack verification dependency
+        run: python -m pip install --upgrade pip cryptography
+
+      - name: Check signing key is configured
+        id: signing
         env:
-          SIGNING_KEY: ${{ secrets.HYDRA_THREAT_SIGNING_KEY }}
-          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+          HYDRA_THREAT_SIGNING_KEY: ${{ secrets.HYDRA_THREAT_SIGNING_KEY }}
+        shell: bash
         run: |
-          test -n "$SIGNING_KEY" || { echo "Falta el secret HYDRA_THREAT_SIGNING_KEY"; exit 1; }
-          umask 077
-          printf '%s\n' "$SIGNING_KEY" > "$RUNNER_TEMP/sign.pem"
-          ARGS="--feodo --yara app/src/main/assets/hydra_threat_seed.yar --min-indicators 200 --expires-days 14"
-          if [ -n "$ABUSECH_AUTH_KEY" ]; then ARGS="$ARGS --urlhaus-api --threatfox-api"; fi
-          python3 tools/build_hydra_threat_pack.py --output out/hydra_threat_pack.json --private-key "$RUNNER_TEMP/sign.pem" $ARGS
-          rm -f "$RUNNER_TEMP/sign.pem"
+          if [[ -z "$HYDRA_THREAT_SIGNING_KEY" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Threat-pack publishing skipped: HYDRA_THREAT_SIGNING_KEY is not configured."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Publicar en la rama threat-pack
+      - name: Create pack and verify signing key
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          HYDRA_THREAT_SIGNING_KEY: ${{ secrets.HYDRA_THREAT_SIGNING_KEY }}
+          HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
+          THREATFOX_AUTH_KEY: ${{ secrets.THREATFOX_AUTH_KEY }}
+          URLHAUS_AUTH_KEY: ${{ secrets.URLHAUS_AUTH_KEY }}
+          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+        shell: bash
         run: |
-          git config user.name  "hydra-threat-bot"
-          git config user.email "hydra-threat-bot@users.noreply.github.com"
-          git checkout --orphan threat-pack-new
-          git rm -rf --cached . >/dev/null 2>&1 || true
-          find . -mindepth 1 -maxdepth 1 ! -name out ! -name .git -exec rm -rf {} +
-          mv out/hydra_threat_pack.json ./hydra_threat_pack.json
-          rmdir out
-          git add hydra_threat_pack.json
-          git commit -m "threat pack $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push --force origin threat-pack-new:threat-pack
+          set -euo pipefail
+          key_file="$RUNNER_TEMP/hydra-threat-signing-key.pem"
+          printf '%s\n' "$HYDRA_THREAT_SIGNING_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          openssl ec -in "$key_file" -check -noout
+
+          actual_public="$(openssl ec -in "$key_file" -pubout -outform DER 2>/dev/null | base64 --wrap=0)"
+          expected_public="$HYDRA_THREAT_PUBLIC_KEY"
+          if [[ -z "$expected_public" ]]; then
+            expected_public="$(sed -n 's/.*cfg("HYDRA_THREAT_PUBLIC_KEY", "\([^"]*\)").*/\1/p' app/build.gradle.kts | head -n1)"
+            if [[ -z "$expected_public" ]]; then
+              echo "Could not read the default threat public key from app/build.gradle.kts." >&2
+              exit 1
+            fi
+          fi
+          if [[ "$actual_public" != "$expected_public" ]]; then
+            echo "The private signing key does not match the public key compiled into Hydra." >&2
+            echo "Set vars.HYDRA_THREAT_PUBLIC_KEY to the matching public key and build the app with the same value." >&2
+            exit 1
+          fi
+
+          python tools/build_hydra_threat_pack.py \
+            --output "$RUNNER_TEMP/hydra_threat_pack.json" \
+            --private-key "$key_file" \
+            --feodo --urlhaus-api --threatfox-api \
+            --yara app/src/main/assets/hydra_threat_seed.yar \
+            --min-indicators 10 \
+            --expires-days 14
+          python tools/verify_threat_pack.py "$RUNNER_TEMP/hydra_threat_pack.json" --key "$expected_public"
+
+      - name: Publish pack to threat-pack branch
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          publish_dir="$RUNNER_TEMP/threat-pack-branch"
+          if git ls-remote --exit-code "$remote" refs/heads/threat-pack >/dev/null 2>&1; then
+            git clone --depth 1 --branch threat-pack "$remote" "$publish_dir"
+          else
+            mkdir -p "$publish_dir"
+            git -C "$publish_dir" init --initial-branch=threat-pack
+            git -C "$publish_dir" remote add origin "$remote"
+          fi
+          cp "$RUNNER_TEMP/hydra_threat_pack.json" "$publish_dir/hydra_threat_pack.json"
+          git -C "$publish_dir" config user.name "github-actions[bot]"
+          git -C "$publish_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$publish_dir" add hydra_threat_pack.json
+          if git -C "$publish_dir" diff --cached --quiet; then
+            echo "Threat pack is unchanged; nothing to publish."
+            exit 0
+          fi
+          git -C "$publish_dir" commit -m "Update signed threat pack"
+          git -C "$publish_dir" push origin HEAD:refs/heads/threat-pack

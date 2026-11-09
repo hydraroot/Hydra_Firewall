@@ -2,7 +2,7 @@
 
 ## Requirements
 - JDK 17
-- Android SDK with platform 35 (Android Studio installs it)
+- Android SDK with platform 36 (Android Studio installs it)
 - A phone with Android 7.0+ and USB debugging (to install with `adb`), or transfer the APK by hand
 
 ## 1. Quick test (debug APK)

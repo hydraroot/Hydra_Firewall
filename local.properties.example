@@ -22,5 +22,5 @@ sdk.dir=/ruta/al/Android/Sdk
 #HYDRA_THREAT_PUBLIC_KEY=
 
 # --- ID de la app (opcional) ---
-# Por defecto: com.hydraroot.firewall. Si lo cambiás, Android la trata como otra app distinta.
-#HYDRA_APPLICATION_ID=com.hydraroot.firewall
+# El applicationId de esta versión está fijado en app/build.gradle.kts: com.hydra.firewall.
+# No lo cambies en una actualización: Android lo trataría como otra aplicación.
