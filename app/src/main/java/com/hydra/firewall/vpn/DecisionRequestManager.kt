@@ -159,16 +159,6 @@ object DecisionRequestManager {
         onDecision: (Boolean, Boolean) -> Unit
     ): Boolean {
         if (uid == Process.INVALID_UID) return false
-        // During the controlled self-test HYDRA temporarily includes its own UID
-        // inside the VPN. That traffic must never create a user-facing prompt,
-        // even if a packet arrives during the restart race before RuleEngine
-        // observes liveTestMode.
-        if (FirewallVpnService.liveTestMode && uid == Process.myUid()) {
-            DiagnosticLogger.logServiceEvent(
-                "ACCESS_PROMPT_SUPPRESSED_SELF_TEST_UID uid=$uid pkg=${packageName ?: "unknown"}"
-            )
-            return false
-        }
         // Never create a user prompt for Android/system/root identities.
         // The first-connection UI is only meaningful for real application UIDs.
         if (uid < Process.FIRST_APPLICATION_UID) {

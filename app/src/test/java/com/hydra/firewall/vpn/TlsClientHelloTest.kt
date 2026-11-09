@@ -8,18 +8,10 @@ import org.junit.Test
 
 class TlsClientHelloTest {
     @Test
-    fun parsesSniCiphersExtensionsGroupsAlpnAndVersions() {
+    fun parsesSni() {
         val raw = WireBuilders.clientHello()
         val info = TlsClientHello.tryParse(raw)!!
         assertEquals("example.com", info.sni)
-        assertEquals(0x0303, info.handshakeVersion)
-        assertEquals(0x0301, info.recordVersion)
-        assertEquals(listOf(0xC02F, 0x1301), info.cipherSuites)
-        assertEquals(listOf(0x0000, 0x000A, 0x000B, 0x0010, 0x002B), info.extensions)
-        assertEquals(listOf(29, 23, 24), info.ellipticCurves)
-        assertEquals(listOf(0), info.ecPointFormats)
-        assertEquals(listOf("h2", "http/1.1"), info.alpn)
-        assertEquals(listOf(0x0304, 0x0303), info.supportedVersions)
         assertEquals(raw.size, info.bytesConsumed)
     }
 
@@ -27,7 +19,6 @@ class TlsClientHelloTest {
     fun helloWithoutSniStillParses() {
         val info = TlsClientHello.tryParse(WireBuilders.clientHello(WireBuilders.Hello(sni = null)))!!
         assertNull(info.sni)
-        assertFalse(info.extensions.contains(0))
     }
 
     @Test

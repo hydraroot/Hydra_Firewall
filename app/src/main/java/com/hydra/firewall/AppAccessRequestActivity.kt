@@ -549,11 +549,6 @@ private fun PromptCustomProtectionChecklist(
         profile.quicProtection
     ) { profile.copy(quicProtection = it) }
     row(
-        if (english) "TLS fingerprint protection" else "Protección por huella TLS",
-        if (english) "Enforce the optional JA3/JA3N known-bad list." else "Aplica la lista opcional de huellas JA3/JA3N conocidas.",
-        profile.tlsFingerprint
-    ) { profile.copy(tlsFingerprint = it) }
-    row(
         if (english) "Known-threat protection" else "Protección contra amenazas conocidas",
         if (english) "Block confirmed threat IPs and domains." else "Bloquea IP y dominios de amenazas confirmadas.",
         profile.threatProtection

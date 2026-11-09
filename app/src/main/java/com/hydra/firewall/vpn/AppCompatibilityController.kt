@@ -23,8 +23,7 @@ object AppCompatibilityController {
         // remain in an in-VPN essential state while it is outside the VPN.
         when (mode) {
             AppCompatibilityMode.EXCLUDED -> uid?.let { essentialStore.setUserEssential(it, false) }
-            AppCompatibilityMode.ESSENTIAL,
-            AppCompatibilityMode.ESSENTIAL_COMPAT -> uid?.let { essentialStore.setUserEssential(it, true) }
+            AppCompatibilityMode.ESSENTIAL -> uid?.let { essentialStore.setUserEssential(it, true) }
             AppCompatibilityMode.CUSTOM,
             AppCompatibilityMode.NORMAL -> {
                 // NORMAL is the explicit state used when leaving SIN FIREWALL
@@ -43,7 +42,7 @@ object AppCompatibilityController {
         // ESSENTIAL normally stays inside the existing TUN. If we are leaving
         // EXCLUDED, however, the app must be re-added to the VPN, so force the
         // same controlled Builder rebuild used for SIN FIREWALL changes.
-        if (mode == AppCompatibilityMode.ESSENTIAL || mode == AppCompatibilityMode.ESSENTIAL_COMPAT) {
+        if (mode == AppCompatibilityMode.ESSENTIAL) {
             if (previousMode == AppCompatibilityMode.EXCLUDED) {
                 // The app was outside the TUN; rebuild the Builder so it is
                 // actually re-included before returning to an in-VPN mode.

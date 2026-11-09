@@ -15,9 +15,6 @@ object SecurityRiskEngine {
         exportedUnprotectedNonActivityComponents: Int = exportedUnprotectedComponents,
         cleartextTrafficAllowed: Boolean = false,
         hasNetworkSecurityConfig: Boolean = false,
-        webViewReferences: Int = 0,
-        javascriptInterfaceReferences: Int = 0,
-        suspiciousUrlReferences: Int = 0,
         suspiciousNativeLibraries: Int = 0,
         threatMatches: List<ThreatSignatureMatch> = emptyList()
     ): SecurityRisk {
@@ -62,9 +59,6 @@ object SecurityRiskEngine {
         }
         if (cleartextTrafficAllowed) add("CLEARTEXT", "Cleartext traffic allowed", "The application permits HTTP/other cleartext traffic.", Severity.MEDIUM, 8)
         if (hasNetworkSecurityConfig) add("NSC", "Network security configuration", "A custom Network Security Configuration is present and should be reviewed.", Severity.INFO, 0)
-        if (webViewReferences > 0) add("WEBVIEW", "WebView detected", "$webViewReferences static WebView references were found.", Severity.LOW, 1)
-        if (javascriptInterfaceReferences > 0) add("JS_BRIDGE", "JavaScript interface reference", "$javascriptInterfaceReferences static addJavascriptInterface references were found; review WebView bridges.", Severity.HIGH, 10)
-        if (suspiciousUrlReferences > 0) add("URLS", "Embedded network endpoints", "$suspiciousUrlReferences static URL/reference strings were found.", Severity.LOW, 1)
         if (nativeLibraries > 0) add("NATIVE", "Native code", "$nativeLibraries native-library entries found.", Severity.LOW, 1)
         if (suspiciousNativeLibraries > 0) add("NATIVE_HINT", "Native library security hints", "$suspiciousNativeLibraries native library names matched a security-sensitive heuristic and require review.", Severity.MEDIUM, suspiciousNativeLibraries.coerceAtMost(4) * 2)
         if (dexFiles > 3) add("DEX", "Many DEX files", "$dexFiles DEX files found.", Severity.LOW, 1)
@@ -97,10 +91,6 @@ object SecurityRiskEngine {
             add("ADMIN_INSTALL_COMBO", "Admin + installer", "Device-admin and package-install capabilities are combined.", Severity.CRITICAL, 20)
         if (nativeLibraries > 0 && debuggable)
             add("NATIVE_DEBUG_COMBO", "Native + debuggable", "Native code is present in a debuggable package.", Severity.MEDIUM, 4)
-        if (javascriptInterfaceReferences > 0 && cleartextTrafficAllowed)
-            add("WEBVIEW_CLEARTEXT", "WebView + cleartext", "A JavaScript bridge reference appears together with cleartext traffic capability.", Severity.HIGH, 10)
-        if (exportedUnprotectedNonActivityComponents > 0 && javascriptInterfaceReferences > 0)
-            add("IPC_WEBVIEW_COMBO", "Exported IPC + WebView bridge", "Exported non-activity components and JavaScript bridges together warrant manual review.", Severity.HIGH, 8)
 
         val score = out.sumOf { it.points }.coerceAtMost(100)
         val level = when {

@@ -1,7 +1,6 @@
 package com.hydra.firewall.security
 
 import com.hydra.firewall.vpn.ConnectionHistory
-import com.hydra.firewall.vpn.TlsFingerprintStore
 import com.hydra.firewall.vpn.TrafficAnalyzerStore
 
 object BehaviorRiskAnalyzer {
@@ -11,24 +10,20 @@ object BehaviorRiskAnalyzer {
         val uniqueDestinations: Int,
         val dnsQueries: Int,
         val dnsBlocks: Int,
-        val tlsAlerts: Int,
         val unusualPorts: Int,
         val score: Int,
         val level: RiskLevel,
         val recentConnections: Int = 0,
-        val baselineNewDestinations: Int = 0,
+        val newDestinations: Int = 0,
         val aiScore: Int? = null,
         val aiLevel: RiskLevel? = null,
         val aiExplanation: String? = null,
         val privacyScore: Int? = null,
         val privacyLevel: RiskLevel? = null,
-        val privacyExplanation: String? = null,
-        val baselineScore: Int = 0,
-        val baselineExplanation: String = "",
-        val baselineSamples: Int = 0
+        val privacyExplanation: String? = null
     )
 
-    fun analyze(context: android.content.Context, events: List<TrafficAnalyzerStore.Event>, tls: List<TlsFingerprintStore.Seen>): List<AppBehavior> {
+    fun analyze(events: List<TrafficAnalyzerStore.Event>): List<AppBehavior> {
         val grouped = events.groupBy { it.packageName ?: "uid:${it.uid}" }
         val now = System.currentTimeMillis()
         val history = ConnectionHistory.snapshot()
@@ -37,12 +32,6 @@ object BehaviorRiskAnalyzer {
             val dest = list.map { it.destination.lowercase() }.toSet().size
             val dns = list.count { it.protocol == "DNS" }
             val dnsBlocks = list.count { it.kind == "DNS_BLOCK" }
-            val tlsAlerts = tls.asSequence()
-                .filter { (it.packageName ?: "uid:${it.uid}") == pkg && it.matchedBlocklist }
-                .map { it.ja3Hash.ifBlank { it.ja3nHash.ifBlank { it.hydraLiteHash } } }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .count()
             val unusual = list.count { isUnusualPort(it.port) }
             val sniBlocks = history.count {
                 (it.packageName ?: "uid:${it.uid}") == pkg &&
@@ -60,7 +49,7 @@ object BehaviorRiskAnalyzer {
             val diversityPoints = when { dest >= 100 -> 6; dest >= 30 -> 4; dest >= 10 -> 2; else -> 0 }
             val unusualPoints = (unusual.coerceAtMost(10) / 3) * 2
             val burstPoints = if (recent >= 100) 4 else if (recent >= 30) 2 else 0
-            val score = (volumePoints + diversityPoints + (dnsBlocks.coerceAtMost(4) * 3) + (tlsAlerts.coerceAtMost(3) * 15) + unusualPoints + newDestinations.coerceAtMost(10) + burstPoints).coerceAtMost(100)
+            val score = (volumePoints + diversityPoints + (dnsBlocks.coerceAtMost(4) * 3) + unusualPoints + newDestinations.coerceAtMost(10) + burstPoints).coerceAtMost(100)
             val level = when {
                 score >= 70 -> RiskLevel.CRITICAL
                 score >= 45 -> RiskLevel.HIGH
@@ -73,7 +62,7 @@ object BehaviorRiskAnalyzer {
                 uniqueDestinations = dest,
                 dnsQueries = dns,
                 dnsBlocks = dnsBlocks,
-                tlsAlerts = tlsAlerts,
+                tlsAlerts = 0, // el modelo conserva esta entrada; ya no hay huellas TLS
                 unusualPorts = unusual,
                 recentConnections = recent,
                 newDestinations = newDestinations,
@@ -91,41 +80,23 @@ object BehaviorRiskAnalyzer {
                     sniBlocks = sniBlocks
                 )
             )
-            val baseline = if (pkg.startsWith("uid:")) {
-                AppBehaviorBaselineStore.Comparison(0, "Sin paquete instalado asociado.", 0)
-            } else {
-                AppBehaviorBaselineStore.compare(context, pkg, AppBehaviorBaselineStore.Features(
-                    connections = list.size, uniqueDestinations = dest, dnsQueries = dns, recentConnections = recent,
-                    newDestinations = newDestinations, unusualPorts = unusual, sniBlocks = sniBlocks
-                ))
-            }
-            if (!pkg.startsWith("uid:")) {
-                AppBehaviorBaselineStore.observe(context, pkg, AppBehaviorBaselineStore.Features(
-                    connections = list.size, uniqueDestinations = dest, dnsQueries = dns, recentConnections = recent,
-                    newDestinations = newDestinations, unusualPorts = unusual, sniBlocks = sniBlocks
-                ))
-            }
             AppBehavior(
                 packageName = pkg,
                 connections = list.size,
                 uniqueDestinations = dest,
                 dnsQueries = dns,
                 dnsBlocks = dnsBlocks,
-                tlsAlerts = tlsAlerts,
                 unusualPorts = unusual,
                 score = score,
                 level = level,
                 recentConnections = recent,
-                baselineNewDestinations = newDestinations,
+                newDestinations = newDestinations,
                 aiScore = ai?.score,
                 aiLevel = ai?.level,
                 aiExplanation = ai?.explanation,
                 privacyScore = privacy?.score,
                 privacyLevel = privacy?.level,
-                privacyExplanation = privacy?.explanation,
-                baselineScore = baseline.score,
-                baselineExplanation = baseline.explanation,
-                baselineSamples = baseline.trainedSamples
+                privacyExplanation = privacy?.explanation
             )
         }.sortedByDescending { it.score }
     }

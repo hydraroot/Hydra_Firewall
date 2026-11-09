@@ -4,19 +4,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SecurityRiskEngineTest {
-    @Test fun cleartextAndJsBridgeIncreaseRisk() {
+    @Test fun cleartextIncreasesRisk() {
         val r = SecurityRiskEngine.evaluate(
             permissions = emptyList(),
             exportedComponents = 0, accessibilityServices = 0, deviceAdminReceivers = 0,
             hasOverlayPermission = false, canInstallPackages = false, debuggable = false,
             nativeLibraries = 0, dexFiles = 1,
             exportedUnprotectedComponents = 0,
-            cleartextTrafficAllowed = true, hasNetworkSecurityConfig = false,
-            webViewReferences = 2, javascriptInterfaceReferences = 1, suspiciousUrlReferences = 3
+            cleartextTrafficAllowed = true, hasNetworkSecurityConfig = false
         )
         assertTrue(r.indicators.any { it.code == "CLEARTEXT" })
-        assertTrue(r.indicators.any { it.code == "JS_BRIDGE" })
-        assertTrue(r.score >= 10)
+        assertTrue(r.score >= 8)
     }
 
     @Test fun exportedUnprotectedIsReported() {

@@ -569,7 +569,6 @@ private fun statusSection(
         val mh100kAi = runCatching { HydraMh100kApkAi.init(context); HydraMh100kApkAi.isLoaded() }.getOrDefault(false)
         val integrity = AppIntegrity.inspect(context)
         val notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
-        val adaptiveApps = AppBehaviorBaselineStore.trainedApps(context)
         val directBootPending = DirectBootState.pending(context)
         val lastConn = ConnectionHistory.snapshot().firstOrNull()
         val secondsSincePacket = if (FirewallVpnService.lastPacketAt > 0)
@@ -651,7 +650,6 @@ private fun statusSection(
         StatusRow(english, notificationsEnabled, "Avisos de amenazas graves disponibles", "High/critical threat alerts available")
         StatusRow(english, true, "Recuperación del servicio VPN", "VPN service recovery")
         StatusRow(english, !directBootPending, if (directBootPending) "Recuperación post-reinicio pendiente" else "Recuperación post-reinicio lista", if (directBootPending) "Post-reboot recovery pending" else "Post-reboot recovery ready")
-        StatusRow(english, adaptiveApps > 0, "Aprendizaje local de comportamiento (${adaptiveApps} apps)", "Local behavior learning (${adaptiveApps} apps)")
         if (ruleStore.threatProtectionEnabled) StatusRow(english, true, "Amenazas + publicidad", "Threats + ads")
         if (ruleStore.secureDnsEnabled) StatusRow(english, protection.dns, "DNS seguro (${ruleStore.dnsTransport.name})", "Secure DNS (${ruleStore.dnsTransport.name})")
         if (quarantineManager.enabled) StatusRow(english, true, "Cuarentena de apps nuevas", "New-app quarantine")
@@ -1483,14 +1481,14 @@ private fun behaviorSection(
         SectionCard {
             Text(if (english) "Behavior correlation" else "Correlación de comportamiento", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(
-                if (english) "Correlates metadata already collected by Hydra: connections, destinations, DNS blocks, unusual ports and known-bad TLS fingerprints. It never changes firewall decisions."
-                else "Correlaciona metadatos que Hydra ya recopila: conexiones, destinos, bloqueos DNS, puertos poco habituales y huellas TLS conocidas como malas. No modifica las decisiones del firewall.",
+                if (english) "Correlates metadata already collected by Hydra: connections, destinations, DNS blocks, unusual ports. It never changes firewall decisions."
+                else "Correlaciona metadatos que Hydra ya recopila: conexiones, destinos, bloqueos DNS, puertos poco habituales. No modifica las decisiones del firewall.",
                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         HydraAiEngine.init(context)
         HydraPrivacyAiEngine.init(context)
-        val behaviors = BehaviorRiskAnalyzer.analyze(context, TrafficAnalyzerStore.snapshot(), TlsFingerprintStore.snapshot()).take(30)
+        val behaviors = BehaviorRiskAnalyzer.analyze(TrafficAnalyzerStore.snapshot()).take(30)
         if (behaviors.isEmpty()) {
             Text(if (english) "No analyzer data yet. Enable the traffic analyzer and use the device normally." else "Todavía no hay datos. Activá el analizador de tráfico y usá el dispositivo normalmente.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -1503,8 +1501,8 @@ private fun behaviorSection(
                         fontSize = 10.sp
                     )
                     Text(
-                        if (english) "TLS alerts=${b.tlsAlerts} • unusual ports=${b.unusualPorts} • recent=${b.recentConnections} • new destinations=${b.baselineNewDestinations}"
-                        else "alertas TLS=${b.tlsAlerts} • puertos inusuales=${b.unusualPorts} • recientes=${b.recentConnections} • destinos nuevos=${b.baselineNewDestinations}",
+                        if (english) "unusual ports=${b.unusualPorts} • recent=${b.recentConnections} • new destinations=${b.newDestinations}"
+                        else "puertos inusuales=${b.unusualPorts} • recientes=${b.recentConnections} • destinos nuevos=${b.newDestinations}",
                         fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(if (english) "Why this score" else "Por qué este puntaje", fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
@@ -1524,10 +1522,9 @@ private fun behaviorSection(
                             add(if (english) "Destination diversity (+2)" else "Diversidad de destinos (+2)")
                         }
                         if (b.dnsBlocks > 0) add(if (english) "DNS blocks (${b.dnsBlocks})" else "Bloqueos DNS (${b.dnsBlocks})")
-                        if (b.tlsAlerts > 0) add(if (english) "Known-bad TLS fingerprint matches (${b.tlsAlerts})" else "Coincidencias con huellas TLS conocidas como peligrosas (${b.tlsAlerts})")
                         if (b.unusualPorts > 0) add(if (english) "Unusual ports (${b.unusualPorts})" else "Puertos inusuales (${b.unusualPorts})")
                         if (b.recentConnections >= 30) add(if (english) "Recent burst (${b.recentConnections} in 15 min)" else "Pico reciente (${b.recentConnections} en 15 min)")
-                        if (b.baselineNewDestinations > 0) add(if (english) "New destinations (${b.baselineNewDestinations})" else "Destinos nuevos (${b.baselineNewDestinations})")
+                        if (b.newDestinations > 0) add(if (english) "New destinations (${b.newDestinations})" else "Destinos nuevos (${b.newDestinations})")
                     }.take(5)
                     if (reasons.isEmpty()) Text(if (english) "No elevated indicators." else "No hay indicadores elevados.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     else reasons.forEach { Text("• $it", fontSize = 10.sp) }

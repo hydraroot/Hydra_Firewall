@@ -22,19 +22,8 @@ class ApkScanner(private val context: Context) {
         private const val MAX_ZIP_ENTRIES = 50_000
         private const val MAX_DECLARED_UNCOMPRESSED = 512L * 1024L * 1024L
         private const val MAX_SINGLE_ENTRY = 128L * 1024L * 1024L
-        private const val STATIC_SCAN_LIMIT_PER_DEX = 8L * 1024L * 1024L
-        private const val MAX_STATIC_SCAN_TOTAL = 32L * 1024L * 1024L
-        private const val MAX_SCAN_MILLIS = 8_000L
         private val DEX_NAME = Regex("""classes(\d*)?\.dex""")
         private val NATIVE_HINTS = setOf("frida", "xposed", "substrate", "riru", "zygisk", "magisk", "hook", "inject")
-        private val URL_HINT = Regex("""(?i)(https?|wss?|tcp|udp)://[^\u0000\s"'<>]+""")
-        private val STATIC_HINTS_LOWER by lazy { STATIC_HINTS.map { it to it.lowercase(Locale.ROOT) } }
-        private val STATIC_HINTS = listOf(
-            "WebView", "addJavascriptInterface", "setJavaScriptEnabled",
-            "setWebContentsDebuggingEnabled", "setAllowFileAccessFromFileURLs",
-            "setAllowUniversalAccessFromFileURLs", "DexClassLoader", "Runtime.exec",
-            "ProcessBuilder", "/system/xbin/su", "/system/bin/su", "AccessibilityService", "DeviceAdminReceiver"
-        )
     }
 
     fun scanUri(uri: Uri, displayName: String? = null): ApkScanReport {
@@ -125,13 +114,8 @@ class ApkScanner(private val context: Context) {
         var dex = 0
         var zipEntries = 0
         var declaredUncompressed = 0L
-        var staticBytesScanned = 0L
-        val scanStartedAt = System.currentTimeMillis()
         val splitHashes = linkedSetOf<String>()
         val staticHints = linkedSetOf<String>()
-        var urlRefs = 0
-        var webViewRefs = 0
-        var jsBridgeRefs = 0
         try {
             ZipFile(file).use { zip ->
                 val e = zip.entries()
@@ -154,19 +138,7 @@ class ApkScanner(private val context: Context) {
                             staticHints += "native:${entry.name.substringAfterLast('/')}"
                         }
                     }
-                    if (DEX_NAME.matches(entry.name)) {
-                        dex++
-                        val remaining = (MAX_STATIC_SCAN_TOTAL - staticBytesScanned).coerceAtLeast(0L)
-                        if (remaining > 0 && System.currentTimeMillis() - scanStartedAt < MAX_SCAN_MILLIS) {
-                            staticBytesScanned += scanDexStrings(zip, entry.name, remaining, scanStartedAt + MAX_SCAN_MILLIS) { text ->
-                                val lowerText = text.lowercase(Locale.ROOT)
-                                for ((hint, lowerHint) in STATIC_HINTS_LOWER) if (lowerText.contains(lowerHint)) staticHints += hint
-                                webViewRefs = (webViewRefs + countOccurrences(lowerText, "webview")).coerceAtMost(1000)
-                                jsBridgeRefs = (jsBridgeRefs + countOccurrences(lowerText, "addjavascriptinterface")).coerceAtMost(1000)
-                                urlRefs = (urlRefs + URL_HINT.findAll(text).count()).coerceAtMost(2000)
-                            }
-                        }
-                    }
+                    if (DEX_NAME.matches(entry.name)) dex++
                 }
             }
         } catch (e: Exception) {
@@ -191,19 +163,7 @@ class ApkScanner(private val context: Context) {
                                     staticHints += "native:${entry.name.substringAfterLast('/')}"
                                 }
                             }
-                            if (DEX_NAME.matches(entry.name)) {
-                                dex++
-                                val remaining = (MAX_STATIC_SCAN_TOTAL - staticBytesScanned).coerceAtLeast(0L)
-                                if (remaining > 0 && System.currentTimeMillis() - scanStartedAt < MAX_SCAN_MILLIS) {
-                                    staticBytesScanned += scanDexStrings(zip, entry.name, remaining, scanStartedAt + MAX_SCAN_MILLIS) { text ->
-                                        val lowerText = text.lowercase(Locale.ROOT)
-                                for ((hint, lowerHint) in STATIC_HINTS_LOWER) if (lowerText.contains(lowerHint)) staticHints += hint
-                                        webViewRefs = (webViewRefs + countOccurrences(lowerText, "webview")).coerceAtMost(1000)
-                                        jsBridgeRefs = (jsBridgeRefs + countOccurrences(lowerText, "addjavascriptinterface")).coerceAtMost(1000)
-                                        urlRefs = (urlRefs + URL_HINT.findAll(text).count()).coerceAtMost(2000)
-                                    }
-                                }
-                            }
+                            if (DEX_NAME.matches(entry.name)) dex++
                         }
                     }
                 } else {
@@ -265,7 +225,7 @@ class ApkScanner(private val context: Context) {
         val risk = SecurityRiskEngine.evaluate(
             permissions, exportedComponents, accessibility, deviceAdmin, hasOverlay, canInstall,
             debuggable, native, dex, exportedUnprotected, exportedUnprotectedNonActivity, cleartext, hasNsc,
-            webViewRefs, jsBridgeRefs, urlRefs, suspiciousNativeLibraries, threatMatches
+            suspiciousNativeLibraries, threatMatches
         )
         return ApkScanReport(
             sourceName = sourceName,
@@ -280,34 +240,12 @@ class ApkScanner(private val context: Context) {
             exportedComponents = exportedComponents, exportedUnprotectedNonActivityComponents = exportedUnprotectedNonActivity, accessibilityServices = accessibility, deviceAdminReceivers = deviceAdmin,
             hasOverlayPermission = hasOverlay, canInstallPackages = canInstall, debuggable = debuggable,
             nativeLibraries = native, dexFiles = dex, exportedUnprotectedComponents = exportedUnprotected,
-            cleartextTrafficAllowed = cleartext, hasNetworkSecurityConfig = hasNsc, webViewReferences = webViewRefs,
-            javascriptInterfaceReferences = jsBridgeRefs, suspiciousUrlReferences = urlRefs, installerPackageName = installerPackageName, firstInstallTime = appFirstInstallTime, lastUpdateTime = appLastUpdateTime,
+            cleartextTrafficAllowed = cleartext, hasNetworkSecurityConfig = hasNsc,
+            installerPackageName = installerPackageName, firstInstallTime = appFirstInstallTime, lastUpdateTime = appLastUpdateTime,
             staticSecurityHints = staticHints.toList(), apkSizeBytes = file.length(), zipEntryCount = zipEntries,
             threatMatches = threatMatches, mh100kAi = mh100kAi, risk = risk, errors = errors
         )
     }
-
-    private fun scanDexStrings(zip: ZipFile, name: String, maxBytes: Long, deadlineMs: Long, consumer: (String) -> Unit): Long {
-        val entry = zip.getEntry(name) ?: return 0L
-        val limit = minOf(STATIC_SCAN_LIMIT_PER_DEX, maxBytes)
-        var total = 0L
-        zip.getInputStream(entry).use { input ->
-            val out = ByteArray(64 * 1024)
-            var carry = ""
-            while (total < limit && System.currentTimeMillis() < deadlineMs) {
-                val wanted = minOf(out.size.toLong(), limit - total).toInt()
-                val n = input.read(out, 0, wanted)
-                if (n <= 0) break
-                total += n
-                val text = carry + String(out, 0, n, StandardCharsets.UTF_8)
-                consumer(text)
-                carry = text.takeLast(256)
-                if (System.currentTimeMillis() % 250L == 0L) Thread.yield()
-            }
-        }
-        return total
-    }
-
 
     /**
      * Android does not expose the manifest networkSecurityConfig resource id as a public
@@ -347,20 +285,6 @@ class ApkScanner(private val context: Context) {
             return true
         }
         return false
-    }
-
-    private fun countOccurrences(text: String, needle: String): Int {
-        if (needle.isEmpty()) return 0
-        var count = 0
-        var at = 0
-        while (true) {
-            val i = text.indexOf(needle, at)
-            if (i < 0) break
-            count++
-            at = i + needle.length
-            if (count >= 1000) break
-        }
-        return count
     }
 
     private fun packageNameIsInstalled(pm: PackageManager, packageName: String): Boolean = runCatching {

@@ -45,8 +45,6 @@ class FirewallVpnService : VpnService() {
         const val ACTION_STOP = "com.hydra.firewall.action.STOP"
         const val ACTION_RULES_CHANGED = "com.hydra.firewall.action.RULES_CHANGED"
         const val ACTION_COMPATIBILITY_CHANGED = "com.hydra.firewall.action.COMPATIBILITY_CHANGED"
-        const val ACTION_LIVE_TEST_MODE = "com.hydra.firewall.action.LIVE_TEST_MODE"
-        private const val EXTRA_LIVE_TEST_ENABLED = "live_test_enabled"
 
 
         const val VPN_ADDRESS = "10.0.0.2"
@@ -73,31 +71,6 @@ class FirewallVpnService : VpnService() {
         @Volatile
         var configuredDnsServers: List<String> = emptyList()
             private set
-
-        @Volatile
-        var liveTestMode: Boolean = false
-            private set
-
-
-        /**
-         * Requests a controlled in-place VPN restart with HYDRA's own package
-         * either included in the tunnel (enabled=true) or excluded again
-         * (enabled=false). The request is handled by FirewallVpnService itself
-         * so the stop/start sequence cannot race with stopSelf()/onDestroy().
-         */
-        fun setLiveTestMode(context: Context, enabled: Boolean) {
-            if (liveTestMode == enabled && isRunning) return
-            val appContext = context.applicationContext
-            val intent = Intent(appContext, FirewallVpnService::class.java).apply {
-                action = ACTION_LIVE_TEST_MODE
-                putExtra(EXTRA_LIVE_TEST_ENABLED, enabled)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                appContext.startForegroundService(intent)
-            } else {
-                appContext.startService(intent)
-            }
-        }
 
         @Volatile
         var currentRoaming: Boolean = false
@@ -178,7 +151,6 @@ class FirewallVpnService : VpnService() {
             ThreatSignatureUpdater.updateIfDue(this)
             runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
         }
-        TlsFingerprintStore.init(this)
         AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)
         quarantineManager = QuarantineManager(this)
@@ -230,28 +202,6 @@ class FirewallVpnService : VpnService() {
                 }
                 startVpn()
                 DiagnosticLogger.logServiceEvent("COMPATIBILITY_RESTART_READY package=$pkg mode=$mode running=${isRunning}")
-                START_STICKY
-            }
-            ACTION_LIVE_TEST_MODE -> {
-                val enabled = intent?.getBooleanExtra(EXTRA_LIVE_TEST_ENABLED, false) ?: false
-                DiagnosticLogger.logServiceEvent("LIVE_TEST_REQUEST enabled=$enabled running=${isRunning}")
-                if (enabled) {
-                    // Remove any stale prompt that may have been queued for HYDRA
-                    // itself just before the controlled VPN restart.
-                    DecisionRequestManager.cancelUid(Process.myUid())
-                }
-                liveTestMode = enabled
-                // Keep the desired state ON for the controlled restart. Do not
-                // call the old ACTION_STOP/ACTION_START pair: stopVpn() used
-                // to call stopSelf(), which could race with the queued restart
-                // and leave the live test waiting forever.
-                setDesiredRunning(true)
-                if (running.get()) {
-                    DiagnosticLogger.logServiceEvent("LIVE_TEST_RESTART_BEGIN enabled=$enabled")
-                    stopVpn(stopService = false)
-                }
-                startVpn()
-                DiagnosticLogger.logServiceEvent("LIVE_TEST_RESTART_READY enabled=$enabled running=${isRunning}")
                 START_STICKY
             }
             else -> {
@@ -367,14 +317,10 @@ class FirewallVpnService : VpnService() {
             }
         }
 
-        if (!liveTestMode) {
-            try {
-                builder.addDisallowedApplication(packageName)
-            } catch (e: PackageManager.NameNotFoundException) {
-                Log.w(TAG, "No se pudo excluir el propio package del túnel", e)
-            }
-        } else {
-            DiagnosticLogger.logServiceEvent("LIVE_TEST_MODE package incluido en el tunel para autoprueba")
+        try {
+            builder.addDisallowedApplication(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.w(TAG, "No se pudo excluir el propio package del túnel", e)
         }
 
         // Compatibility EXCLUDED mode: these apps are really kept outside the

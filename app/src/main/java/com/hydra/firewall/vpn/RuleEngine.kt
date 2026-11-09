@@ -21,7 +21,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     private val ipBlockStore = IpBlockStore(appContext)
     private val advancedRuleStore = AdvancedRuleStore(appContext)
     private val essentialAppsStore = EssentialAppsStore(appContext)
-    private val trustedAppsStore = TrustedAppsStore(appContext)
     private val customProtectionStore = CustomProtectionProfileStore(appContext)
     private val promptSuppressionLogged = ConcurrentHashMap.newKeySet<Int>()
 
@@ -52,19 +51,8 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         return false
     }
 
-    /** True only for the opt-in diagnostic mode that relaxes optional domain/QUIC filtering. */
-    fun isCompatibilityDiagnostic(uid: Int, packageName: String? = null): Boolean {
-        if (AppCompatibilityPolicyStore.getMode(packageName) == AppCompatibilityMode.ESSENTIAL_COMPAT) return true
-        if (uid != Process.INVALID_UID) {
-            val packages = runCatching { appContext.packageManager.getPackagesForUid(uid) }.getOrNull().orEmpty()
-            if (packages.any { AppCompatibilityPolicyStore.getMode(it) == AppCompatibilityMode.ESSENTIAL_COMPAT }) return true
-        }
-        return false
-    }
-
     fun shouldBypassOptionalDomainFilter(uid: Int, packageName: String? = null): Boolean =
         (customProtectionForUid(uid, packageName)?.adTrackerBlocklist == false) ||
-            isCompatibilityDiagnostic(uid, packageName) ||
             isFullConnectivityAllowed(uid, currentNetwork) ||
             isUserEssential(uid)
 
@@ -78,25 +66,18 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         if (essentialAppsStore.isUserEssential(uid)) return true
         val packages = runCatching { appContext.packageManager.getPackagesForUid(uid) }.getOrNull().orEmpty()
         return packages.any { pkg ->
-            val mode = AppCompatibilityPolicyStore.getMode(pkg)
-            mode == AppCompatibilityMode.ESSENTIAL || mode == AppCompatibilityMode.ESSENTIAL_COMPAT
+            AppCompatibilityPolicyStore.getMode(pkg) == AppCompatibilityMode.ESSENTIAL
         }
     }
 
     /**
      * Fully allowed apps keep the firewall/Threat-Intel layer, but optional
      * compatibility filters must not break their connectivity. This includes
-     * Hydra Secure DNS interception, normal ad/tracker blocklists and optional
-     * TLS fingerprint blocking.
+     * Hydra Secure DNS interception, normal ad/tracker blocklists.
      */
     fun shouldBypassSecureDns(uid: Int, packageName: String?): Boolean =
         (customProtectionForUid(uid, packageName)?.secureDns == false) ||
             isFullConnectivityAllowed(uid, currentNetwork) ||
-            isProtectedCompatibility(uid, packageName)
-
-    fun shouldBypassOptionalTlsFilter(uid: Int, packageName: String?, network: NetworkKind = currentNetwork): Boolean =
-        (customProtectionForUid(uid, packageName)?.tlsFingerprint == false) ||
-            isFullConnectivityAllowed(uid, network) ||
             isProtectedCompatibility(uid, packageName)
 
     fun isCustomProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
@@ -107,9 +88,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
 
     fun isQuicProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
         customProtectionForUid(uid, packageName)?.quicProtection ?: true
-
-    fun isTlsFingerprintProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
-        customProtectionForUid(uid, packageName)?.tlsFingerprint ?: true
 
     fun isThreatProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
         customProtectionForUid(uid, packageName)?.threatProtection ?: true
@@ -273,12 +251,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
             DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCHEDULE")
             return Decision.BLOCK
         }
-        // The optional live self-test intentionally includes HYDRA itself in
-        // the VPN. Permit only HYDRA's own UID during that short-lived mode so
-        // the test does not get stuck waiting for its own first-connection UI.
-        if (FirewallVpnService.liveTestMode && uid == Process.myUid()) {
-            return Decision.ALLOW
-        }
         // Essential mode keeps the app inside HYDRA while allowing normal network
         // connectivity when no explicit Wi-Fi/Mobile rule exists. Explicit user
         // blocks, schedules, advanced rules and confirmed security controls remain
@@ -292,12 +264,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
             return Decision.BLOCK
         }
         // Ordinary applications do not bypass the first-connection prompt.
-        // Optional trusted-source auto-allow is explicitly controlled by the
-        // user-facing "Apps de confianza" switch and is OFF by default.
-        if (!store.hasExplicitRule(uid) && trustedAppsStore.isAutoTrusted(uid)) {
-            DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=ALLOW reason=TRUSTED_APP network=${network.displayName} pkg=${packageNameForUid(uid) ?: "unknown"}")
-            return Decision.ALLOW
-        }
         val temporary = store.getTemporaryRule(uid)
         if (temporary != null) {
             return when (network) {
@@ -376,10 +342,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
             logPromptSuppressionOnce(uid, "ESSENTIAL")
             return false
         }
-        if (trustedAppsStore.isAutoTrusted(uid)) {
-            logPromptSuppressionOnce(uid, "TRUSTED_APP")
-            return false
-        }
         val pkg = packageNameForUid(uid)
         if (pkg.isNullOrBlank()) {
             logPromptSuppressionOnce(uid, "PACKAGE_NOT_FOUND")
@@ -403,7 +365,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         if (isUserEssential(uid) && !store.hasExplicitRule(uid)) {
             return network != NetworkKind.NONE
         }
-        if (trustedAppsStore.isAutoTrusted(uid) && !store.hasExplicitRule(uid)) return true
 
         val temporary = store.getTemporaryRule(uid)
         if (temporary != null) {

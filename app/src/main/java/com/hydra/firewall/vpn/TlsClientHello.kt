@@ -18,15 +18,7 @@ import java.nio.ByteOrder
 object TlsClientHello {
 
     data class Info(
-        val recordVersion: Int,
-        val handshakeVersion: Int,
         val sni: String?,
-        val cipherSuites: List<Int>,
-        val extensions: List<Int>,
-        val ellipticCurves: List<Int>,
-        val ecPointFormats: List<Int>,
-        val alpn: List<String>,
-        val supportedVersions: List<Int>,
         val bytesConsumed: Int
     )
 
@@ -58,7 +50,7 @@ object TlsClientHello {
         val bb = ByteBuffer.wrap(buf).order(ByteOrder.BIG_ENDIAN)
         val contentType = bb.get().toInt() and 0xFF
         if (contentType != CONTENT_TYPE_HANDSHAKE) return null
-        val recordVersion = (bb.get().toInt() and 0xFF shl 8) or (bb.get().toInt() and 0xFF)
+        bb.position(bb.position() + 2) // record version
         val recordLen = bb.short.toInt() and 0xFFFF
         if (buf.size < 5 + recordLen) return null // incomplete record, caller should buffer more
 
@@ -68,7 +60,7 @@ object TlsClientHello {
         val hsLen = ((bb.get().toInt() and 0xFF) shl 16) or ((bb.get().toInt() and 0xFF) shl 8) or (bb.get().toInt() and 0xFF)
         if (bb.remaining() < hsLen) return null
 
-        val handshakeVersion = (bb.get().toInt() and 0xFF shl 8) or (bb.get().toInt() and 0xFF)
+        bb.position(bb.position() + 2) // client_version
         // random: 32 bytes
         if (bb.remaining() < 32) return null
         bb.position(bb.position() + 32)
@@ -83,12 +75,7 @@ object TlsClientHello {
         if (bb.remaining() < 2) return null
         val cipherSuitesLen = bb.short.toInt() and 0xFFFF
         if (bb.remaining() < cipherSuitesLen || cipherSuitesLen % 2 != 0) return null
-        val cipherSuites = ArrayList<Int>(cipherSuitesLen / 2)
-        var read = 0
-        while (read < cipherSuitesLen) {
-            cipherSuites.add(bb.short.toInt() and 0xFFFF)
-            read += 2
-        }
+        bb.position(bb.position() + cipherSuitesLen)
 
         // compression methods
         if (bb.remaining() < 1) return null
@@ -97,11 +84,6 @@ object TlsClientHello {
         bb.position(bb.position() + compLen)
 
         var sni: String? = null
-        val extensionIds = ArrayList<Int>()
-        val curves = ArrayList<Int>()
-        val ecPointFormats = ArrayList<Int>()
-        val alpn = ArrayList<String>()
-        val supportedVersions = ArrayList<Int>()
 
         if (bb.remaining() >= 2) {
             val extTotalLen = bb.short.toInt() and 0xFFFF
@@ -111,40 +93,12 @@ object TlsClientHello {
                 val extLen = bb.short.toInt() and 0xFFFF
                 val extStart = bb.position()
                 if (extStart + extLen > extEnd) break
-                extensionIds.add(extType)
-                when (extType) {
-                    0x0000 -> { // server_name
-                        sni = parseSni(bb, extStart, extLen)
-                    }
-                    0x000A -> { // supported_groups / elliptic_curves
-                        curves.addAll(parseUShortList(bb, extStart, extLen, skipHeaderBytes = 2))
-                    }
-                    0x000B -> { // ec_point_formats (length-prefixed by 1 byte, not 2)
-                        ecPointFormats.addAll(parseUByteList(bb, extStart, extLen, skipHeaderBytes = 1))
-                    }
-                    0x0010 -> { // ALPN
-                        alpn.addAll(parseAlpn(bb, extStart, extLen))
-                    }
-                    0x002B -> { // supported_versions
-                        supportedVersions.addAll(parseUByteVersionList(bb, extStart, extLen))
-                    }
-                }
+                if (extType == 0x0000) sni = parseSni(bb, extStart, extLen) // server_name
                 bb.position(extStart + extLen)
             }
         }
 
-        return Info(
-            recordVersion = recordVersion,
-            handshakeVersion = handshakeVersion,
-            sni = sni,
-            cipherSuites = cipherSuites,
-            extensions = extensionIds,
-            ellipticCurves = curves,
-            ecPointFormats = ecPointFormats,
-            alpn = alpn,
-            supportedVersions = supportedVersions,
-            bytesConsumed = 5 + recordLen
-        )
+        return Info(sni = sni, bytesConsumed = 5 + recordLen)
     }
 
     private fun parseSni(bb: ByteBuffer, extStart: Int, extLen: Int): String? {
@@ -158,56 +112,5 @@ object TlsClientHello {
         val bytes = ByteArray(nameLen)
         for (i in 0 until nameLen) bytes[i] = bb.get(extStart + 5 + i)
         return String(bytes, Charsets.US_ASCII).lowercase().trim().takeIf { it.isNotEmpty() && it.all { c -> c.code in 0x20..0x7E } }
-    }
-
-    private fun parseUShortList(bb: ByteBuffer, extStart: Int, extLen: Int, skipHeaderBytes: Int): List<Int> {
-        val out = ArrayList<Int>()
-        var pos = extStart + skipHeaderBytes
-        val end = extStart + extLen
-        while (pos + 2 <= end) {
-            out.add(((bb.get(pos).toInt() and 0xFF) shl 8) or (bb.get(pos + 1).toInt() and 0xFF))
-            pos += 2
-        }
-        return out
-    }
-
-    private fun parseUByteList(bb: ByteBuffer, extStart: Int, extLen: Int, skipHeaderBytes: Int): List<Int> {
-        val out = ArrayList<Int>()
-        var pos = extStart + skipHeaderBytes
-        val end = extStart + extLen
-        while (pos < end) {
-            out.add(bb.get(pos).toInt() and 0xFF)
-            pos += 1
-        }
-        return out
-    }
-
-    private fun parseUByteVersionList(bb: ByteBuffer, extStart: Int, extLen: Int): List<Int> {
-        if (extLen < 1) return emptyList()
-        val out = ArrayList<Int>()
-        var pos = extStart + 1
-        val end = extStart + extLen
-        while (pos + 2 <= end) {
-            out.add(((bb.get(pos).toInt() and 0xFF) shl 8) or (bb.get(pos + 1).toInt() and 0xFF))
-            pos += 2
-        }
-        return out
-    }
-
-    private fun parseAlpn(bb: ByteBuffer, extStart: Int, extLen: Int): List<String> {
-        if (extLen < 2) return emptyList()
-        val out = ArrayList<String>()
-        var pos = extStart + 2
-        val end = extStart + extLen
-        while (pos < end) {
-            val len = bb.get(pos).toInt() and 0xFF
-            pos += 1
-            if (pos + len > end) break
-            val bytes = ByteArray(len)
-            for (i in 0 until len) bytes[i] = bb.get(pos + i)
-            out.add(String(bytes, Charsets.US_ASCII))
-            pos += len
-        }
-        return out
     }
 }

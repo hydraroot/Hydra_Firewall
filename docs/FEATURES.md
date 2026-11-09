@@ -7,7 +7,7 @@ cannot do. For a short overview see the [README](../README.md); for the internal
 **Contents**
 1. [Rules: who may connect](#1-rules-who-may-connect)
 2. [First-connection prompt](#2-first-connection-prompt)
-3. [Quarantine and trusted apps](#3-quarantine-and-trusted-apps)
+3. [Quarantine](#3-quarantine)
 4. [Network filtering](#4-network-filtering)
 5. [Threat intelligence](#5-threat-intelligence)
 6. [Security Engine](#6-security-engine)
@@ -76,10 +76,9 @@ firewall, Personalized, the Wi‑Fi/mobile switches and *Details*). Advanced mod
 Wi‑Fi and mobile start ON when you allow. Turn the prompt off with *Ask on first connection* in Settings
 (new apps then follow the global default).
 
-## 3. Quarantine and trusted apps
+## 3. Quarantine
 
 - **New-app quarantine** (optional, off by default; *Security → Quarantine*). When enabled, newly installed apps are held in a network quarantine until you review them. It is a network control only — Hydra never silently uninstalls or modifies an APK, and apps that already exist are not retroactively quarantined.
-- **Trusted apps** (optional, off by default). Apps from trusted sources can be allowed automatically; with it off, every new app asks.
 - **System-app safety labels.** Before you block a system app, Hydra labels it **high risk** (known critical components such as the system UI, settings, telephony, Google Play services), **caution** (providers, connectivity components) or **undetermined**. Hydra never claims a package is safe to block just because it is a system app. See [`reference/SYSTEM_APP_SAFETY.md`](reference/SYSTEM_APP_SAFETY.md) (Spanish).
 
 ## 4. Network filtering
@@ -166,8 +165,7 @@ more. It is a signal, not a verdict — legitimate apps can have all of these.
 ### Behavior engine
 Correlates metadata Hydra already collects — connections, destinations, DNS activity, DNS blocks, unusual
 ports — into a per-app behavior score. It does not inspect encrypted payloads
-and does not change firewall decisions by itself. *Local behavior learning* builds a per-app traffic
-baseline on the phone (it needs **traffic recording enabled in the Analyzer tab**, which is off by default).
+and does not change firewall decisions by itself.
 
 ### On-device models
 - A compact model trained from the **MH‑100K** Android malware dataset (CC BY 4.0).
@@ -188,8 +186,7 @@ notification and a card in Security.
 - **Analyzer** (Advanced): live traffic by app, DNS, blocked connections and destinations. *Learning analysis* only builds suggestions and never changes decisions.
 - **Statistics**: traffic totals over time, with allowed and blocked traffic counted separately.
 - **Usage insights**: per-app ranking for the session, today and the last 7 days, with flags such as "uploads more than it downloads". Stored only on the phone.
-- **Self-test** and **live test** (Advanced): synthetic checks of the VPN service, ICMP responder, DNS block response, `/proc/net` UID parsing, log file and real DNS/TCP through the tunnel.
-- **Diagnostic log** you can read through ADB.
+- **Diagnostic log** you can read through ADB on debug builds only; release builds do not write one.
 
 ## 8. Configuration, profiles and backup
 

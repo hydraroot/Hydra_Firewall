@@ -103,7 +103,7 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 - **Motor de comportamiento**: correlaciona conexiones, DNS y bloqueos en un puntaje de comportamiento por app, usando solo metadatos que Hydra ya ve.
 - **Modelos en el dispositivo** (uno pequeño entrenado con MH‑100K y dos modelos heurísticos livianos) usados solo como *señales secundarias* que avisan: nunca bloquean por sí solos. Ver [Qué hace la IA incorporada](#qué-hace-la-ia-incorporada).
 - **Etiquetas de seguridad de apps del sistema** (riesgo alto / precaución / indeterminado) antes de bloquear un componente del sistema.
-- **Autotest y diagnóstico** para comprobar el manejo de DNS, SNI, TCP e ICMP en tu equipo.
+- **Diagnóstico** del estado de la VPN, DNS y reglas (el log detallado solo existe en builds de depuración).
 
 ### Proteger a Hydra misma
 - **PIN de 5 a 8 dígitos** (PBKDF2, 120.000 iteraciones) y desbloqueo con **huella**. Los intentos fallidos agregan esperas crecientes (de 15 s hasta 5 min) que sobreviven a reinicios y no se pueden acortar cambiando el reloj del teléfono. Los PIN de 4 dígitos creados por versiones anteriores siguen funcionando hasta que los cambies. `allowBackup=false`.
@@ -197,7 +197,7 @@ en la pestaña Analizador y reabrís el Centro de seguridad tras algo de uso rea
 3. Permití las notificaciones y excluí a Hydra de la optimización de batería (si no, Android puede detener el servicio).
 4. Usá el teléfono normalmente. Cada app que se conecta por primera vez muestra el **aviso de primera conexión**: elegí *Permitir* o *Bloquear* (tocá *Más opciones* para el resto).
 5. Abrí **REGLAS** para revisar los interruptores Wi‑Fi/datos por app, **CONEXIONES** para ver el historial y **SEGURIDAD** para el pack de amenazas y el escaneo de apps.
-6. Opcional: poné un **PIN** (5 a 8 dígitos), activá **VPN siempre activa** en los ajustes de Android, activá la **Cuarentena** si querés revisar las apps nuevas y corré el **Autotest** (modo Avanzado) para validar DNS/SNI/TCP en tu teléfono.
+6. Opcional: poné un **PIN** (5 a 8 dígitos), activá **VPN siempre activa** en los ajustes de Android, activá la **Cuarentena** si querés revisar las apps nuevas.
 
 Antes de reinstalar Hydra, usá **Exportar** (Ajustes/Perfiles) para guardar tu configuración y **Importar** después.
 

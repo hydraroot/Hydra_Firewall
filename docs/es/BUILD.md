@@ -67,6 +67,6 @@ Esta versión usa el ID de aplicación `com.hydra.firewall`, para coincidir con 
 ## Primer uso en el celular
 1. Abrí la app y aceptá el diálogo de VPN y el permiso de notificaciones.
 2. Excluí Hydra de la optimización de batería (si no, Android puede cerrar el servicio).
-3. Con "Apps de confianza" desactivado, las apps nuevas piden confirmación en su primera conexión.
-4. Probá primero con apps no críticas y usá **Autotest** para validar DNS/SNI/TCP.
+3. Las apps nuevas piden confirmación en su primera conexión.
+4. Probá primero con apps no críticas.
 5. No se puede usar otra VPN al mismo tiempo.

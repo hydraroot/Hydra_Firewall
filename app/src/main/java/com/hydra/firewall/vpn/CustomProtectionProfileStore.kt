@@ -12,7 +12,6 @@ class CustomProtectionProfileStore(context: Context) {
         val secureDns: Boolean = true,
         val tlsSniFilter: Boolean = true,
         val quicProtection: Boolean = true,
-        val tlsFingerprint: Boolean = true,
         val threatProtection: Boolean = true,
         val blockLocalNetwork: Boolean = false
     )
@@ -24,7 +23,6 @@ class CustomProtectionProfileStore(context: Context) {
         secureDns = prefs.getBoolean(key(uid, "dns"), true),
         tlsSniFilter = prefs.getBoolean(key(uid, "sni"), true),
         quicProtection = prefs.getBoolean(key(uid, "quic"), true),
-        tlsFingerprint = prefs.getBoolean(key(uid, "tls_fp"), true),
         threatProtection = prefs.getBoolean(key(uid, "threat"), true),
         blockLocalNetwork = prefs.getBoolean(key(uid, "local"), false)
     )
@@ -36,7 +34,6 @@ class CustomProtectionProfileStore(context: Context) {
             .putBoolean(key(uid, "dns"), profile.secureDns)
             .putBoolean(key(uid, "sni"), profile.tlsSniFilter)
             .putBoolean(key(uid, "quic"), profile.quicProtection)
-            .putBoolean(key(uid, "tls_fp"), profile.tlsFingerprint)
             .putBoolean(key(uid, "threat"), profile.threatProtection)
             .putBoolean(key(uid, "local"), profile.blockLocalNetwork)
             .apply()

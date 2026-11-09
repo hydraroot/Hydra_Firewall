@@ -45,6 +45,9 @@ fun LockScreen(lockStore: LockStore, onUnlocked: () -> Unit) {
     var biometricAvailable by remember { mutableStateOf(false) }
     var biometricError by remember { mutableStateOf<String?>(null) }
 
+    // Nota: la huella es una COMODIDAD sobre el PIN, no una barrera criptográfica. El bloqueo es un estado en
+    // memoria (appLocked) y no hay datos cifrados con una clave del Keystore, así que un CryptoObject no
+    // protegería nada. Si algún día se cifran datos sensibles, ahí sí corresponde atarlo a BIOMETRIC_STRONG.
     LaunchedEffect(activity, lockStore.biometricEnabled, biometricAttempted) {
         if (activity == null || !lockStore.biometricEnabled || biometricAttempted) return@LaunchedEffect
         delay(250L)

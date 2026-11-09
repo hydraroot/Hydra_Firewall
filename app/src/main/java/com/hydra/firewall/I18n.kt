@@ -23,7 +23,6 @@ class AppSettings(context: Context) {
     var onboardingDone: Boolean get() = prefs.getBoolean("onboarding_done", false); set(value) = prefs.edit().putBoolean("onboarding_done", value).apply()
     var advancedMode: Boolean get() = prefs.getBoolean("advanced_mode", false); set(value) = prefs.edit().putBoolean("advanced_mode", value).apply()
     var showSystemApps: Boolean get() = prefs.getBoolean("show_system_apps", false); set(value) = prefs.edit().putBoolean("show_system_apps", value).apply()
-    var trustedAppsEnabled: Boolean get() = prefs.getBoolean("trusted_apps_enabled", false); set(value) = prefs.edit().putBoolean("trusted_apps_enabled", value).apply()
     var themeMode: ThemeMode get() = runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.SYSTEM.name)!!) }.getOrDefault(ThemeMode.SYSTEM); set(value) = prefs.edit().putString("theme_mode", value.name).apply()
     var language: AppLanguage get() = runCatching { AppLanguage.valueOf(prefs.getString("language", AppLanguage.SYSTEM.name)!!) }.getOrDefault(AppLanguage.SYSTEM); set(value) = prefs.edit().putString("language", value.name).apply()
     /** Silent, informational notices (blocklist updated, pause ended...). Notices that need a decision ignore this. */

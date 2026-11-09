@@ -57,8 +57,7 @@ class EssentialAppsStore(private val context: Context) {
 object SystemEssentialAppsDetector {
     // Only these core Android service identities are automatically essential.
     // Ordinary packages, including Google services/apps, must follow the normal
-    // first-connection prompt unless the user explicitly selects Essential or
-    // enables the optional Apps de confianza policy.
+    // first-connection prompt unless the user explicitly selects Essential.
     private const val SYSTEM_UID = 1000
     private const val RADIO_UID = 1001
 

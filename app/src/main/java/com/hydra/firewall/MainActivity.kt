@@ -124,9 +124,10 @@ class MainActivity : AppCompatActivity() {
         ConnectionHistory.init(this)
         TempAllowManager.revertExpired(this)
         TrafficAnalyzerStore.init(this)
-        TlsFingerprintStore.init(this)
         AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)
+        // Limpieza de datos locales de funciones retiradas (baseline de comportamiento y huellas TLS).
+        runCatching { deleteSharedPreferences("hydra_behavior_baselines"); deleteSharedPreferences("tls_fingerprint_store") }
         appLocked = lockStore.enabled && lockStore.configured
         setContent {
             if (appLocked) {
@@ -222,7 +223,7 @@ fun AppEntry.allPackages(): List<String> = if (members.size > 1) members.map { i
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class RuleFilter { ALL, BLOCKED }
 
-enum class MainTab { PROTECTION, RULES, IP_PORTS, CONNECTIONS, ANALYZER, STATS, PROFILES, SECURITY, SELFTEST, SETTINGS, HELP, ABOUT }
+enum class MainTab { PROTECTION, RULES, IP_PORTS, CONNECTIONS, ANALYZER, STATS, PROFILES, SECURITY, SETTINGS, HELP, ABOUT }
 enum class AppListFilter { ALL, USER, SYSTEM, FAVORITES, HIGH_ACTIVITY }
 enum class AppSort { NAME, TRAFFIC, CONNECTIONS }
 
@@ -304,12 +305,11 @@ fun FirewallScreen(
     val ruleApps = remember(apps) { groupAppsByUid(apps) }
     var selectedTab by remember { mutableStateOf(MainTab.PROTECTION) }
     var advancedMode by remember { mutableStateOf(settingsStore.advancedMode) }
-    val advancedOnlyTabs = setOf(MainTab.IP_PORTS, MainTab.ANALYZER, MainTab.PROFILES, MainTab.SELFTEST)
+    val advancedOnlyTabs = setOf(MainTab.IP_PORTS, MainTab.ANALYZER, MainTab.PROFILES)
     val visibleTabs = MainTab.values().filter { advancedMode || it !in advancedOnlyTabs }
     if (selectedTab !in visibleTabs) selectedTab = MainTab.PROTECTION
     var search by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(settingsStore.showSystemApps) }
-    var trustedAppsEnabled by remember { mutableStateOf(settingsStore.trustedAppsEnabled) }
     var systemAppsWarning by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(settingsStore.themeMode) }
     var filter by remember { mutableStateOf(RuleFilter.ALL) }
@@ -427,7 +427,7 @@ fun FirewallScreen(
         NavGroup("apps", 1, listOf(MainTab.RULES, MainTab.IP_PORTS, MainTab.PROFILES)),
         NavGroup("activity", 2, listOf(MainTab.CONNECTIONS, MainTab.STATS, MainTab.ANALYZER)),
         NavGroup("security", 3, listOf(MainTab.SECURITY)),
-        NavGroup("more", 4, listOf(MainTab.SETTINGS, MainTab.HELP, MainTab.ABOUT, MainTab.SELFTEST))
+        NavGroup("more", 4, listOf(MainTab.SETTINGS, MainTab.HELP, MainTab.ABOUT))
     )
     val lastInGroup = remember { HashMap<String, MainTab>() }  // plain map: only read in onClick, written during composition
     val currentGroup = navGroups.first { selectedTab in it.tabs }
@@ -447,7 +447,6 @@ fun FirewallScreen(
         MainTab.STATS -> tr(context,"stats")
         MainTab.PROFILES -> tr(context,"profiles")
         MainTab.SECURITY -> if (language.isEnglish()) "SECURITY" else "SEGURIDAD"
-        MainTab.SELFTEST -> if (language.isEnglish()) "TEST" else "PRUEBA"
         MainTab.SETTINGS -> tr(context,"settings")
         MainTab.HELP -> tr(context,"help")
         MainTab.ABOUT -> tr(context,"about")
@@ -673,17 +672,6 @@ fun FirewallScreen(
                                 }
                             )
                             Spacer(Modifier.height(2.dp))
-                            if (advancedMode) Text(
-                                if (language.isEnglish())
-                                    "Trusted apps: when enabled, apps installed from Google Play or platform-signed system apps can be auto-allowed. New ordinary apps still prompt when this is off."
-                                else
-                                    "Apps de confianza: activado permite permitir automáticamente apps instaladas desde Google Play o apps de sistema firmadas por la plataforma. Con el interruptor apagado, las apps nuevas preguntan."
-                                ,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
                             if (advancedMode) HydraHorizontalRow(Modifier.fillMaxWidth().height(30.dp).padding(vertical = 2.dp)) {
                                 HydraChoiceButton(
                                     selected = appListFilter == AppListFilter.USER,
@@ -742,21 +730,6 @@ fun FirewallScreen(
                                     unselectedLabelColor = Color(0xFF1E659B),
                                     onClick = { appListFilter = if (appListFilter == AppListFilter.HIGH_ACTIVITY) AppListFilter.ALL else AppListFilter.HIGH_ACTIVITY },
                                     modifier = Modifier.widthIn(min = 86.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                HydraChoiceButton(
-                                    selected = trustedAppsEnabled,
-                                    label = if (language.isEnglish()) "Trusted ✓" else "Confianza ✓",
-                                    selectedColor = Color(0xFF2E8B57),
-                                    selectedLabelColor = Color.White,
-                                    unselectedLabelColor = Color(0xFF2E8B57),
-                                    onClick = {
-                                        trustedAppsEnabled = !trustedAppsEnabled
-                                        settingsStore.trustedAppsEnabled = trustedAppsEnabled
-                                        ruleVersion++
-                                        notifyRulesChanged(context)
-                                    },
-                                    modifier = Modifier.widthIn(min = 98.dp)
                                 )
                                 Spacer(Modifier.width(5.dp))
                                 HydraChoiceButton(
@@ -827,14 +800,13 @@ fun FirewallScreen(
                                 val explicit = ruleStore.hasExplicitRule(app.uid)
                                 val autoEssential = essentialAppsStore.isAutoEssential(app.uid)
                                 val userEssential = essentialAppsStore.isUserEssential(app.uid)
-                                val trustedAuto = trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, app.uid)
-                                val effectiveWifi = if (!explicit && (autoEssential || trustedAuto)) true else rule.wifiAllowed
-                                val effectiveMobile = if (!explicit && (autoEssential || trustedAuto)) true else rule.mobileAllowed
+                                val effectiveWifi = if (!explicit && autoEssential) true else rule.wifiAllowed
+                                val effectiveMobile = if (!explicit && autoEssential) true else rule.mobileAllowed
                                 filter == RuleFilter.ALL || !effectiveWifi || !effectiveMobile
                             }.filter { app ->
                                 // "Sin reglas": apps (user or system) with no explicit rule that are not auto-allowed, i.e. blocked by default.
                                 !newOnly || (!ruleStore.hasExplicitRule(app.uid) &&
-                                    !(essentialAppsStore.isAutoEssential(app.uid) || (trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, app.uid))))
+                                    !essentialAppsStore.isAutoEssential(app.uid))
                             }.filter { app ->
                                 when (appListFilter) {
                                     AppListFilter.ALL -> true
@@ -885,29 +857,28 @@ fun FirewallScreen(
                                     val compatibilityMode = AppCompatibilityPolicyStore.getMode(app.packageName)
                                     val customized = compatibilityMode == AppCompatibilityMode.CUSTOM
                                     val compatibilityExcluded = compatibilityMode == AppCompatibilityMode.EXCLUDED
-                                    val trustedAutoAllowed = trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, app.uid)
-                                    val effectiveWifi = if (!explicitRule && (autoEssential || trustedAutoAllowed)) true else rule.wifiAllowed
-                                    val effectiveMobile = if (!explicitRule && (autoEssential || trustedAutoAllowed)) true else rule.mobileAllowed
-                                    AppRuleRow(app, effectiveWifi, effectiveMobile, explicitRule, autoEssential, userEssential, customized, trustedAutoAllowed, compatibilityExcluded, ruleStore.getSchedule(app.uid).enabled, favoritesStore.isFavorite(app.uid),
+                                    val effectiveWifi = if (!explicitRule && autoEssential) true else rule.wifiAllowed
+                                    val effectiveMobile = if (!explicitRule && autoEssential) true else rule.mobileAllowed
+                                    AppRuleRow(app, effectiveWifi, effectiveMobile, explicitRule, autoEssential, userEssential, customized, compatibilityExcluded, ruleStore.getSchedule(app.uid).enabled, favoritesStore.isFavorite(app.uid),
                                         { checked ->
                                             // App sin regla propia: al permitirla se activan Wi‑Fi y móvil juntos; al bloquear una red
                                             // se conserva lo que se veía en pantalla para la otra (no se pierde por el valor por defecto).
                                             val mobileAfter = if (!explicitRule) (checked || effectiveMobile) else effectiveMobile
                                             if (!explicitRule) ruleStore.setMobileAllowed(app.uid, mobileAfter)
                                             ruleStore.setWifiAllowed(app.uid, checked); ruleVersion++; notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), checked, mobileAfter, true, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), checked, mobileAfter, true, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         { checked ->
                                             val wifiAfter = if (!explicitRule) (checked || effectiveWifi) else effectiveWifi
                                             if (!explicitRule) ruleStore.setWifiAllowed(app.uid, wifiAfter)
                                             ruleStore.setMobileAllowed(app.uid, checked); ruleVersion++; notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), wifiAfter, checked, true, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityPolicyStore.getMode(app.packageName), wifiAfter, checked, true, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         {
                                             app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.NORMAL) }
                                             ruleVersion++
                                             notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.NORMAL, effectiveWifi, effectiveMobile, explicitRule, trustedAutoAllowed, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.NORMAL, effectiveWifi, effectiveMobile, explicitRule, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         {
                                             // Selecting ESENCIAL here is an explicit user grant.
@@ -949,7 +920,7 @@ fun FirewallScreen(
                                                 ruleVersion = ruleVersion,
                                                 effective = { uid ->
                                                     val r = ruleStore.getRule(uid)
-                                                    val auto = essentialAppsStore.isAutoEssential(uid) || (trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, uid))
+                                                    val auto = essentialAppsStore.isAutoEssential(uid)
                                                     if (!ruleStore.hasExplicitRule(uid) && auto) (true to true) else (r.wifiAllowed to r.mobileAllowed)
                                                 },
                                                 onSet = { uid, wifi, mobile ->
@@ -1639,9 +1610,6 @@ fun FirewallScreen(
                     MainTab.SECURITY -> {
                         SecurityCenterTab(context, language, advancedMode) { advancedMode = true; settingsStore.advancedMode = true }
                     }
-                    MainTab.SELFTEST -> {
-                        SelfTestScreen(context, language)
-                    }
                     MainTab.HELP -> {
                         HelpScreen(context, language)
                     }
@@ -2017,12 +1985,11 @@ fun FirewallScreen(
         val s = TrafficStatsStore.snapshot(app.uid)
         val rule = ruleStore.getRule(app.uid)
         val explicitRule = ruleStore.hasExplicitRule(app.uid)
-        val userEssential = essentialAppsStore.isUserEssential(app.uid) || compatibilityMode == AppCompatibilityMode.ESSENTIAL || compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT
+        val userEssential = essentialAppsStore.isUserEssential(app.uid) || compatibilityMode == AppCompatibilityMode.ESSENTIAL
         val autoEssential = essentialAppsStore.isAutoEssential(app.uid)
-        val trustedAutoAllowed = trustedAppsEnabled && TrustedAppsDetector.isTrusted(context, app.uid)
         val noFirewall = compatibilityMode == AppCompatibilityMode.EXCLUDED
-        val effectiveWifi = if (noFirewall) false else if (!explicitRule && (autoEssential || trustedAutoAllowed)) true else rule.wifiAllowed
-        val effectiveMobile = if (noFirewall) false else if (!explicitRule && (autoEssential || trustedAutoAllowed)) true else rule.mobileAllowed
+        val effectiveWifi = if (noFirewall) false else if (!explicitRule && autoEssential) true else rule.wifiAllowed
+        val effectiveMobile = if (noFirewall) false else if (!explicitRule && autoEssential) true else rule.mobileAllowed
 
         val policyColor = appRulePolicyColor(noFirewall, effectiveWifi, effectiveMobile)
         val runningProcesses = remember(app.uid) { loadRunningProcesses(context, app.uid) }
@@ -2103,18 +2070,7 @@ fun FirewallScreen(
                             color = policyColor, style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    if (compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT) {
-                        Text(
-                            if (language.isEnglish()) "PERMISSIVE-COMPAT · DIAGNOSTIC MODE" else "PERMISIVO-COMPAT · MODO DIAGNÓSTICO",
-                            color = policyColor, style = MaterialTheme.typography.labelMedium
-                        )
-                        Text(
-                            if (language.isEnglish()) "Diagnostic only: the app stays inside HYDRA, but the normal ad/tracker domain blocklist and QUIC domain filter are bypassed. Explicit user domain BLOCK rules and confirmed threat protections remain active."
-                            else "Solo diagnóstico: la app sigue dentro de HYDRA, pero se saltean el bloqueo normal de dominios de ads/trackers y el filtro de dominios QUIC. Las reglas de dominio BLOQUEAR del usuario y las amenazas confirmadas siguen activas.",
-                            color = dialogColors.third, style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    if (userEssential && compatibilityMode != AppCompatibilityMode.ESSENTIAL_COMPAT) {
+                    if (userEssential) {
                         Text(
                             if (language.isEnglish()) "PERMISSIVE · FLEXIBLE FILTERS" else "PERMISIVO · FILTROS FLEXIBLES",
                             color = policyColor, style = MaterialTheme.typography.labelMedium
@@ -2153,10 +2109,6 @@ fun FirewallScreen(
                             "FULL CONNECTIVITY · no HYDRA filtering. The app is outside the VPN; HYDRA Wi‑Fi/Mobile switches do not apply."
                         else
                             "CONECTIVIDAD COMPLETA · sin filtrado de HYDRA. La app queda fuera de la VPN; los controles Wi‑Fi/Móvil de HYDRA no se aplican."
-                        compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT -> if (language.isEnglish())
-                            "PERMISSIVE-COMPAT · stays inside HYDRA. Optional domain/QUIC filtering is temporarily bypassed for diagnosis; Wi‑Fi/Mobile still follow the app rule and strong threat/IP protection remains active."
-                        else
-                            "PERMISIVO-COMPAT · permanece dentro de HYDRA. Se saltea temporalmente el filtrado opcional de dominios/QUIC para diagnóstico; Wi‑Fi/Móvil siguen la regla de la app y las protecciones fuertes contra amenazas/IP siguen activas."
                         userEssential -> if (language.isEnglish())
                             "PERMISSIVE · remains inside HYDRA. Wi‑Fi/Mobile follow the switches below; compatibility layers are relaxed while strong threat/IP protection remains active."
                         else
@@ -2179,10 +2131,6 @@ fun FirewallScreen(
                             else
                                 "BLOQUEADA · Wi‑Fi y datos móviles quedan bloqueados para esta app."
                         }
-                        trustedAutoAllowed -> if (language.isEnglish())
-                            "TRUSTED APP · automatically allowed because the Apps de confianza switch is enabled; security controls still remain authoritative."
-                        else
-                            "APP DE CONFIANZA · permitida automáticamente porque está activado Apps de confianza; las protecciones de seguridad siguen siendo autoritarias."
                         autoEssential -> if (language.isEnglish())
                             "SYSTEM ESSENTIAL · allowed by the conservative core-system policy; ordinary apps are not auto-allowed."
                         else
@@ -2220,7 +2168,6 @@ fun FirewallScreen(
                     }
                     Text(
                         if (explicitRule) (if (language.isEnglish()) "Policy: EXPLICIT RULE" else "Política: REGLA EXPLÍCITA")
-                        else if (trustedAutoAllowed) (if (language.isEnglish()) "Policy: TRUSTED APP AUTO-ALLOW" else "Política: APP DE CONFIANZA AUTO-PERMITIDA")
                         else if (autoEssential) (if (language.isEnglish()) "Policy: SYSTEM CORE" else "Política: SISTEMA CENTRAL")
                         else (if (language.isEnglish()) "Policy: DEFAULT BLOCK / PROMPT" else "Política: BLOQUEO / PREGUNTA")
                         ,
@@ -2331,34 +2278,6 @@ fun FirewallScreen(
                             }
                         }
                     }
-                    }
-                    if (userEssential && !noFirewall) {
-                        Spacer(Modifier.height(6.dp))
-                        OutlinedButton(
-                            onClick = {
-                                val target = if (compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT)
-                                    AppCompatibilityMode.ESSENTIAL
-                                else
-                                    AppCompatibilityMode.ESSENTIAL_COMPAT
-                                // The compatibility test must actually be testable from
-                                // a default BLOCK/BLOCK app. Grant both networks only when
-                                // no explicit rule exists; never override an explicit user
-                                // block.
-                                ruleStore.setWifiAllowed(app.uid, true)
-                                ruleStore.setMobileAllowed(app.uid, true)
-                                app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, target) }
-                                ruleVersion++
-                                notifyRulesChanged(context)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                if (compatibilityMode == AppCompatibilityMode.ESSENTIAL_COMPAT)
-                                    if (language.isEnglish()) "Back to PERMISSIVE" else "Volver a PERMISIVO"
-                                else
-                                    if (language.isEnglish()) "Test PERMISSIVE-COMPAT" else "Probar PERMISIVO-COMPAT"
-                            )
-                        }
                     }
                     Row(
                         Modifier.fillMaxWidth(),
@@ -3873,7 +3792,7 @@ private fun HydraChoiceButton(
 }
 
 
-private fun describeAppPolicy(mode: AppCompatibilityMode, wifi: Boolean, mobile: Boolean, explicit: Boolean, trusted: Boolean, english: Boolean): String {
+private fun describeAppPolicy(mode: AppCompatibilityMode, wifi: Boolean, mobile: Boolean, explicit: Boolean, english: Boolean): String {
     return when (mode) {
         AppCompatibilityMode.CUSTOM -> if (english)
             "PERSONALIZED: the app stays inside HYDRA and uses only the protection switches selected for this app; Wi‑Fi/Mobile permissions remain separate."
@@ -3887,15 +3806,7 @@ private fun describeAppPolicy(mode: AppCompatibilityMode, wifi: Boolean, mobile:
             "PERMISSIVE: the app remains inside HYDRA; Wi‑Fi=${if (wifi) "ON" else "OFF"}, Mobile=${if (mobile) "ON" else "OFF"}; compatibility layers are relaxed and strong security remains active."
         else
             "PERMISIVO: la app permanece dentro de HYDRA; Wi‑Fi=${if (wifi) "ACTIVO" else "BLOQUEADO"}, Móvil=${if (mobile) "ACTIVO" else "BLOQUEADO"}; se relaja compatibilidad y se mantiene la seguridad fuerte."
-        AppCompatibilityMode.ESSENTIAL_COMPAT -> if (english)
-            "PERMISSIVE-COMPAT: diagnostic mode inside HYDRA; optional domain/QUIC filtering is bypassed temporarily while Wi‑Fi/Mobile rules and strong threat protection remain active."
-        else
-            "PERMISIVO-COMPAT: diagnóstico dentro de HYDRA; se saltea temporalmente el filtrado opcional de dominios/QUIC mientras siguen las reglas Wi‑Fi/Móvil y la protección fuerte contra amenazas."
         AppCompatibilityMode.NORMAL -> when {
-            trusted && !explicit -> if (english)
-                "APP DE CONFIANZA: automatic allow for selected trusted-source apps; strong security controls still apply."
-            else
-                "APP DE CONFIANZA: permiso automático para apps de origen confiable seleccionadas; la seguridad fuerte sigue activa."
             wifi && mobile -> if (english)
                 "PERMITIR: Wi‑Fi and mobile are allowed through HYDRA; normal filtering and threat protection remain active."
             else
@@ -3938,7 +3849,6 @@ private fun AppRuleRow(
     autoEssential: Boolean,
     userEssential: Boolean,
     customized: Boolean,
-    trustedAutoAllowed: Boolean,
     compatibilityExcluded: Boolean,
     scheduleEnabled: Boolean,
     favorite: Boolean,
@@ -3961,7 +3871,6 @@ private fun AppRuleRow(
     val ruleMode = when {
         compatibilityExcluded -> AppCompatibilityMode.EXCLUDED
         customized -> AppCompatibilityMode.CUSTOM
-        currentMode == AppCompatibilityMode.ESSENTIAL_COMPAT -> AppCompatibilityMode.ESSENTIAL_COMPAT
         userEssential -> AppCompatibilityMode.ESSENTIAL
         else -> AppCompatibilityMode.NORMAL
     }
@@ -3970,9 +3879,7 @@ private fun AppRuleRow(
         AppCompatibilityMode.CUSTOM -> if (en) "Custom · protections" else "Personalizado · protecciones"
         AppCompatibilityMode.EXCLUDED -> if (en) "No firewall · outside Hydra" else "Sin firewall · fuera de Hydra"
         AppCompatibilityMode.ESSENTIAL -> if (en) "Permissive · flexible filters" else "Permisivo · filtros flexibles"
-        AppCompatibilityMode.ESSENTIAL_COMPAT -> if (en) "Permissive-compat · diagnostic" else "Permisivo-compat · diagnóstico"
         else -> when {
-            trustedAutoAllowed && !explicitRule -> if (en) "Trusted app · auto-allowed" else "App de confianza · auto-permitida"
             wifiAllowed && mobileAllowed -> if (en) "Allowed · Wi‑Fi and mobile" else "Permitida · Wi‑Fi y datos"
             wifiAllowed -> if (en) "Wi‑Fi only · mobile blocked" else "Solo Wi‑Fi · datos bloqueados"
             mobileAllowed -> if (en) "Mobile only · Wi‑Fi blocked" else "Solo datos · Wi‑Fi bloqueado"

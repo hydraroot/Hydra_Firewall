@@ -169,13 +169,41 @@ object BlocklistUpdater {
         }
     }
 
+    private const val MAX_REDIRECTS = 3
+
+    /**
+     * Sigue como máximo [MAX_REDIRECTS] redirecciones (301/302/303/307/308), solo hacia HTTPS, usando la
+     * misma red física que la conexión original. Sin esto, una fuente que redirige (p. ej. a otra ruta del
+     * mismo servicio) fallaba con `_http_30x` porque `instanceFollowRedirects` está desactivado a propósito.
+     */
+    private fun followRedirects(
+        context: Context,
+        first: HttpsURLConnection,
+        opener: (URL) -> java.net.URLConnection
+    ): HttpsURLConnection {
+        var conn = first
+        var hops = 0
+        while (true) {
+            val code = conn.responseCode
+            if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) return conn
+            val location = conn.getHeaderField("Location")
+            val base = conn.url
+            conn.disconnect()
+            if (location.isNullOrBlank() || hops >= MAX_REDIRECTS) throw IllegalStateException("redirect_failed")
+            val next = URL(base, location)
+            if (!next.protocol.equals("https", true)) throw IllegalStateException("redirect_not_https")
+            conn = configure(context, opener(next) as HttpsURLConnection)
+            hops++
+        }
+    }
+
     private fun open(context: Context, urls: List<String>): HttpsURLConnection {
         var last: Throwable? = null
         for (network in physicalNetworks(context)) {
             for (raw in urls) {
                 try {
                     val conn = configure(context, network.openConnection(URL(raw)) as HttpsURLConnection)
-                    if (conn.url.protocol.equals("https", true)) return conn
+                    if (conn.url.protocol.equals("https", true)) return followRedirects(context, conn) { u -> network.openConnection(u) }
                     conn.disconnect()
                 } catch (t: Throwable) { last = t }
             }
@@ -183,7 +211,7 @@ object BlocklistUpdater {
         for (raw in urls) {
             try {
                 val conn = configure(context, URL(raw).openConnection() as HttpsURLConnection)
-                if (conn.url.protocol.equals("https", true)) return conn
+                if (conn.url.protocol.equals("https", true)) return followRedirects(context, conn) { u -> u.openConnection() }
                 conn.disconnect()
             } catch (t: Throwable) { last = t }
         }

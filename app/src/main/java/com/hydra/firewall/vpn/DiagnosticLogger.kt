@@ -28,8 +28,10 @@ object DiagnosticLogger {
 
     enum class Level { OFF, ERROR, NORMAL, DEBUG }
 
+    // Release: silencioso (ERROR no emite nada en el camino de paquetes) y sin archivo en disco.
+    // Debug: NORMAL + archivo para leer por ADB. Se decide en init() según FLAG_DEBUGGABLE.
     @Volatile
-    private var level: Level = Level.NORMAL
+    private var level: Level = Level.ERROR
 
     private val buffer = ConcurrentLinkedDeque<String>()
     private val lastDataLogAt = ConcurrentHashMap<FlowKey, Long>()
@@ -48,7 +50,25 @@ object DiagnosticLogger {
 
     fun init(context: Context) {
         appContext = context.applicationContext
-        startFileWriter()
+        val debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (debuggable) {
+            level = Level.NORMAL
+            startFileWriter()
+        } else {
+            level = Level.ERROR
+            purgeLegacyLogFiles(context.applicationContext)
+        }
+    }
+
+    /** Borra el historial de conexiones que versiones anteriores dejaron en disco (hydra-diagnostic.log[.1]). */
+    private fun purgeLegacyLogFiles(ctx: Context) {
+        runCatching {
+            val dirs = listOfNotNull(ctx.filesDir, if (Build.VERSION.SDK_INT >= 30) ctx.getExternalFilesDir(null) else null)
+            for (d in dirs) {
+                java.io.File(d, "hydra-diagnostic.log").delete()
+                java.io.File(d, "hydra-diagnostic.log.1").delete()
+            }
+        }
     }
 
     fun setLevel(newLevel: Level) { level = newLevel }

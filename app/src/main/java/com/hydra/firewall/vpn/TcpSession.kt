@@ -65,8 +65,8 @@ class TcpSession(
         maxAhead = RECEIVE_BUFFER_LIMIT
     )
 
-    /** JA3/JA3N handshake fingerprinting state for the first bytes of this session. */
-    val tlsFingerprintAccumulator = TlsFingerprintInspector.Accumulator()
+    /** Estado de lectura del ClientHello (SNI) para los primeros bytes de esta sesión. */
+    val tlsSniAccumulator = TlsSniInspector.Accumulator()
 
     fun outstandingToClient(): Long = TcpSequence.distance(localAckedSeq, localNextSeq)
 

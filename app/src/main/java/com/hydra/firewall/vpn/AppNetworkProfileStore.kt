@@ -165,7 +165,7 @@ object AppNetworkProfileStore {
     private fun persistBaseline(pkg: String, baseline: Set<String>) {
         if (!::prefs.isInitialized) return
         // Persisting on every new entry is fine: new destinations per app are rare
-        // compared to total packet volume, since this only runs on the JA3/first-hello path.
+        // compared to total packet volume.
         val arr = JSONArray()
         baseline.forEach { arr.put(it) }
         prefs.edit().putString(KEY_BASELINE_PREFIX + pkg, arr.toString()).apply()

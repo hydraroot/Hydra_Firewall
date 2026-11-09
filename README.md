@@ -104,7 +104,7 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 - **Behavior engine**: correlates connections, DNS and blocks into a per-app behavior score, using only metadata Hydra already sees.
 - **On-device models** (a small MH‑100K-trained model and two lightweight heuristic models) used only as *secondary signals* that warn — they never block by themselves. See [What the built-in AI does](#what-the-built-in-ai-does).
 - **System-app safety labels** (high risk / caution / undetermined) before you block a system component.
-- **Self-test and diagnostics** to check DNS, SNI, TCP and ICMP handling on your device.
+- **Diagnostics** you can read over ADB on debug builds (release builds keep no connection log).
 
 ### Protect Hydra itself
 - **PIN** of **5 to 8 digits** (PBKDF2, 120,000 iterations) and **fingerprint** unlock. Wrong attempts add growing delays (15 s up to 5 min) that survive restarts and cannot be shortened by changing the phone's clock. PINs of 4 digits created by older versions keep working until you change them. `allowBackup=false`.
@@ -171,9 +171,8 @@ Permissions requested:
 
 Full list: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
-Two Security Center rows legitimately start at zero on a fresh install: **"Threat intelligence
-(0 domains)"** (until you update lists with the HaGeZi Threat Intelligence source enabled) and
-**"Local behavior learning (0 apps)"** (until you enable traffic recording in the Analyzer tab).
+One Security Center row legitimately starts at zero on a fresh install: **"Threat intelligence
+(0 domains)"** (until you update lists with the HaGeZi Threat Intelligence source enabled).
 
 ## What the built-in AI does
 
@@ -189,7 +188,7 @@ Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful,
 
 **Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus, blocklists, TLS fingerprint) in one place.
 
-Together with the YARA‑Lite rules, the signed threat pack and the per-app behavior baseline (learned locally once you enable traffic recording), they feed **Security Center** so you can decide with more information. The decision is always yours.
+Together with the YARA‑Lite rules, and the signed threat pack, they feed **Security Center** so you can decide with more information. The decision is always yours.
 
 ## Quick start
 
@@ -198,7 +197,7 @@ Together with the YARA‑Lite rules, the signed threat pack and the per-app beha
 3. Allow notifications and exclude Hydra from battery optimization (otherwise Android may stop the service).
 4. Use your phone normally. Each app that connects for the first time triggers the **first-connection prompt** — choose *Allow* or *Block* (tap *More options* for the rest).
 5. Open **RULES** to review per-app Wi‑Fi/mobile switches, **CONNECTIONS** to see history, and **SECURITY** for the threat pack and app scanning.
-6. Optional: set a **PIN**, enable **Always-on VPN** in Android settings, and run **Self-test** (Advanced mode) to validate DNS/SNI/TCP on your phone.
+6. Optional: set a **PIN**, enable **Always-on VPN** in Android settings.
 
 Before reinstalling Hydra, use **Export** (Settings/Profiles) to save your configuration, then **Import** it afterwards.
 

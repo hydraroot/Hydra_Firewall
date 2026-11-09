@@ -256,7 +256,7 @@ class Ipv6TcpForwardingEngine(
 
         if (payload.isNotEmpty()) {
             // IPv6/TCP gets the same SNI threat/domain protection as IPv4/TCP.
-            val tls = TlsFingerprintInspector.feed(session.tlsFingerprintAccumulator, payload)
+            val tls = TlsSniInspector.feed(session.tlsSniAccumulator, payload)
             val sni = tls?.sni
                         if (!sni.isNullOrBlank()) {
                 val threatMatch = if (ruleEngine.isThreatProtectionEnabled(session.uid, session.packageName)) {

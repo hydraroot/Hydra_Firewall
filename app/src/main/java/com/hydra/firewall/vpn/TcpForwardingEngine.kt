@@ -536,10 +536,8 @@ class TcpForwardingEngine(
     }
 
     /**
-     * Inspects the first TLS ClientHello independently of the optional JA3
-     * telemetry feature. The ad/tracker domain blocklist is a traffic-control
-     * feature, so it must remain effective even when TLS fingerprint logging
-     * is disabled.
+     * Inspects the first TLS ClientHello to read its SNI. The ad/tracker
+     * domain blocklist and threat-intel enforcement rely on this.
      *
      * This closes an important bypass: an app can resolve an advertising host
      * before the VPN starts, use a cached address, or use a resolver path that
@@ -548,8 +546,8 @@ class TcpForwardingEngine(
      * the active local domain blocklist, the TCP session is reset immediately.
      */
     private fun inspectForTlsSecurity(session: TcpSession, data: ByteArray) {
-        val acc = session.tlsFingerprintAccumulator
-        val result = TlsFingerprintInspector.feed(acc, data)
+        val acc = session.tlsSniAccumulator
+        val result = TlsSniInspector.feed(acc, data)
 
         if (result == null) return
 
@@ -575,7 +573,7 @@ class TcpForwardingEngine(
         if (sni != null && publicBlocklisted && bypassPublicBlocklist && threatMatch == null) {
             DiagnosticLogger.logTcpRuntime(
                 session.key, session.uid, session.packageName,
-                "DOMAIN COMPAT BYPASS TLS_SNI=$sni reason=ESSENTIAL_COMPAT"
+                "DOMAIN COMPAT BYPASS TLS_SNI=$sni reason=ESSENTIAL"
             )
         }
         if (sni != null && (threatMatch != null || domainBlocked)) {
@@ -606,28 +604,6 @@ class TcpForwardingEngine(
             }
             sendResetAndClose(session)
             return
-        }
-
-        // JA3/JA3N fingerprinting remains optional telemetry / known-bad
-        // fingerprint enforcement. It is deliberately not required for the
-        // domain blocklist to work.
-        if (!TlsFingerprintStore.isEnabled() ||
-            !ruleEngine.isTlsFingerprintProtectionEnabled(session.uid, session.packageName)) return
-
-        val recorded = TlsFingerprintStore.record(session.uid, session.packageName, destination, session.key.dstPort, result)
-        AppNetworkProfileStore.recordDestination(
-            session.uid, session.packageName,
-            recorded.sni ?: destination, session.key.dstPort
-        )
-        if (recorded.matchedBlocklist) {
-            DiagnosticLogger.logTcpRuntime(
-                session.key, session.uid, session.packageName,
-                "TLS_FINGERPRINT_MATCH ja3=${result.ja3Hash} sni=${result.sni ?: "-"}"
-            )
-            if (TlsFingerprintStore.isBlockOnMatchEnabled() &&
-                !ruleEngine.shouldBypassOptionalTlsFilter(session.uid, session.packageName, currentNetwork)) {
-                sendResetAndClose(session)
-            }
         }
     }
 

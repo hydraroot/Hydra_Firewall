@@ -1,3 +1,16 @@
+## 3.5.0 (versionCode 30500)
+Recorte de funciones de bajo valor o con riesgo.
+- **Limpieza:** el parser del ClientHello ya solo extrae el SNI (se quitan cifrados, extensiones, curvas, ALPN y versiones que solo usaba JA3).
+- **Privacidad:** el log de diagnóstico (`hydra-diagnostic.log`) ya no se escribe en builds release y se borra el que hubiera de versiones anteriores.
+- **Se quita** el autotest y el «modo de prueba en vivo» (incluía un `ALLOW` incondicional para el UID propio en `RuleEngine`).
+- **Se quita** la huella TLS (JA3/JA3N/Hydra-lite): estaba apagada y sin UI desde la 2.3.0. El parser del ClientHello se conserva como `TlsSniInspector` porque alimenta el bloqueo por SNI (IPv4 e IPv6).
+- **Se quita** el aprendizaje local de comportamiento (`AppBehaviorBaselineStore`). La correlación de comportamiento y los puntajes de IA se mantienen.
+- **Escáner de APK:** se quita la búsqueda de cadenas en los DEX (WebView, `addJavascriptInterface`, URLs…), principal fuente de falsos positivos. Permisos, componentes exportados, firmas de amenazas y MH-100K no cambian.
+- **Modos por app:** se retira `ESSENTIAL_COMPAT` (se comportaba como `ESSENTIAL`); lo guardado y los backups viejos se migran a `ESSENTIAL`.
+- **Se quita** «Apps de confianza» (auto-permitir apps instaladas desde Play). Quien lo tenía activo vuelve a recibir el aviso de primera conexión.
+- **Listas de dominios:** se siguen hasta 3 redirecciones, solo hacia HTTPS.
+- **Pendiente:** unificar los motores IPv4/IPv6 (requiere compilar y correr tests); la huella digital sigue siendo una comodidad sobre el PIN, no una barrera criptográfica.
+
 ## 3.4.8 (versionCode 30408)
 - **Seguridad — bloqueo por SNI:** el inspector de TLS se rendía a los 8 KB, así que una app podía rellenar el ClientHello (padding) para que no se leyera el SNI y evadir el bloqueo por dominio. El tope pasa a 16 389 bytes (un registro TLS completo). Sigue sin verse el SNI si el ClientHello se parte en varios registros, usa ECH o no trae SNI (límite inherente de no descifrar). Test nuevo con un ClientHello de unos 12 KB.
 - **Rendimiento:** el contador «bloqueados hoy» escribía las preferencias por cada dominio bloqueado; ahora a lo sumo cada 5 s.

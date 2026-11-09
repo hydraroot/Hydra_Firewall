@@ -59,7 +59,7 @@ object QuicProtection {
         }
         if (publicBlocklisted && bypassPublicBlocklist && threat == null) {
             DiagnosticLogger.logServiceEvent(
-                "DOMAIN COMPAT BYPASS QUIC domain=$domain uid=$uid pkg=${packageName ?: "unknown"} reason=ESSENTIAL_COMPAT"
+                "DOMAIN COMPAT BYPASS QUIC domain=$domain uid=$uid pkg=${packageName ?: "unknown"} reason=ESSENTIAL"
             )
         }
         if (!block && threat == null) return Result(false, version = info.version)

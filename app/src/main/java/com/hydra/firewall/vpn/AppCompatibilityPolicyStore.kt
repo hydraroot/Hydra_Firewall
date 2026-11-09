@@ -7,16 +7,13 @@ import android.content.Context
  *
  * NORMAL    = app remains in HYDRA with normal policy.
  * ESSENTIAL = app remains in HYDRA with the normal compatibility bypasses.
- * ESSENTIAL_COMPAT = temporary diagnostic compatibility mode: app stays in HYDRA
- *                    but optional domain/ad-tracker/QUIC filters are bypassed;
- *                    explicit user blocks and confirmed threat controls remain.
  * EXCLUDED  = app is completely outside the firewall/VPN via
  *             addDisallowedApplication(). The UI calls this NO FIREWALL.
  *
  * Compatibility is intentionally kept separate from trust/security. An app being
  * incompatible with a VPN does not mean that the app is safe or trusted.
  */
-enum class AppCompatibilityMode { NORMAL, CUSTOM, ESSENTIAL, ESSENTIAL_COMPAT, EXCLUDED }
+enum class AppCompatibilityMode { NORMAL, CUSTOM, ESSENTIAL, EXCLUDED }
 
 object AppCompatibilityPolicyStore {
     private const val PREFS = "app_compatibility_policy"
@@ -27,6 +24,14 @@ object AppCompatibilityPolicyStore {
     // final build starts, the normal SIN FIREWALL control is fully user-owned.
     private const val FINAL_MP_CLEANUP_KEY = "final_1_5_beta6_mp_cleanup_v1"
     private const val MERCADO_PAGO_PACKAGE = "com.mercadopago.wallet"
+    // El modo diagnóstico ESSENTIAL_COMPAT se retiró: se comportaba igual que ESSENTIAL.
+    private const val RETIRED_ESSENTIAL_COMPAT = "ESSENTIAL_COMPAT"
+
+    /** Convierte el valor guardado en un modo; los valores retirados se migran a ESSENTIAL. */
+    private fun parseMode(raw: String?): AppCompatibilityMode {
+        if (raw == RETIRED_ESSENTIAL_COMPAT) return AppCompatibilityMode.ESSENTIAL
+        return runCatching { AppCompatibilityMode.valueOf(raw ?: "NORMAL") }.getOrDefault(AppCompatibilityMode.NORMAL)
+    }
 
     private lateinit var prefs: android.content.SharedPreferences
 
@@ -65,6 +70,11 @@ object AppCompatibilityPolicyStore {
             }
 
 
+        // Migra una vez el modo retirado ESSENTIAL_COMPAT a ESSENTIAL (mismo comportamiento efectivo).
+        prefs.all.filter { it.key.startsWith(KEY_MODE_PREFIX) && it.value == RETIRED_ESSENTIAL_COMPAT }.keys.forEach { key ->
+            prefs.edit().putString(key, AppCompatibilityMode.ESSENTIAL.name).apply()
+        }
+
         // Retire the old beta Mercado Pago diagnostic selection exactly once.
         // Previous beta builds used the same SharedPreferences namespace, so an
         // in-place upgrade could otherwise make MP appear as SIN FIREWALL by
@@ -93,9 +103,7 @@ object AppCompatibilityPolicyStore {
     fun getMode(packageName: String?): AppCompatibilityMode {
         val pkg = packageName?.trim().orEmpty()
         if (pkg.isEmpty() || !::prefs.isInitialized) return AppCompatibilityMode.NORMAL
-        return runCatching {
-            AppCompatibilityMode.valueOf(prefs.getString(KEY_MODE_PREFIX + pkg, AppCompatibilityMode.NORMAL.name)!!)
-        }.getOrDefault(AppCompatibilityMode.NORMAL)
+        return parseMode(prefs.getString(KEY_MODE_PREFIX + pkg, AppCompatibilityMode.NORMAL.name))
     }
 
     fun setMode(packageName: String, mode: AppCompatibilityMode) {
@@ -110,8 +118,7 @@ object AppCompatibilityPolicyStore {
     }
 
     fun isProtectedCompatibility(packageName: String?): Boolean =
-        getMode(packageName) == AppCompatibilityMode.ESSENTIAL ||
-        getMode(packageName) == AppCompatibilityMode.ESSENTIAL_COMPAT
+        getMode(packageName) == AppCompatibilityMode.ESSENTIAL
 
     fun isExcluded(packageName: String?): Boolean =
         getMode(packageName) == AppCompatibilityMode.EXCLUDED
@@ -135,7 +142,7 @@ object AppCompatibilityPolicyStore {
 
     fun snapshot(): Map<String, Boolean> =
         snapshotModes().mapValues {
-            it.value == AppCompatibilityMode.ESSENTIAL || it.value == AppCompatibilityMode.ESSENTIAL_COMPAT
+            it.value == AppCompatibilityMode.ESSENTIAL
         }
 
     fun snapshotModes(): Map<String, AppCompatibilityMode> {
@@ -144,7 +151,7 @@ object AppCompatibilityPolicyStore {
             .filterKeys { it.startsWith(KEY_MODE_PREFIX) }
             .mapNotNull { (key, value) ->
                 val pkg = key.removePrefix(KEY_MODE_PREFIX)
-                val mode = runCatching { AppCompatibilityMode.valueOf(value as? String ?: "NORMAL") }.getOrDefault(AppCompatibilityMode.NORMAL)
+                val mode = parseMode(value as? String)
                 if (pkg.isBlank() || mode == AppCompatibilityMode.NORMAL) null else pkg to mode
             }.toMap()
     }
