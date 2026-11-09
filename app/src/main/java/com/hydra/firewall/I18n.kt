@@ -5,6 +5,15 @@ import java.util.Locale
 
 enum class AppLanguage { SYSTEM, ES, EN }
 
+enum class AppVisualTheme {
+    NEON_TECH,
+    DARK_PREMIUM,
+    LIGHT_MODERN,
+    CYBER_ORANGE,
+    MATERIAL_MODERN,
+    GLASS_GREEN
+}
+
 class AppSettings(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("firewall_settings", Context.MODE_PRIVATE)
 
@@ -24,6 +33,7 @@ class AppSettings(context: Context) {
     var advancedMode: Boolean get() = prefs.getBoolean("advanced_mode", false); set(value) = prefs.edit().putBoolean("advanced_mode", value).apply()
     var showSystemApps: Boolean get() = prefs.getBoolean("show_system_apps", false); set(value) = prefs.edit().putBoolean("show_system_apps", value).apply()
     var themeMode: ThemeMode get() = runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.DARK.name)!!) }.getOrDefault(ThemeMode.DARK); set(value) = prefs.edit().putString("theme_mode", value.name).apply()
+    var visualTheme: AppVisualTheme get() = runCatching { AppVisualTheme.valueOf(prefs.getString("visual_theme", AppVisualTheme.NEON_TECH.name)!!) }.getOrDefault(AppVisualTheme.NEON_TECH); set(value) = prefs.edit().putString("visual_theme", value.name).apply()
     var language: AppLanguage get() = runCatching { AppLanguage.valueOf(prefs.getString("language", AppLanguage.SYSTEM.name)!!) }.getOrDefault(AppLanguage.SYSTEM); set(value) = prefs.edit().putString("language", value.name).apply()
     /** Silent, informational notices (blocklist updated, pause ended...). Notices that need a decision ignore this. */
     var infoNotices: Boolean get() = prefs.getBoolean("info_notices", true); set(value) = prefs.edit().putBoolean("info_notices", value).apply()

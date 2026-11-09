@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: beta / validación previa a publicación** (versión `3.6.3`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+> **Estado: beta / validación previa a publicación** (versión `3.6.4`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -32,7 +32,7 @@ Todo ocurre **en el dispositivo**. No hay servidores de Hydra, ni cuenta, ni ana
 | | |
 |---|---|
 | **Qué es** | Un firewall para Android construido sobre el `VpnService` del sistema (interfaz TUN). Código abierto, GPL‑3.0‑or‑later. |
-| **Qué hace** | Reglas por app para Wi‑Fi/datos · aviso en la primera conexión · cuarentena opcional de apps nuevas · bloqueo de dominios de anuncios/rastreadores/malware · DNS cifrado · filtrado SNI/QUIC sin descifrar HTTPS · reglas de IP y puertos · pack de amenazas firmado · escáner de APK y puntaje de riesgo · análisis de comportamiento local · historial y estadísticas · bloqueo con PIN/huella · exportar/importar configuración |
+| **Qué hace** | Reglas por app para Wi‑Fi/datos · aviso en la primera conexión · cuarentena opcional de apps nuevas · bloqueo de dominios de anuncios/rastreadores/malware · DNS cifrado · filtrado SNI/QUIC sin descifrar HTTPS · reglas de IP y puertos · pack de amenazas firmado · escáner de APK y puntaje de riesgo · análisis de comportamiento local · historial y estadísticas · bloqueo con PIN/huella · seis temas visuales seleccionables · exportar/importar configuración |
 | **Qué no hace** | Detectar malware de forma confiable · descifrar HTTPS · reemplazar la seguridad de Android · bloquear el tráfico de apps que excluiste de la VPN · funcionar junto con otra VPN |
 | **Privacidad** | Sin telemetría. Las únicas conexiones que Hydra hace por su cuenta están en [Actualizaciones y actividad de red](#actualizaciones-y-actividad-de-red). |
 | **Requisitos** | Android 7.0+ (API 24). Android permite una sola VPN activa a la vez. |

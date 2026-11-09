@@ -15,7 +15,7 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: beta / pre-release validation** (version `3.6.3`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
+> **Status: beta / pre-release validation** (version `3.6.4`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -32,7 +32,7 @@ Everything runs **on the device**. There are no Hydra servers, no account and no
 | | |
 |---|---|
 | **What it is** | An Android firewall built on the system `VpnService` (TUN interface). Open source, GPL‑3.0‑or‑later. |
-| **What it does** | Per-app Wi‑Fi/mobile rules · first-connection prompts · new-app quarantine · ad/tracker/malware domain blocking · encrypted DNS · SNI/QUIC filtering without decrypting HTTPS · IP and port rules · signed threat-intelligence pack · APK scanner and app-risk scoring · local behavior analysis · connection history and statistics · PIN/biometric lock · config export/import |
+| **What it does** | Per-app Wi‑Fi/mobile rules · first-connection prompts · new-app quarantine · ad/tracker/malware domain blocking · encrypted DNS · SNI/QUIC filtering without decrypting HTTPS · IP and port rules · signed threat-intelligence pack · APK scanner and app-risk scoring · local behavior analysis · connection history and statistics · PIN/biometric lock · six selectable visual themes · config export/import |
 | **What it does not do** | Detect malware reliably · decrypt HTTPS · replace Android's own security · block traffic of apps you excluded from the VPN · work together with another VPN |
 | **Privacy** | No telemetry. The only network requests Hydra makes on its own are listed in [Updates and network activity](#updates-and-network-activity). |
 | **Requirements** | Android 7.0+ (API 24). Android allows only one active VPN at a time. |

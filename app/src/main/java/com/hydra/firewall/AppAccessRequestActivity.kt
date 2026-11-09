@@ -96,7 +96,7 @@ class AppAccessRequestActivity : ComponentActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
             }
-            FirewallLocalTheme(darkTheme = darkTheme) {
+            FirewallLocalTheme(darkTheme = darkTheme, visualTheme = settingsVisualTheme(applicationContext)) {
                 AppAccessRequestScreen(
                     packageName = request.packageName ?: if (AppSettings(applicationContext).language.isEnglish()) "Unknown application" else "Aplicación desconocida",
                     uid = request.uid,
@@ -594,6 +594,14 @@ private fun PromptAction(
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
+}
+
+private fun settingsVisualTheme(context: android.content.Context): AppVisualTheme {
+    return runCatching {
+        context.getSharedPreferences("firewall_settings", android.content.Context.MODE_PRIVATE)
+            .getString("visual_theme", AppVisualTheme.NEON_TECH.name)
+            ?.let(AppVisualTheme::valueOf)
+    }.getOrNull() ?: AppVisualTheme.NEON_TECH
 }
 
 private fun settingsTheme(context: android.content.Context): ThemeMode {

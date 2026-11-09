@@ -1,3 +1,10 @@
+## 3.6.4 (versionCode 30604)
+Selector de seis temas visuales, con preferencias persistentes e independencia entre paleta y modo claro/oscuro.
+- **Temas:** Neon Tech, Dark Premium, Light Modern, Cyber Orange, Material Modern y Glass Green; cada uno dispone de variante clara y oscura.
+- **Preferencias:** el tema elegido se guarda localmente; se conserva el selector Sistema/Claro/Oscuro existente.
+- **Consistencia:** la pantalla principal y los avisos de primera conexión utilizan el mismo tema seleccionado.
+- **Alcance:** cambios exclusivamente visuales; no se modifica el motor VPN, IPv4/IPv6, TCP/UDP, DNS, SNI, reglas ni actualizadores.
+
 ## 3.6.3 (versionCode 30603)
 Refresh visual identity with the Neon Tech interface. No firewall, VPN, packet-processing, DNS, SNI, rule, or security decision behavior is intentionally changed.
 - **Theme:** dark navy surfaces, cyan/turquoise accents, refined typography and rounded component shapes.

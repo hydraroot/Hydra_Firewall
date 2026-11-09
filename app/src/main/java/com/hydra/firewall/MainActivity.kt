@@ -309,6 +309,7 @@ fun FirewallScreen(
     var showSystemApps by remember { mutableStateOf(settingsStore.showSystemApps) }
     var systemAppsWarning by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(settingsStore.themeMode) }
+    var visualTheme by remember { mutableStateOf(settingsStore.visualTheme) }
     var filter by remember { mutableStateOf(RuleFilter.ALL) }
     var newOnly by remember { mutableStateOf(false) }
     var appListFilter by remember { mutableStateOf(AppListFilter.USER) }
@@ -452,7 +453,7 @@ fun FirewallScreen(
     androidx.compose.runtime.LaunchedEffect(selectedTab, history) {
         if (selectedTab == MainTab.CONNECTIONS) seenBlockId = history.maxOfOrNull { it.id } ?: seenBlockId
     }
-    FirewallLocalTheme(darkTheme = darkTheme) {
+    FirewallLocalTheme(darkTheme = darkTheme, visualTheme = visualTheme) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground,
@@ -1688,10 +1689,41 @@ fun FirewallScreen(
                                     Spacer(Modifier.width(8.dp))
                                 }
                             }
-                            Text(tr(context,"appearance"), style = MaterialTheme.typography.titleMedium)
+                            Text(if (language.isEnglish()) "Brightness" else "Brillo", style = MaterialTheme.typography.titleMedium)
                             HydraHorizontalRow(Modifier.fillMaxWidth().height(36.dp)) {
                                 listOf(ThemeMode.SYSTEM to tr(context,"system_language"), ThemeMode.LIGHT to if (language.isEnglish()) "Light" else "Claro", ThemeMode.DARK to if (language.isEnglish()) "Dark" else "Oscuro").forEach { (mode,label) ->
                                     HydraChoiceButton(themeMode == mode, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick={ themeMode=mode; settingsStore.themeMode=mode }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(8.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Text(if (language.isEnglish()) "Color theme" else "Tema visual", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (language.isEnglish()) "Choose the colors and visual identity. Brightness above remains independent."
+                                else "Elegí los colores y la identidad visual. El modo claro/oscuro de arriba se mantiene independiente.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            val visualThemes = listOf(
+                                AppVisualTheme.NEON_TECH to "Neon Tech",
+                                AppVisualTheme.DARK_PREMIUM to "Dark Premium",
+                                AppVisualTheme.LIGHT_MODERN to "Light Modern",
+                                AppVisualTheme.CYBER_ORANGE to "Cyber Orange",
+                                AppVisualTheme.MATERIAL_MODERN to "Material Modern",
+                                AppVisualTheme.GLASS_GREEN to "Glass Green"
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                visualThemes.chunked(2).forEach { themeRow ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        themeRow.forEach { (theme, label) ->
+                                            ThemeOptionCard(
+                                                title = label,
+                                                accent = themeAccent(theme),
+                                                selected = visualTheme == theme,
+                                                onClick = { visualTheme = theme; settingsStore.visualTheme = theme },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             SettingsBlockTitle(if (language.isEnglish()) "Data and backups" else "Copias y datos")
@@ -3758,6 +3790,60 @@ private fun DomainRulesPanel(
                     }
                     HorizontalDivider()
                 }
+            }
+        }
+    }
+}
+
+private fun themeAccent(theme: AppVisualTheme): Color = when (theme) {
+    AppVisualTheme.NEON_TECH -> Color(0xFF00DDF5)
+    AppVisualTheme.DARK_PREMIUM -> Color(0xFFC2A7FF)
+    AppVisualTheme.LIGHT_MODERN -> Color(0xFF2563EB)
+    AppVisualTheme.CYBER_ORANGE -> Color(0xFFFF8A32)
+    AppVisualTheme.MATERIAL_MODERN -> Color(0xFFADC6FF)
+    AppVisualTheme.GLASS_GREEN -> Color(0xFF59E4AE)
+}
+
+@Composable
+private fun ThemeOptionCard(
+    title: String,
+    accent: Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.height(54.dp),
+        shape = RoundedCornerShape(13.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            if (selected) 1.5.dp else 0.8.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp)
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                Modifier.size(13.dp).clip(CircleShape).background(accent)
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f), CircleShape)
+            )
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false
+            )
+            if (selected) {
+                Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
