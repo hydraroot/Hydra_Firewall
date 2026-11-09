@@ -895,7 +895,7 @@ fun FirewallScreen(
                                             app.allPackages().forEach { pkg -> AppCompatibilityController.setModeAndRestart(context, pkg, AppCompatibilityMode.ESSENTIAL) }
                                             ruleVersion++
                                             notifyRulesChanged(context)
-                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.ESSENTIAL, targetWifi, targetMobile, true, false, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, describeAppPolicy(AppCompatibilityMode.ESSENTIAL, targetWifi, targetMobile, true, settingsStore.language.isEnglish()), android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         { favoritesStore.toggle(app.uid); ruleVersion++ },
                                         { selectedCustomApp = app },
@@ -910,7 +910,7 @@ fun FirewallScreen(
                                             val targetWifi = if (target == AppCompatibilityMode.NORMAL) rule.wifiAllowed else false
                                             val targetMobile = if (target == AppCompatibilityMode.NORMAL) rule.mobileAllowed else false
                                             val targetExplicit = if (target == AppCompatibilityMode.NORMAL) explicitRule else false
-                                            val targetSummary = describeAppPolicy(target, targetWifi, targetMobile, targetExplicit, false, settingsStore.language.isEnglish())
+                                            val targetSummary = describeAppPolicy(target, targetWifi, targetMobile, targetExplicit, settingsStore.language.isEnglish())
                                             android.widget.Toast.makeText(context, targetSummary, android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         extra = {
