@@ -258,17 +258,23 @@ class UdpForwardingEngine(
             val bypassPublicBlocklist = ruleEngine.shouldBypassOptionalDomainFilter(
                 dnsResolution.uid, dnsResolution.packageName
             )
-            val domainBlocked = when (customDecision) {
+            val customRuleBlocks = when (customDecision) {
                 CustomDomainRuleStore.Action.BLOCK -> true
                 CustomDomainRuleStore.Action.ALLOW -> false
-                null -> publicBlocklisted && !bypassPublicBlocklist
+                null -> null
             }
+            val domainBlocked = DomainEnforcementPolicy.shouldBlockDns(
+                threatMatched = threatMatch != null,
+                customRuleBlocks = customRuleBlocks,
+                publicBlocklisted = publicBlocklisted,
+                bypassOptionalBlocklist = bypassPublicBlocklist
+            )
             if (queryName != null && publicBlocklisted && bypassPublicBlocklist && threatMatch == null) {
                 DiagnosticLogger.logServiceEvent(
                     "DOMAIN COMPAT BYPASS DNS name=$queryName uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"} reason=ESSENTIAL"
                 )
             }
-            if (queryName != null && (threatMatch != null || domainBlocked)) {
+            if (queryName != null && domainBlocked) {
                 val qtype = DnsBlockResponseBuilder.readQuestionType(payload)
                 val response = DnsBlockResponseBuilder.build(payload, qtype)
                 if (response != null) {

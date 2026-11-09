@@ -2,9 +2,6 @@ package com.hydra.firewall.vpn
 
 import android.net.VpnService
 import android.util.Log
-import com.hydra.firewall.security.SecurityEventStore
-import com.hydra.firewall.security.Severity
-import com.hydra.firewall.security.ThreatSignatureStore
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -22,11 +19,10 @@ import java.security.SecureRandom
 /**
  * IPv6/TCP forwarding + per-UID Wi-Fi/mobile rules.
  *
- * Architecture:
- *   blocking TUN reader thread -> queue -> single Selector thread
- *   Selector thread owns all sockets and mutable TCP session state.
- *
- * IPv6 extension headers and fragments are intentionally unsupported in this basic milestone.
+ * IPv6-specific parsing and packet construction stay in this adapter. Shared
+ * TCP SNI enforcement is delegated to TcpSniSecurityInspector so IPv4 and
+ * IPv6 use the same domain policy after TCP reassembly. IpParser handles the
+ * supported IPv6 extension headers and bounded fragment reassembly upstream.
  */
 class Ipv6TcpForwardingEngine(
     private val service: VpnService,
@@ -255,41 +251,8 @@ class Ipv6TcpForwardingEngine(
         }
 
         if (payload.isNotEmpty()) {
-            // IPv6/TCP gets the same SNI threat/domain protection as IPv4/TCP.
-            val tls = TlsSniInspector.feed(session.tlsSniAccumulator, payload)
-            val sni = tls?.sni
-                        if (!sni.isNullOrBlank()) {
-                val threatMatch = if (ruleEngine.isThreatProtectionEnabled(session.uid, session.packageName)) {
-                    ThreatSignatureStore.matchDomain(service, sni)
-                } else null
-                val customDecision = CustomDomainRuleStore.decision(service, sni)
-                val publicBlocklisted = customDecision == null &&
-                    DomainBlockStore.enabled && DomainBlockStore.isBlocked(sni)
-                val domainBlocked = when (customDecision) {
-                    CustomDomainRuleStore.Action.BLOCK -> true
-                    CustomDomainRuleStore.Action.ALLOW -> false
-                    null -> publicBlocklisted &&
-                        !ruleEngine.shouldBypassOptionalDomainFilter(session.uid, session.packageName) &&
-                        ruleEngine.isTlsSniProtectionEnabled(session.uid, session.packageName)
-                }
-                if (threatMatch != null || domainBlocked) {
-                    ConnectionHistory.add(
-                        session.uid, session.packageName, "TCP", currentNetwork,
-                        formatEndpoint(session.key.srcAddr, session.key.srcPort),
-                        "$sni:${session.key.dstPort}", false, "BLOCKED-DOMAIN-SNI"
-                    )
-                    if (threatMatch != null) {
-                        ThreatSignatureStore.recordNetworkBlock(service)
-                        SecurityEventStore.record(service, "THREAT_NETWORK_BLOCK", "Threat blocked: ${threatMatch.match.name}", "IPv6 HTTPS SNI ${sni} • ${threatMatch.match.family ?: "network threat"}", threatMatch.match.severity)
-                        NotificationHelper.notifyThreatBlocked(service, session.packageName, sni, threatMatch.match.family, threatMatch.match.severity)
-                                            } else {
-                        val reason = if (customDecision == CustomDomainRuleStore.Action.BLOCK) "CUSTOM_DOMAIN" else "BLOCKLIST"
-                                            }
-                    sendResetAndClose(session)
-                    return
-                }
-            }
             acceptClientPayload(session, tcp.sequenceNumber, payload)
+            if (session.state == TcpSession.State.CLOSED) return
         }
 
         if (tcp.isFin) {
@@ -430,6 +393,7 @@ class Ipv6TcpForwardingEngine(
             }
 
             DiagnosticLogger.logTcpOpen(key, resolution.uid, resolution.packageName)
+            TrafficAnalyzerStore.recordConnection(resolution.uid, resolution.packageName, "TCP", key.dstAddr.hostAddress ?: "?", key.dstPort, "CONNECT")
             TrafficStatsStore.recordConnection(resolution.uid, resolution.packageName)
             return session
         } catch (e: Exception) {
@@ -507,6 +471,9 @@ class Ipv6TcpForwardingEngine(
         }
 
         result.delivered.forEach { queueClientData(session, it) }
+        // A shared SNI policy may have reset the session while processing a
+        // reassembled ClientHello. Do not emit an ACK after the RST/close.
+        if (session.state == TcpSession.State.CLOSED) return false
         session.clientExpectedSeq = result.nextExpected
         sendAck(session, session.clientExpectedSeq)
         return result.type != TcpReassembly.ResultType.OUT_OF_WINDOW &&
@@ -515,11 +482,16 @@ class Ipv6TcpForwardingEngine(
     }
 
     private fun queueClientData(session: TcpSession, data: ByteArray) {
-        if (data.isEmpty()) return
+        if (data.isEmpty() || session.state == TcpSession.State.CLOSED) return
         session.toSocket.addLast(ByteBuffer.wrap(data))
         session.toSocketBytes += data.size
         TrafficStatsStore.recordTx(session.uid, session.packageName, data.size)
         DiagnosticLogger.logTcpData(session.key, session.uid, session.packageName, "C2S_DATA", data.size)
+        TrafficAnalyzerStore.recordData(session.uid, session.packageName, "TCP", session.key.dstAddr.hostAddress ?: "?", session.key.dstPort, data.size, "C2S_DATA")
+        if (TcpSniSecurityInspector.inspectAndShouldBlock(service, session, data, ruleEngine, currentNetwork)) {
+            sendResetAndClose(session)
+            return
+        }
         updateInterestOps(session)
     }
 
@@ -682,6 +654,7 @@ class Ipv6TcpForwardingEngine(
             TrafficStatsStore.recordRx(session.uid, session.packageName, offset)
             session.lastActivityMs = System.currentTimeMillis()
             DiagnosticLogger.logTcpData(session.key, session.uid, session.packageName, "S2C_DATA", offset)
+            TrafficAnalyzerStore.recordData(session.uid, session.packageName, "TCP", session.key.dstAddr.hostAddress ?: "?", session.key.dstPort, offset, "S2C_DATA")
         }
     }
 
@@ -858,10 +831,6 @@ class Ipv6TcpForwardingEngine(
         closeSession(session, sendReset = false)
     }
 
-    private fun formatEndpoint(addr: java.net.InetAddress, port: Int): String {
-        val host = addr.hostAddress ?: "?"
-        return if (host.contains(':')) "[$host]:$port" else "$host:$port"
-    }
 
     private fun closeSession(session: TcpSession, sendReset: Boolean) {
         if (session.state == TcpSession.State.CLOSED) return

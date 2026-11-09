@@ -2,7 +2,6 @@ package com.hydra.firewall.vpn
 
 import android.net.VpnService
 import android.util.Log
-import com.hydra.firewall.security.ThreatSignatureStore
 import com.hydra.firewall.security.SecurityEventStore
 import com.hydra.firewall.security.Severity
 import java.io.IOException
@@ -20,13 +19,11 @@ import kotlin.math.min
 import java.security.SecureRandom
 
 /**
- * V1.3-alpha1: IPv4/TCP forwarding + per-UID Wi-Fi/mobile rules.
+ * IPv4/TCP forwarding + per-UID Wi-Fi/mobile rules.
  *
- * Architecture:
- *   blocking TUN reader thread -> queue -> single Selector thread
- *   Selector thread owns all sockets and mutable TCP session state.
- *
- * UDP is handled by UdpForwardingEngine. IPv6 remains unsupported.
+ * IPv4-specific parsing and packet construction stay in this adapter. Shared
+ * TCP SNI enforcement is delegated to TcpSniSecurityInspector so IPv4 and
+ * IPv6 use the same domain policy after TCP reassembly.
  */
 class TcpForwardingEngine(
     private val service: VpnService,
@@ -274,6 +271,7 @@ class TcpForwardingEngine(
 
         if (payload.isNotEmpty()) {
             acceptClientPayload(session, tcp.sequenceNumber, payload)
+            if (session.state == TcpSession.State.CLOSED) return
         }
 
         if (tcp.isFin) {
@@ -517,6 +515,9 @@ class TcpForwardingEngine(
         }
 
         result.delivered.forEach { queueClientData(session, it) }
+        // A shared SNI policy may have reset the session while processing a
+        // reassembled ClientHello. Do not emit an ACK after the RST/close.
+        if (session.state == TcpSession.State.CLOSED) return false
         session.clientExpectedSeq = result.nextExpected
         sendAck(session, session.clientExpectedSeq)
         return result.type != TcpReassembly.ResultType.OUT_OF_WINDOW &&
@@ -525,86 +526,17 @@ class TcpForwardingEngine(
     }
 
     private fun queueClientData(session: TcpSession, data: ByteArray) {
-        if (data.isEmpty()) return
+        if (data.isEmpty() || session.state == TcpSession.State.CLOSED) return
         session.toSocket.addLast(ByteBuffer.wrap(data))
         session.toSocketBytes += data.size
         TrafficStatsStore.recordTx(session.uid, session.packageName, data.size)
         DiagnosticLogger.logTcpData(session.key, session.uid, session.packageName, "C2S_DATA", data.size)
         TrafficAnalyzerStore.recordData(session.uid, session.packageName, "TCP", session.key.dstAddr.hostAddress ?: "?", session.key.dstPort, data.size, "C2S_DATA")
-        inspectForTlsSecurity(session, data)
-        updateInterestOps(session)
-    }
-
-    /**
-     * Inspects the first TLS ClientHello to read its SNI. The ad/tracker
-     * domain blocklist and threat-intel enforcement rely on this.
-     *
-     * This closes an important bypass: an app can resolve an advertising host
-     * before the VPN starts, use a cached address, or use a resolver path that
-     * does not expose a normal UDP/53 query to us. The TLS SNI is still visible
-     * for ordinary TLS ClientHello traffic without MITM. When that SNI matches
-     * the active local domain blocklist, the TCP session is reset immediately.
-     */
-    private fun inspectForTlsSecurity(session: TcpSession, data: ByteArray) {
-        val acc = session.tlsSniAccumulator
-        val result = TlsSniInspector.feed(acc, data)
-
-        if (result == null) return
-
-        val destination = session.key.dstAddr.hostAddress ?: "?"
-        val sni = result.sni
-        
-        // Enforce signed threat intelligence first. A confirmed threat cannot be
-        // whitelisted accidentally. User domain rules then override normal ad/tracker
-        // blocklists, and the public blocklist is the final fallback.
-        val threatMatch = if (ruleEngine.isThreatProtectionEnabled(session.uid, session.packageName)) {
-            sni?.let { ThreatSignatureStore.matchDomain(service, it) }
-        } else null
-        val customDecision = sni?.let { CustomDomainRuleStore.decision(service, it) }
-        val publicBlocklisted = customDecision == null &&
-            DomainBlockStore.enabled && DomainBlockStore.isBlocked(sni ?: "")
-        val bypassPublicBlocklist = ruleEngine.shouldBypassOptionalDomainFilter(session.uid, session.packageName)
-        val sniProtectionEnabled = ruleEngine.isTlsSniProtectionEnabled(session.uid, session.packageName)
-        val domainBlocked = when (customDecision) {
-            CustomDomainRuleStore.Action.BLOCK -> true
-            CustomDomainRuleStore.Action.ALLOW -> false
-            null -> publicBlocklisted && !bypassPublicBlocklist && sniProtectionEnabled
-        }
-        if (sni != null && publicBlocklisted && bypassPublicBlocklist && threatMatch == null) {
-            DiagnosticLogger.logTcpRuntime(
-                session.key, session.uid, session.packageName,
-                "DOMAIN COMPAT BYPASS TLS_SNI=$sni reason=ESSENTIAL"
-            )
-        }
-        if (sni != null && (threatMatch != null || domainBlocked)) {
-            ConnectionHistory.add(
-                session.uid,
-                session.packageName,
-                "TCP",
-                currentNetwork,
-                formatEndpoint(session.key.srcAddr, session.key.srcPort),
-                "$sni:${session.key.dstPort}",
-                allowed = false,
-                event = "BLOCKED-DOMAIN-SNI"
-            )
-            if (threatMatch != null) {
-                ThreatSignatureStore.recordNetworkBlock(service)
-                SecurityEventStore.record(service, "THREAT_NETWORK_BLOCK", "Threat blocked: ${threatMatch.match.name}", "HTTPS SNI ${sni} • ${threatMatch.match.family ?: "network threat"}", threatMatch.match.severity)
-                NotificationHelper.notifyThreatBlocked(service, session.packageName, sni, threatMatch.match.family, threatMatch.match.severity)
-                DiagnosticLogger.logTcpRuntime(
-                    session.key, session.uid, session.packageName,
-                    "THREAT BLOCKED TLS_SNI=$sni source=${threatMatch.match.source}"
-                )
-            } else {
-                val reason = if (customDecision == CustomDomainRuleStore.Action.BLOCK) "CUSTOM_DOMAIN" else "BLOCKLIST"
-                DiagnosticLogger.logTcpRuntime(
-                    session.key, session.uid, session.packageName,
-                    "DOMAIN BLOCKED TLS_SNI=$sni reason=$reason dst=$destination:${session.key.dstPort}"
-                )
-            }
+        if (TcpSniSecurityInspector.inspectAndShouldBlock(service, session, data, ruleEngine, currentNetwork)) {
             sendResetAndClose(session)
             return
         }
+        updateInterestOps(session)
     }
 
     private fun handleClientFin(session: TcpSession, sequence: Long, payloadLength: Int) {
@@ -953,11 +885,6 @@ class TcpForwardingEngine(
         DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "CLOSED")
     }
 
-    /** Formats an IPv4/IPv6 endpoint without ambiguity for logs/history. */
-    private fun formatEndpoint(addr: java.net.InetAddress, port: Int): String {
-        val host = addr.hostAddress ?: "?"
-        return if (host.contains(':')) "[$host]:$port" else "$host:$port"
-    }
 }
 
 private object StatelessTcpPacketBuilder {

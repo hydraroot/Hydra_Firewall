@@ -44,16 +44,16 @@ flowchart TD
 ```
 
 1. **TUN reader** reads one IP packet at a time from the VPN interface.
-2. **Parser** decodes IPv4/IPv6 and the transport header (TCP, UDP, ICMP). IPv6 fragments are reassembled; unsupported extension headers and ESP are rejected.
+2. **Parser** decodes IPv4/IPv6 and classifies the transport header (TCP, UDP, ICMP). Each packet is classified once and dispatched to exactly one address-family/transport adapter; it is not sent through both IPv4 and IPv6. IPv6 fragments are reassembled; unsupported extension headers and ESP are rejected.
 3. **UID resolver** finds which app owns the flow. On newer Android it asks the system; on Android 7–9 it reads `/proc/net`, which can fail transiently. Hydra retries briefly in the packet thread, and the rest of the retries happen in the background. **If the owner cannot be determined, the connection is dropped.** Hydra does not infer the app from the destination IP, because an IP can be shared by many apps and CDNs.
 4. **Rule engine** produces *allow* or *block* combining the app's mode, the network type, global mode, schedules, advanced IP/port rules, blocklists, threat pack, SNI and QUIC protection.
-5. **Forwarding engines** implement a small TCP/UDP stack in user space: they keep a session table, handle TCP sequence numbers and reassembly, open real sockets that are *protected* (they bypass the VPN so they do not loop), and rebuild reply packets with correct checksums.
+5. **Forwarding engines** implement a small TCP/UDP stack in user space. IPv4 and IPv6 keep family-specific packet adapters/builders for their different headers and checksums, while shared policy helpers make DNS and TLS-SNI decisions identical. TCP data is reassembled before SNI inspection in both families. The engines keep session tables, open real sockets that are *protected* (they bypass the VPN so they do not loop), and rebuild reply packets with correct checksums.
 
 ### Backpressure
 TCP packets waiting for the engine thread are held in a bounded queue (2048 packets / 4 MB). When it is
 full, new packets are dropped and TCP retransmission recovers. The engine also processes packets in
-batches so timers and sockets keep being served under load. Nominal capacity is 768 simultaneous
-sessions (TCP 128+128, UDP 256+256).
+batches so timers and sockets keep being served under load. Nominal configured capacity is 1,152 simultaneous
+sessions (TCP: IPv4 512 + IPv6 128; UDP: IPv4 256 + IPv6 256). These are independent per-engine limits, not a promise of that many sessions on every device.
 
 ## 3. DNS handling
 

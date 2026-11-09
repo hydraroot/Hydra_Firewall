@@ -17,7 +17,7 @@
 
 ## Performance and compatibility
 - TCP/UDP forwarding runs in user space: more battery use and some extra latency compared with a native firewall.
-- Nominal limit of 768 simultaneous sessions (TCP 128+128, UDP 256+256). IPv6 does not have full parity (ESP and unsupported headers are rejected). The TCP packet queue is bounded; under sustained overload packets are dropped and TCP retransmits.
+- Nominal configured limit of 1,152 simultaneous sessions (TCP: IPv4 512 + IPv6 128; UDP: IPv4 256 + IPv6 256). IPv6 does not have full parity (ESP and unsupported headers are rejected). The TCP packet queue is bounded; under sustained overload packets are dropped and TCP retransmits.
 - Android 7–9 identify the app that owns each connection by reading `/proc/net`; it can fail transiently (the connection is then dropped, "fail closed").
 - If the owning app of a connection cannot be identified, the connection is dropped: Hydra does not infer identity from the destination IP.
 - IPv6 link-local and multicast are intentionally not routed through Hydra; NAT64 prefixes are.

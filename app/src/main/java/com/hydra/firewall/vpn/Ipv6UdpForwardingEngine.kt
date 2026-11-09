@@ -252,12 +252,26 @@ class Ipv6UdpForwardingEngine(
             val publicBlocklisted = customDecision == null &&
                 DomainBlockStore.enabled &&
                 DomainBlockStore.isBlocked(queryName ?: "")
-            val domainBlocked = when (customDecision) {
+            val bypassPublicBlocklist = ruleEngine.shouldBypassOptionalDomainFilter(
+                dnsResolution.uid, dnsResolution.packageName
+            )
+            val customRuleBlocks = when (customDecision) {
                 CustomDomainRuleStore.Action.BLOCK -> true
                 CustomDomainRuleStore.Action.ALLOW -> false
-                null -> publicBlocklisted && !ruleEngine.shouldBypassOptionalDomainFilter(dnsResolution.uid, dnsResolution.packageName)
+                null -> null
             }
-            if (queryName != null && (threatMatch != null || domainBlocked)) {
+            val domainBlocked = DomainEnforcementPolicy.shouldBlockDns(
+                threatMatched = threatMatch != null,
+                customRuleBlocks = customRuleBlocks,
+                publicBlocklisted = publicBlocklisted,
+                bypassOptionalBlocklist = bypassPublicBlocklist
+            )
+            if (queryName != null && publicBlocklisted && bypassPublicBlocklist && threatMatch == null) {
+                DiagnosticLogger.logServiceEvent(
+                    "DOMAIN COMPAT BYPASS DNS name=$queryName uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"} reason=ESSENTIAL"
+                )
+            }
+            if (queryName != null && domainBlocked) {
                 val qtype = DnsBlockResponseBuilder.readQuestionType(payload)
                 val response = DnsBlockResponseBuilder.build(payload, qtype)
                 if (response != null) {
@@ -288,7 +302,10 @@ class Ipv6UdpForwardingEngine(
             }
             if (queryName != null) {
                 TrafficAnalyzerStore.recordDns(dnsResolution.uid, dnsResolution.packageName, queryName, false)
-                            }
+                DiagnosticLogger.logServiceEvent(
+                    "DNS_QUERY uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"} name=$queryName qtype=${DnsBlockResponseBuilder.readQuestionType(payload)} server=${key.dstAddr.hostAddress}"
+                )
+            }
         }
 
         // Optional encrypted DNS path: never send IPv6 UDP/53 directly when
@@ -348,6 +365,7 @@ class Ipv6UdpForwardingEngine(
             session = createSession(key, resolution.uid, resolution.packageName) ?: return
             DiagnosticLogger.logUdpRuntime(key, session.uid, session.packageName, "FIRST_SEEN network=${currentNetwork.displayName}")
             DiagnosticLogger.logUdpFirstSeen(key, resolution, payload.size)
+            TrafficAnalyzerStore.recordConnection(resolution.uid, resolution.packageName, "UDP", key.dstAddr.hostAddress ?: "?", key.dstPort, "CONNECT")
             TrafficStatsStore.recordConnection(resolution.uid, resolution.packageName)
         }
 
@@ -368,6 +386,7 @@ class Ipv6UdpForwardingEngine(
         TrafficStatsStore.recordTx(session.uid, session.packageName, payload.size)
         if (QuicDetector.isLikelyQuicUdp(payload, session.key.dstPort)) {
             DiagnosticLogger.logUdpData(session.key, session.uid, session.packageName, "QUIC/UDP DATA", payload.size)
+            TrafficAnalyzerStore.recordData(session.uid, session.packageName, "UDP", session.key.dstAddr.hostAddress ?: "?", session.key.dstPort, payload.size, "QUIC/UDP DATA")
         }
         if (!queueOrSendDatagram(session, payload)) {
             closeSession(session)

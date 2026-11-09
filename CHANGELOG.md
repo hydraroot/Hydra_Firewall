@@ -1,3 +1,12 @@
+## 3.6.2 (versionCode 30602)
+Unificación de políticas compartidas entre IPv4 e IPv6, sin mezclar los formatos de paquete específicos de cada familia.
+- **SNI/TCP:** IPv4 e IPv6 usan ahora el mismo inspector y la misma decisión de amenazas, reglas de dominio personalizadas, blocklist pública, compatibilidad y ajuste SNI.
+- **Reensamblado TCP:** la inspección SNI se ejecuta después de entregar datos en orden desde `TcpReassembly`, también en IPv6. Antes IPv6 inspeccionaba segmentos TCP sin reensamblar, por lo que el ClientHello podía llegar fuera de orden y no producir la misma decisión que IPv4.
+- **DNS:** las decisiones de bloqueo por amenaza, regla de usuario y blocklist opcional usan una única tabla de política compartida por IPv4/IPv6.
+- **Analizador de tráfico:** IPv6 vuelve a registrar conexiones TCP/UDP y datos TCP/QUIC en el analizador local opt-in, igual que IPv4. El límite y la opción de activación del analizador no cambian.
+- **Arquitectura:** `IpParser` sigue clasificando cada paquete una sola vez. Los adaptadores TCP/UDP y los constructores IPv4/IPv6 permanecen separados porque sus cabeceras, checksums y límites son distintos; se comparte la política, no se procesa dos veces el mismo paquete.
+- **Pruebas:** se agregan pruebas para la precedencia de amenazas, reglas explícitas, bypass de blocklist y switch SNI.
+
 ## 3.6.1 (versionCode 30601)
 Correcciones de publicación y de la cadena de actualización.
 - **Red de actualizaciones:** el pack de amenazas, las listas de dominios y el actualizador de Hydra usan exclusivamente conexiones abiertas sobre una red física explícita. Se elimina la alternativa de la red predeterminada, que podía ser la propia VPN.
