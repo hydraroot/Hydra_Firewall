@@ -234,3 +234,10 @@ data class SessionKey(
     val dstAddr: InetAddress,
     val dstPort: Int
 )
+
+/**
+ * Estimates the network-header plus transport-header bytes for a blocked flow.
+ * Shared by both IPv4 and IPv6 forwarding engines and the diagnostic logger.
+ */
+internal fun SessionKey.totalPacketBytesEstimate(): Int =
+    40 + if (protocol == UidResolver.PROTOCOL_UDP) 8 else 20

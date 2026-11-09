@@ -2,6 +2,7 @@
 
 ## [3.6.6] - 2026-11-09
 
+- Build fix: moved `SessionKey.totalPacketBytesEstimate()` to package scope so both IPv4 and IPv6 TCP forwarding engines can access the shared estimator used by the diagnostic logger. No packet-processing behavior or byte-estimation formula changed.
 - Simplified the Connections tab: removed the redundant "Why? / Details" wording and kept one clear Details action.
 - Connection Details now explains the exact policy branch captured when the event was evaluated; it no longer guesses from the app's current rules or current threat lists.
 - Saved structured reason codes and factual match details for TCP/UDP policy blocks, DNS domain blocks, SNI blocks, QUIC blocks, and allowed TCP/UDP/DNS-over-TLS events across IPv4 and IPv6.

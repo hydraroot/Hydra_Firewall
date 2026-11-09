@@ -257,7 +257,6 @@ object DiagnosticLogger {
         val host = addr.hostAddress ?: "?"
         return if (host.contains(':')) "[$host]:$port" else "$host:$port"
     }
-    private fun SessionKey.totalPacketBytesEstimate(): Int = 40 + if (protocol == UidResolver.PROTOCOL_UDP) 8 else 20
 
     private fun enabled(required: Level): Boolean = level != Level.OFF && level.ordinal >= required.ordinal
 
