@@ -193,7 +193,16 @@ class TcpForwardingEngine(
         }
         if (refresh) {
             for (session in sessions.values.toList()) {
-                if (!ruleEngine.isAllowed(session.uid, currentNetwork, session.key.dstAddr, if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort)) {
+                val evaluation = ruleEngine.evaluateDetailed(
+                    session.uid, currentNetwork, session.key.dstAddr,
+                    if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort
+                )
+                if (evaluation.decision != RuleEngine.Decision.ALLOW) {
+                    DiagnosticLogger.logPolicyBlocked(
+                        session.key, session.uid, session.packageName, currentNetwork, "TCP",
+                        session.key.totalPacketBytesEstimate(), evaluation.reasonCode, evaluation.reasonDetail,
+                        updateBlockedStats = false
+                    )
                     DiagnosticLogger.logTcpRuntime(
                         session.key, session.uid, session.packageName,
                         "BLOCKED_ACTIVE network=${currentNetwork.displayName}"
@@ -227,9 +236,14 @@ class TcpForwardingEngine(
             session = createSession(key, tcp, packet.size) ?: return
         }
 
-        if (!ruleEngine.isAllowed(session.uid, currentNetwork, session.key.dstAddr, if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort)) {
+        val policyEvaluation = ruleEngine.evaluateDetailed(
+            session.uid, currentNetwork, session.key.dstAddr,
+            if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort
+        )
+        if (policyEvaluation.decision != RuleEngine.Decision.ALLOW) {
             DiagnosticLogger.logPolicyBlocked(
-                key, session.uid, session.packageName, currentNetwork, "TCP", packet.size
+                key, session.uid, session.packageName, currentNetwork, "TCP", packet.size,
+                policyEvaluation.reasonCode, policyEvaluation.reasonDetail
             )
             sendResetAndClose(session)
             return
@@ -329,9 +343,16 @@ class TcpForwardingEngine(
             )
             return null
         }
-        when (ruleEngine.evaluate(resolution.uid, currentNetwork, key.dstAddr, if (key.protocol == 6) "TCP" else "UDP", key.dstPort)) {
+        val policyEvaluation = ruleEngine.evaluateDetailed(
+            resolution.uid, currentNetwork, key.dstAddr,
+            if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+        )
+        when (policyEvaluation.decision) {
             RuleEngine.Decision.BLOCK -> {
-                DiagnosticLogger.logPolicyBlocked(key, resolution.uid, resolution.packageName, currentNetwork, "TCP", packetSize)
+                DiagnosticLogger.logPolicyBlocked(
+                    key, resolution.uid, resolution.packageName, currentNetwork, "TCP", packetSize,
+                    policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+                )
                 sendStatelessResetForSyn(key, tcp)
                 return null
             }
@@ -436,7 +457,7 @@ class TcpForwardingEngine(
                 return null
             }
 
-            DiagnosticLogger.logTcpOpen(key, resolution.uid, resolution.packageName)
+            DiagnosticLogger.logTcpOpen(key, resolution.uid, resolution.packageName, policyEvaluation.reasonCode, policyEvaluation.reasonDetail)
             TrafficAnalyzerStore.recordConnection(resolution.uid, resolution.packageName, "TCP", key.dstAddr.hostAddress ?: "?", key.dstPort, "CONNECT")
             TrafficStatsStore.recordConnection(resolution.uid, resolution.packageName)
             return session

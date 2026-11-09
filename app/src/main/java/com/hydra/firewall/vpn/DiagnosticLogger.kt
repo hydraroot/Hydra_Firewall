@@ -84,8 +84,18 @@ object DiagnosticLogger {
         emit(text, Level.NORMAL)
     }
 
-    fun logUdpFirstSeen(key: SessionKey, resolution: UidResolver.Resolution, payloadLength: Int) {
-        ConnectionHistory.add(resolution.uid, resolution.packageName, "UDP", FirewallVpnService.currentNetworkKind, formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort), true, "FIRST-SEEN")
+    fun logUdpFirstSeen(
+        key: SessionKey,
+        resolution: UidResolver.Resolution,
+        payloadLength: Int,
+        reasonCode: String = "ALLOWED_BY_POLICY",
+        reasonDetail: String? = null
+    ) {
+        ConnectionHistory.add(
+            resolution.uid, resolution.packageName, "UDP", FirewallVpnService.currentNetworkKind,
+            formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort),
+            true, "FIRST-SEEN", reasonCode, reasonDetail
+        )
         if (!enabled(Level.NORMAL)) return
         val text = if (resolution.uid == Process.INVALID_UID) {
             "UDP FIRST-SEEN | uid=INVALID | src=${formatAddr(key.srcAddr, key.srcPort)} | dst=${formatAddr(key.dstAddr, key.dstPort)} | uid_resolution=FAILED | resolver=${resolution.resolvedVia}"
@@ -131,8 +141,18 @@ object DiagnosticLogger {
         return false
     }
 
-    fun logTcpOpen(key: SessionKey, uid: Int, packageName: String?) {
-        ConnectionHistory.add(uid, packageName, "TCP", FirewallVpnService.currentNetworkKind, formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort), true, "OPEN")
+    fun logTcpOpen(
+        key: SessionKey,
+        uid: Int,
+        packageName: String?,
+        reasonCode: String = "ALLOWED_BY_POLICY",
+        reasonDetail: String? = null
+    ) {
+        ConnectionHistory.add(
+            uid, packageName, "TCP", FirewallVpnService.currentNetworkKind,
+            formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort),
+            true, "OPEN", reasonCode, reasonDetail
+        )
         if (!enabled(Level.NORMAL)) return
         emit("TCP OPEN | uid=${uidLabel(uid)} | pkg=${packageName ?: "unknown"} | src=${formatAddr(key.srcAddr, key.srcPort)} | dst=${formatAddr(key.dstAddr, key.dstPort)}", Level.NORMAL)
     }
@@ -164,9 +184,23 @@ object DiagnosticLogger {
         aggregateData(key, uid, "UDP", event, bytes)
     }
 
-    fun logPolicyBlocked(key: SessionKey, uid: Int, packageName: String?, network: NetworkKind, protocolLabel: String, blockedBytes: Int = key.totalPacketBytesEstimate()) {
-        TrafficStatsStore.recordBlocked(uid, packageName, blockedBytes)
-        ConnectionHistory.add(uid, packageName, protocolLabel, network, formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort), false, "BLOCKED")
+    fun logPolicyBlocked(
+        key: SessionKey,
+        uid: Int,
+        packageName: String?,
+        network: NetworkKind,
+        protocolLabel: String,
+        blockedBytes: Int = key.totalPacketBytesEstimate(),
+        reasonCode: String? = null,
+        reasonDetail: String? = null,
+        updateBlockedStats: Boolean = true
+    ) {
+        if (updateBlockedStats) TrafficStatsStore.recordBlocked(uid, packageName, blockedBytes)
+        ConnectionHistory.add(
+            uid, packageName, protocolLabel, network,
+            formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort),
+            false, "BLOCKED", reasonCode ?: "UNCLASSIFIED_BLOCK", reasonDetail
+        )
         if (!enabled(Level.NORMAL)) return
 
         val flow = FlowKey(uid, protocolLabel, formatAddr(key.srcAddr, key.srcPort), formatAddr(key.dstAddr, key.dstPort))

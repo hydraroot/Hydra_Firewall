@@ -1049,14 +1049,18 @@ fun FirewallScreen(
                                 HistorySort.PORT -> history.sortedWith(compareBy<ConnectionHistory.Record> { record -> extractPort(record.destination) }.thenByDescending { record -> record.timestamp })
                             }
                             if (groupedHistory) {
-                                val groups = history.groupBy { "${it.packageName ?: "UID ${it.uid}"}|${it.protocol}|${it.destination}" }.values
+                                val groups = history.groupBy { "${it.uid}|${it.packageName ?: "unknown"}|${it.protocol}|${it.destination}" }.values
                                     .map { items ->
                                         val first = items.maxByOrNull { it.timestamp }!!
                                         HistoryGroup(
-                                            first,
-                                            items.sumOf { it.repeatCount },
-                                            items.filter { it.allowed }.sumOf { it.repeatCount },
-                                            items.filter { !it.allowed }.sumOf { it.repeatCount }
+                                            last = first,
+                                            // A grouped row can contain both allowed and blocked records.
+                                            // Details must open the newest BLOCKED event when one exists,
+                                            // otherwise the badge may say BLOCKED while details show ALLOWED.
+                                            detailRecord = items.filterNot { it.allowed }.maxByOrNull { it.timestamp } ?: first,
+                                            count = items.sumOf { it.repeatCount },
+                                            allowed = items.filter { it.allowed }.sumOf { it.repeatCount },
+                                            blocked = items.filter { !it.allowed }.sumOf { it.repeatCount }
                                         )
                                     }
                                     .sortedByDescending { it.last.timestamp }
@@ -1076,19 +1080,18 @@ fun FirewallScreen(
                                         val groupedApp = com.hydra.firewall.vpn.AppNames.label(g.last.uid, g.last.packageName)
                                         val en = language.isEnglish()
                                         val ruleVersionNow = ruleVersion // re-read when a rule changes so this card updates
-                                        val ruleNow = remember(ruleVersionNow) { ruleStore.getRule(g.last.uid) }
-                                        val appAllowedNow = remember(ruleVersionNow) {
-                                            (!ruleStore.hasExplicitRule(g.last.uid) && essentialAppsStore.isAutoEssential(g.last.uid)) ||
-                                                (ruleNow.wifiAllowed && ruleNow.mobileAllowed)
-                                        }
-                                        val cardReason = remember(g.last.id) {
-                                            ConnectionContext.explain(
-                                                context, g.last.uid, g.last.packageName, g.last.destination, g.last.protocol,
-                                                allowed = g.last.allowed, firstConnection = false, repeatCount = g.count, max = 1
-                                            ).firstOrNull()
+                                        val ruleNow = remember(ruleVersionNow) { ruleStore.getRule(g.detailRecord.uid) }
+                                        val appAllowedNow = remember(ruleVersionNow, g.detailRecord.network) {
+                                            (!ruleStore.hasExplicitRule(g.detailRecord.uid) && essentialAppsStore.isAutoEssential(g.detailRecord.uid)) ||
+                                                when (g.detailRecord.network) {
+                                                    NetworkKind.WIFI -> ruleNow.wifiAllowed
+                                                    NetworkKind.MOBILE -> ruleNow.mobileAllowed
+                                                    NetworkKind.OTHER -> ruleNow.wifiAllowed || ruleNow.mobileAllowed
+                                                    NetworkKind.NONE -> false
+                                                }
                                         }
                                         HydraCard(
-                                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedHistoryDetail = g.last },
+                                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedHistoryDetail = g.detailRecord },
                                             shape = RoundedCornerShape(16.dp)
                                         ) {
                                             Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -1104,35 +1107,32 @@ fun FirewallScreen(
                                                 }
                                                 Spacer(Modifier.height(4.dp))
                                                 Text(
-                                                    "${g.last.protocol} • ${g.last.network.displayName} • ${g.last.time} • ${g.count} ${if (en) "events" else "eventos"}" +
+                                                    "${g.detailRecord.protocol} • ${g.detailRecord.network.displayName} • ${g.detailRecord.time} • ${g.count} ${if (en) "events" else "eventos"}" +
                                                         (if (g.allowed > 0 && g.blocked > 0) " • ${g.allowed} ${if (en) "allowed" else "permitidos"} / ${g.blocked} ${if (en) "blocked" else "bloqueados"}" else ""),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 val groupedIpBlockedNow = host.isNotBlank() && ipBlockStore.isBlocked(host)
-                                                val groupedPortBlocked = advancedRuleStore.findMatches(g.last.uid, g.last.protocol, extractPort(g.last.destination)).any { !it.allowed }
+                                                val groupedPortBlockedNow = advancedRuleStore.findMatches(
+                                                    g.detailRecord.uid, g.detailRecord.protocol, extractPort(g.detailRecord.destination)
+                                                ).any { !it.allowed }
+                                                val appRuleCausedLatestBlock = g.detailRecord.reasonCode == "EXPLICIT_APP_RULE" ||
+                                                    g.detailRecord.reasonCode == "DEFAULT_APP_RULE"
                                                 if (isUnidentifiedApp(g.last.uid, groupedApp)) {
                                                     Text(
                                                         if (en) "App not identified. Open Details to see clues about who started it." else "App no identificada. Abrí Detalles para ver pistas de quién la inició.",
                                                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary
                                                     )
                                                 }
-                                                if (g.blocked > 0 && cardReason != null) {
+                                                if (g.blocked > 0 && g.allowed > 0) {
+                                                    Spacer(Modifier.height(4.dp))
                                                     Text(
-                                                        (if (en) "Likely reason: " else "Motivo probable: ") + (if (en) cardReason.en else cardReason.es),
-                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3,
-                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                        if (en) "Both allowed and blocked attempts are grouped here. Details opens the latest blocked attempt."
+                                                        else "Este grupo reúne intentos permitidos y bloqueados. Detalles abre el último intento bloqueado.",
+                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
                                                 }
-                                                if (g.blocked > 0 && !g.last.allowed && appAllowedNow) {
-                                                    Spacer(Modifier.height(6.dp))
-                                                    Text(
-                                                        if (en) "This app is already allowed on Wi‑Fi and mobile. Old attempts stay in the list for a while; if it is still blocked, the cause is another rule (blocklist domain, schedule, IP or port). Open Details."
-                                                        else "Esta app ya está permitida en Wi‑Fi y datos. Los intentos viejos quedan en la lista un rato; si sigue bloqueada, la causa es otra regla (dominio de la lista, horario, IP o puerto). Abrí Detalles.",
-                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                                if (g.blocked > 0 && !g.last.allowed && !appAllowedNow && !groupedIpBlockedNow && !groupedPortBlocked) {
+                                                if (g.blocked > 0 && !g.detailRecord.allowed && appRuleCausedLatestBlock && !appAllowedNow && !groupedIpBlockedNow && !groupedPortBlockedNow) {
                                                     Spacer(Modifier.height(8.dp))
                                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                         Button(
@@ -1166,7 +1166,7 @@ fun FirewallScreen(
                                                     }
                                                 }
                                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                                                    TextButton({ selectedHistoryDetail = g.last }) { Text(if (en) "Why? / Details" else "¿Por qué? / Detalles") }
+                                                    TextButton({ selectedHistoryDetail = g.detailRecord }) { Text(if (en) "Details" else "Detalles") }
                                                 val groupedIpBlocked = host.isNotBlank() && ipBlockStore.isBlocked(host)
                                                 val groupedIpException = host.isNotBlank() && ipBlockStore.isAllowedForUid(g.last.uid, host)
                                                 val groupedHasBlockedEvents = g.blocked > 0
@@ -1298,6 +1298,7 @@ fun FirewallScreen(
                                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                         Text("${com.hydra.firewall.vpn.AppNames.label(record.uid, record.packageName)}", style = MaterialTheme.typography.titleSmall)
                                         Text("${record.protocol} • ${record.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                                        Text("${record.time} • ${record.network.displayName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${if (record.allowed) (if (language.isEnglish()) "Allowed" else "Permitido") else (if (language.isEnglish()) "Blocked" else "Bloqueado")}", style = MaterialTheme.typography.bodySmall)
                                         if (record.repeatCount > 1) {
                                             Text(
@@ -1305,28 +1306,10 @@ fun FirewallScreen(
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
-                                        Text(
-                                            if (record.allowed) {
-                                                if (language.isEnglish()) "Reason: allowed by current policy" else "Motivo: permitido por la política actual"
-                                            } else {
-                                                if (isIpBlocked) "${if (language.isEnglish()) "Reason: IP block" else "Motivo: bloqueo IP"}"
-                                                else if (matches.any { !it.allowed }) "${if (language.isEnglish()) "Reason: port rule" else "Motivo: regla de puerto"}"
-                                                else if (ruleStore.getSchedule(record.uid).enabled && RuleEngine(ruleStore, context).isScheduleBlocked(record.uid)) "${if (language.isEnglish()) "Reason: schedule" else "Motivo: horario"}"
-                                                else if (!ruleStore.allowLocalNetwork && host.isNotBlank()) "${if (language.isEnglish()) "Reason: local-network policy" else "Motivo: política de red local"}"
-                                                else "${if (language.isEnglish()) "Reason: application/network rule" else "Motivo: regla de aplicación/red"}"
-                                            },
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
+                                        ConnectionDecisionBlock(record, language.isEnglish())
                                         val isIpException = host.isNotBlank() && ipBlockStore.isAllowedForUid(record.uid, host)
-                                        Text(
-                                            if (language.isEnglish()) {
-                                                "IP rule: ${when { isIpBlocked -> "BLOCKED"; isIpException -> "ALLOWED FOR THIS UID"; else -> "not blocked" }}"
-                                            } else {
-                                                "Regla IP: ${when { isIpBlocked -> "BLOQUEADA"; isIpException -> "PERMITIDA PARA ESTE UID"; else -> "no bloqueada" }}"
-                                            },
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                        if (!record.allowed && !isIpBlocked && matches.none { !it.allowed }) {
+                                        val appRuleCausedBlock = record.reasonCode == "EXPLICIT_APP_RULE" || record.reasonCode == "DEFAULT_APP_RULE"
+                                        if (!record.allowed && appRuleCausedBlock) {
                                             val en = language.isEnglish()
                                             HydraCard(Modifier.fillMaxWidth()) {
                                                 Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1363,19 +1346,19 @@ fun FirewallScreen(
                                             }
                                         }
                                         Spacer(Modifier.height(5.dp))
-                                        val whyReasons = remember(record.id) {
-                                            ConnectionContext.explain(
-                                                context, record.uid, record.packageName, record.destination, record.protocol,
-                                                allowed = record.allowed, firstConnection = record.event == "FIRST-SEEN", repeatCount = record.repeatCount
-                                            )
-                                        }
-                                        ConnectionWhyBlock(whyReasons, language.isEnglish())
                                         OriginHintBlock(record, history, language.isEnglish())
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(if (language.isEnglish()) "Matching port rules" else "Reglas de puerto coincidentes", style = MaterialTheme.typography.titleSmall)
-                                        if (matches.isEmpty()) {
-                                            Text(if (language.isEnglish()) "No explicit port rule matches this connection." else "No hay una regla de puerto explícita que coincida con esta conexión.", style = MaterialTheme.typography.bodySmall)
-                                        } else {
+                                        Spacer(Modifier.height(4.dp))
+                                        if (matches.isNotEmpty()) {
+                                            Text(
+                                                if (language.isEnglish()) "Port rules configured now" else "Reglas de puerto configuradas ahora",
+                                                style = MaterialTheme.typography.titleSmall
+                                            )
+                                            Text(
+                                                if (language.isEnglish()) "These are the current settings. The decision reason above is the rule saved when this event happened."
+                                                else "Esta es la configuración actual. El motivo de arriba corresponde a la regla guardada cuando ocurrió este evento.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                             matches.forEach { rule ->
                                                 HydraCard(Modifier.fillMaxWidth()) {
                                                     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1390,10 +1373,10 @@ fun FirewallScreen(
                                         }
                                         Spacer(Modifier.height(4.dp))
                                         when {
-                                            isIpBlocked -> TextButton({ ipBlockStore.remove(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Unblock IP" else "Desbloquear IP") }
-                                            isIpException -> TextButton({ ipBlockStore.removeAllowedForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Remove IP allow" else "Quitar permiso IP") }
-                                            !record.allowed -> TextButton({ ipBlockStore.allowForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Allow this IP for this app" else "Permitir esta IP para esta app") }
-                                            else -> TextButton({ ipBlockStore.add(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Block IP" else "Bloquear IP") }
+                                            record.reasonCode == "USER_IP_BLOCK" && isIpBlocked -> TextButton({ ipBlockStore.remove(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Unblock IP" else "Desbloquear IP") }
+                                            record.allowed && isIpException -> TextButton({ ipBlockStore.removeAllowedForUid(record.uid, host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Remove IP exception" else "Quitar excepción IP") }
+                                            record.allowed && com.hydra.firewall.vpn.ConnectionExplainer.isIpLiteral(host) -> TextButton({ ipBlockStore.add(host); ipVersion++; notifyRulesChanged(context); selectedHistoryDetail = record }) { Text(if (language.isEnglish()) "Block IP" else "Bloquear IP") }
+                                            else -> Unit
                                         }
                                     }
                                 },
@@ -3040,7 +3023,13 @@ private fun AdvancedRulesEditor(context: Context, apps: List<AppEntry>, store: A
     }
 }
 
-data class HistoryGroup(val last: ConnectionHistory.Record, val count: Int, val allowed: Int, val blocked: Int)
+data class HistoryGroup(
+    val last: ConnectionHistory.Record,
+    val detailRecord: ConnectionHistory.Record,
+    val count: Int,
+    val allowed: Int,
+    val blocked: Int
+)
 
 private fun startActivitySafe(context: Context, action: String) { runCatching { context.startActivity(Intent(action)) } }
 

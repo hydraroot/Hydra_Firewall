@@ -123,78 +123,89 @@ class RuleEngine(private val store: RuleStore, context: Context) {
      * to a blocked ad/tracker domain can be swallowed without ever asking the
      * user for the app-level decision.
      */
+    data class Evaluation(
+        val decision: Decision,
+        /** Stable machine-readable cause captured at decision time for Connection history. */
+        val reasonCode: String,
+        /** Small factual context (domain, port rule, network, threat name); never a guessed explanation. */
+        val reasonDetail: String? = null
+    )
+
     fun evaluateApplicationPolicy(
         uid: Int,
         network: NetworkKind,
         protocol: String? = null,
         port: Int? = null,
         destination: InetAddress? = null
-    ): Decision {
-        precheck(uid, store.globalBlockAll, store.invalidUidAllowed, essentialAppsStore.isEssential(uid))?.let {
-            DiagnosticLogger.logServiceEvent(
-                "APP_POLICY_DECISION uid=$uid decision=${it.name} reason=${if (uid == Process.INVALID_UID) "INVALID_UID" else if (store.globalBlockAll) "GLOBAL_BLOCK_ALL" else "PRECHECK"}"
-            )
-            return it
-        }
+    ): Decision = evaluateApplicationPolicyDetailed(uid, network, protocol, port, destination).decision
+
+    fun evaluateApplicationPolicyDetailed(
+        uid: Int,
+        network: NetworkKind,
+        protocol: String? = null,
+        port: Int? = null,
+        destination: InetAddress? = null
+    ): Evaluation {
+        precheckEvaluation(uid)?.let { return it }
         if (destination != null) {
             val host = destination.hostAddress?.substringBefore('%').orEmpty()
             if (host.isNotBlank() && ipBlockStore.isAllowedForUid(uid, host)) {
                 DiagnosticLogger.logServiceEvent(
                     "APP_POLICY_DECISION uid=$uid decision=ALLOW reason=USER_IP_EXCEPTION destination=$host network=${network.displayName}"
                 )
-                return Decision.ALLOW
+                return Evaluation(Decision.ALLOW, "USER_IP_EXCEPTION", host)
             }
-            // Android 7/legacy DNS resolution may emit the resolver query from
-            // the system/netd UID (commonly UID 0). Such traffic must be allowed
-            // to the active local/network resolver by default; otherwise the
-            // app's first DNS lookup can be dropped before the app-level prompt
-            // is even reachable. Keep global IP blocks and confirmed threats
-            // authoritative: this exception only applies after the checks above.
+            // Android/netd DNS to the active physical resolver is a transport prerequisite.
             if (shouldAllowSystemDns(uid, port ?: -1, destination)) {
                 DiagnosticLogger.logServiceEvent(
                     "APP_POLICY_DECISION uid=$uid decision=ALLOW reason=SYSTEM_DNS_DEFAULT destination=$host port=${port ?: -1} network=${network.displayName}"
                 )
-                return Decision.ALLOW
+                return Evaluation(Decision.ALLOW, "SYSTEM_DNS_DEFAULT", "${host}:${port ?: -1}")
             }
         }
-        return evaluateApplicationPolicyAfterPrecheck(uid, network, protocol, port)
+        return evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port)
     }
 
-    fun evaluate(uid: Int, network: NetworkKind, destination: InetAddress? = null, protocol: String? = null, port: Int? = null): Decision {
-        // Security prechecks must run in the fail-closed order below.
-        // In particular, GLOBAL BLOCK ALL must take precedence over the
-        // optional "allow unknown UID" policy. Otherwise an unresolved UID
-        // could become an unintended exception to the kill-switch.
-        precheck(uid, store.globalBlockAll, store.invalidUidAllowed, essentialAppsStore.isEssential(uid))?.let {
-            DiagnosticLogger.logServiceEvent(
-                "APP_POLICY_DECISION uid=$uid decision=${it.name} reason=${if (uid == Process.INVALID_UID) "INVALID_UID" else if (store.globalBlockAll) "GLOBAL_BLOCK_ALL" else "PRECHECK"}"
-            )
-            return it
-        }
+    fun evaluate(
+        uid: Int,
+        network: NetworkKind,
+        destination: InetAddress? = null,
+        protocol: String? = null,
+        port: Int? = null
+    ): Decision = evaluateDetailed(uid, network, destination, protocol, port).decision
+
+    fun evaluateDetailed(
+        uid: Int,
+        network: NetworkKind,
+        destination: InetAddress? = null,
+        protocol: String? = null,
+        port: Int? = null
+    ): Evaluation {
+        // Security prechecks run before all optional app rules.
+        precheckEvaluation(uid)?.let { return it }
+
         if (isScheduleBlocked(uid)) {
-            DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCHEDULE")
-            return Decision.BLOCK
+            val schedule = store.getSchedule(uid)
+            val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                .filterIndexed { index, _ -> (schedule.daysMask and (1 shl index)) != 0 }
+            fun clock(minutes: Int): String = "%02d:%02d".format(minutes / 60, minutes % 60)
+            val detail = "${dayNames.joinToString(",")}; ${clock(schedule.startMinutes)}-${clock(schedule.endMinutes)}"
+            DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCHEDULE detail=$detail")
+            return Evaluation(Decision.BLOCK, "SCHEDULE", detail)
         }
 
-        // FIRST-CONNECTION PROMPT MUST HAPPEN BEFORE DESTINATION-LEVEL OPTIONAL
-        // FILTERS. Otherwise a new app can hit a public IP/local-network block
-        // or another destination precheck and be silently denied without ever
-        // reaching the user decision UI. Confirmed security controls are still
-        // enforced after the user has an explicit app policy; this early prompt
-        // is only for a real application UID with no saved rule, not essential,
-        // and not auto-trusted.
         if (shouldPromptFirstConnection(uid)) {
             val pkg = packageNameForUid(uid)
             DiagnosticLogger.logServiceEvent(
                 "APP_POLICY_DECISION uid=$uid decision=PROMPT reason=FIRST_CONNECTION_EARLY network=${network.displayName} pkg=${pkg ?: "unknown"}"
             )
-            return Decision.PROMPT
+            return Evaluation(Decision.PROMPT, "FIRST_CONNECTION_PROMPT", network.displayName)
         }
 
         if (destination != null) {
             val host = destination.hostAddress?.substringBefore('%') ?: ""
             if (ipBlockStore.isBlocked(host)) {
-                                return Decision.BLOCK
+                return Evaluation(Decision.BLOCK, "USER_IP_BLOCK", host)
             }
             val packageName = packageNameForUid(uid)
             val threatMatch = if (isThreatProtectionEnabled(uid, packageName)) {
@@ -213,104 +224,122 @@ class RuleEngine(private val store: RuleStore, context: Context) {
                     appContext, packageName, threatMatch.normalized,
                     threatMatch.match.family, threatMatch.match.severity
                 )
-                                return Decision.BLOCK
+                return Evaluation(
+                    Decision.BLOCK,
+                    "THREAT_IP",
+                    listOf(threatMatch.match.name, threatMatch.match.family, threatMatch.match.source, threatMatch.normalized)
+                        .filterNotNull().filter { it.isNotBlank() }.joinToString(" • ")
+                )
             }
-            // Explicit user IP exceptions are checked after confirmed threat
-            // matches so an accidental tap cannot override Hydra threat intel.
-            // They are scoped to the UID, not global, and intentionally work for
-            // local/system DNS endpoints such as 192.168.1.1:53.
             if (host.isNotBlank() && ipBlockStore.isAllowedForUid(uid, host)) {
                 DiagnosticLogger.logServiceEvent(
                     "APP_POLICY_DECISION uid=$uid decision=ALLOW reason=USER_IP_EXCEPTION destination=$host network=${network.displayName}"
                 )
-                return Decision.ALLOW
+                return Evaluation(Decision.ALLOW, "USER_IP_EXCEPTION", host)
             }
-            // System/netd DNS to the active/local resolver is a transport
-            // prerequisite for normal Android applications. Allow it by default
-            // for system/root UIDs, while leaving the global IP block, confirmed
-            // threat matches and explicit user IP blocks authoritative.
             if (shouldAllowSystemDns(uid, port ?: -1, destination)) {
                 DiagnosticLogger.logServiceEvent(
                     "APP_POLICY_DECISION uid=$uid decision=ALLOW reason=SYSTEM_DNS_DEFAULT destination=$host port=${port ?: -1} network=${network.displayName}"
                 )
-                // Domain filtering still happens in the DNS layer.
-                return Decision.ALLOW
+                return Evaluation(Decision.ALLOW, "SYSTEM_DNS_DEFAULT", "${host}:${port ?: -1}")
             }
             if (shouldBlockLocalNetwork(uid, packageName, destination)) {
-                                return Decision.BLOCK
+                return Evaluation(Decision.BLOCK, "LOCAL_NETWORK_POLICY", host)
             }
         }
-        return evaluateApplicationPolicyAfterPrecheck(uid, network, protocol, port, checkSchedule = false)
+        return evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port, checkSchedule = false)
     }
 
-    /** Shared app-policy core used both by normal packet evaluation and by the
-     * DNS prefilter. It deliberately has no destination/IP checks. */
-    private fun evaluateApplicationPolicyAfterPrecheck(
+    private fun precheckEvaluation(uid: Int): Evaluation? {
+        val decision = precheck(uid, store.globalBlockAll, store.invalidUidAllowed, essentialAppsStore.isEssential(uid))
+            ?: return null
+        val result = when {
+            store.globalBlockAll -> Evaluation(decision, "GLOBAL_BLOCK_ALL")
+            uid == Process.INVALID_UID -> Evaluation(decision, "INVALID_UID_POLICY", "uid=$uid")
+            else -> Evaluation(decision, "POLICY_PRECHECK")
+        }
+        DiagnosticLogger.logServiceEvent(
+            "APP_POLICY_DECISION uid=$uid decision=${decision.name} reason=${result.reasonCode}"
+        )
+        return result
+    }
+
+    /** Shared app-policy core; returns the exact branch that produced the decision. */
+    private fun evaluateApplicationPolicyAfterPrecheckDetailed(
         uid: Int,
         network: NetworkKind,
         protocol: String? = null,
         port: Int? = null,
         checkSchedule: Boolean = true
-    ): Decision {
+    ): Evaluation {
         if (checkSchedule && isScheduleBlocked(uid)) {
-            DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCHEDULE")
-            return Decision.BLOCK
+            val schedule = store.getSchedule(uid)
+            val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                .filterIndexed { index, _ -> (schedule.daysMask and (1 shl index)) != 0 }
+            fun clock(minutes: Int): String = "%02d:%02d".format(minutes / 60, minutes % 60)
+            val detail = "${dayNames.joinToString(",")}; ${clock(schedule.startMinutes)}-${clock(schedule.endMinutes)}"
+            DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCHEDULE detail=$detail")
+            return Evaluation(Decision.BLOCK, "SCHEDULE", detail)
         }
-        // Essential mode keeps the app inside HYDRA while allowing normal network
-        // connectivity when no explicit Wi-Fi/Mobile rule exists. Explicit user
-        // blocks, schedules, advanced rules and confirmed security controls remain
-        // authoritative.
         if (!isUserEssential(uid) && store.blockWhenScreenOff && !isScreenInteractive()) {
             DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCREEN_OFF")
-            return Decision.BLOCK
+            return Evaluation(Decision.BLOCK, "SCREEN_OFF")
         }
         if (!isUserEssential(uid) && store.blockWhenRoaming && roaming && network == NetworkKind.MOBILE) {
             DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=ROAMING")
-            return Decision.BLOCK
+            return Evaluation(Decision.BLOCK, "ROAMING")
         }
-        // Ordinary applications do not bypass the first-connection prompt.
+
         val temporary = store.getTemporaryRule(uid)
         if (temporary != null) {
-            return when (network) {
-                NetworkKind.WIFI -> if (temporary.wifiAllowed) Decision.ALLOW else Decision.BLOCK
-                NetworkKind.MOBILE -> if (temporary.mobileAllowed) Decision.ALLOW else Decision.BLOCK
-                NetworkKind.OTHER -> if (temporary.wifiAllowed || temporary.mobileAllowed) Decision.ALLOW else Decision.BLOCK
-                NetworkKind.NONE -> Decision.BLOCK
+            val allowed = when (network) {
+                NetworkKind.WIFI -> temporary.wifiAllowed
+                NetworkKind.MOBILE -> temporary.mobileAllowed
+                NetworkKind.OTHER -> temporary.wifiAllowed || temporary.mobileAllowed
+                NetworkKind.NONE -> false
             }
+            return Evaluation(
+                if (allowed) Decision.ALLOW else Decision.BLOCK,
+                "TEMPORARY_APP_RULE",
+                "${network.displayName}; Wi-Fi=${if (temporary.wifiAllowed) "allow" else "block"}; mobile=${if (temporary.mobileAllowed) "allow" else "block"}"
+            )
         }
+
         if (protocol != null && port != null) {
-            advancedRuleStore.evaluate(uid, protocol, port)?.let { matched ->
-                val decision = if (matched) Decision.ALLOW else Decision.BLOCK
+            val matchedRule = advancedRuleStore.findMatch(uid, protocol, port)
+            if (matchedRule != null) {
+                val decision = if (matchedRule.allowed) Decision.ALLOW else Decision.BLOCK
+                val scope = if (matchedRule.uid == AdvancedRuleStore.GLOBAL_UID) "global" else "app"
+                val detail = "${matchedRule.protocol} ${matchedRule.startPort}-${matchedRule.endPort}; scope=$scope; decision=${if (matchedRule.allowed) "allow" else "block"}"
                 DiagnosticLogger.logServiceEvent("ADVANCED_RULE_MATCH uid=$uid proto=${protocol.uppercase()} port=$port decision=$decision")
-                return decision
+                return Evaluation(decision, "ADVANCED_PORT_RULE", detail)
             }
         }
+
         if (isUserEssential(uid) && !store.hasExplicitRule(uid)) {
             val decision = when (network) {
                 NetworkKind.WIFI, NetworkKind.MOBILE, NetworkKind.OTHER -> Decision.ALLOW
                 NetworkKind.NONE -> Decision.BLOCK
             }
+            val code = if (decision == Decision.ALLOW) "USER_ESSENTIAL_DEFAULT" else "NO_ACTIVE_NETWORK"
             DiagnosticLogger.logServiceEvent(
-                "APP_POLICY_DECISION uid=$uid decision=${decision.name} reason=USER_ESSENTIAL_DEFAULT network=${network.displayName} pkg=${packageNameForUid(uid) ?: "unknown"}"
+                "APP_POLICY_DECISION uid=$uid decision=${decision.name} reason=$code network=${network.displayName} pkg=${packageNameForUid(uid) ?: "unknown"}"
             )
-            return decision
+            return Evaluation(decision, code, network.displayName)
         }
+
         if (store.askOnFirstConnection && !store.hasExplicitRule(uid)) {
-            // Only real application UIDs can receive the first-connection prompt.
-            // UID 0 and Android system/root UIDs have no user-facing package rule
-            // to configure and appeared in FIX123 as "Aplicación desconocida"
-            // (notably for DNS traffic to the physical resolver). Fail closed
-            // instead of prompting the user for a non-app identity.
             val promptPackage = packageNameForUid(uid)
             if (uid < Process.FIRST_APPLICATION_UID || promptPackage.isNullOrBlank()) {
                 DiagnosticLogger.logServiceEvent(
                     "APP_POLICY_DECISION uid=$uid decision=BLOCK reason=NON_APPLICATION_UID network=${network.displayName} pkg=${promptPackage ?: "unknown"}"
                 )
-                return Decision.BLOCK
+                return Evaluation(Decision.BLOCK, "NON_APPLICATION_UID", "uid=$uid")
             }
             DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=PROMPT reason=NO_EXPLICIT_RULE network=${network.displayName} pkg=$promptPackage")
-            return Decision.PROMPT
+            return Evaluation(Decision.PROMPT, "FIRST_CONNECTION_PROMPT", network.displayName)
         }
+
         val rule = store.getRule(uid)
         val decision = when (network) {
             NetworkKind.WIFI -> if (rule.wifiAllowed) Decision.ALLOW else Decision.BLOCK
@@ -318,10 +347,12 @@ class RuleEngine(private val store: RuleStore, context: Context) {
             NetworkKind.OTHER -> if (rule.wifiAllowed || rule.mobileAllowed) Decision.ALLOW else Decision.BLOCK
             NetworkKind.NONE -> Decision.BLOCK
         }
+        val code = if (store.hasExplicitRule(uid)) "EXPLICIT_APP_RULE" else "DEFAULT_APP_RULE"
+        val detail = "${network.displayName}; Wi-Fi=${if (rule.wifiAllowed) "allow" else "block"}; mobile=${if (rule.mobileAllowed) "allow" else "block"}"
         DiagnosticLogger.logServiceEvent(
-            "APP_POLICY_DECISION uid=$uid decision=${decision.name} reason=${if (store.hasExplicitRule(uid)) "EXPLICIT_RULE" else "DEFAULT_RULE"} network=${network.displayName} wifi=${rule.wifiAllowed} mobile=${rule.mobileAllowed} pkg=${packageNameForUid(uid) ?: "unknown"}"
+            "APP_POLICY_DECISION uid=$uid decision=${decision.name} reason=$code network=${network.displayName} wifi=${rule.wifiAllowed} mobile=${rule.mobileAllowed} pkg=${packageNameForUid(uid) ?: "unknown"}"
         )
-        return decision
+        return Evaluation(decision, if (decision == Decision.BLOCK && network == NetworkKind.NONE) "NO_ACTIVE_NETWORK" else code, detail)
     }
 
     fun isAllowed(uid: Int, network: NetworkKind, destination: InetAddress? = null, protocol: String? = null, port: Int? = null): Boolean =

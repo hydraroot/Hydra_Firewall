@@ -68,7 +68,18 @@ internal object TcpSniSecurityInspector {
             formatEndpoint(session.key.srcAddr, session.key.srcPort),
             "$sni:${session.key.dstPort}",
             allowed = false,
-            event = "BLOCKED-DOMAIN-SNI"
+            event = "BLOCKED-DOMAIN-SNI",
+            reasonCode = when {
+                threatMatch != null -> "THREAT_DOMAIN"
+                customDecision == CustomDomainRuleStore.Action.BLOCK -> "CUSTOM_DOMAIN_BLOCK"
+                else -> "AD_TRACKER_BLOCKLIST"
+            },
+            reasonDetail = listOfNotNull(
+                sni,
+                threatMatch?.match?.name,
+                threatMatch?.match?.family,
+                threatMatch?.match?.source
+            ).joinToString(" • ")
         )
 
         if (threatMatch != null) {

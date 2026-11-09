@@ -210,9 +210,15 @@ class Ipv6UdpForwardingEngine(
                     "DNS FIRST_CONNECTION BYPASS threat=${preflightThreatMatch.match.name} uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"}"
                 )
                             } else {
-                when (ruleEngine.evaluateApplicationPolicy(dnsResolution.uid, currentNetwork, "UDP", 53, key.dstAddr)) {
+                val policyEvaluation = ruleEngine.evaluateApplicationPolicyDetailed(
+                    dnsResolution.uid, currentNetwork, "UDP", 53, key.dstAddr
+                )
+                when (policyEvaluation.decision) {
                     RuleEngine.Decision.BLOCK -> {
-                        DiagnosticLogger.logPolicyBlocked(key, dnsResolution.uid, dnsResolution.packageName, currentNetwork, "DNS/UDP", payload.size + 48)
+                        DiagnosticLogger.logPolicyBlocked(
+                            key, dnsResolution.uid, dnsResolution.packageName, currentNetwork, "DNS/UDP", payload.size + 48,
+                            policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+                        )
                         return
                     }
                     RuleEngine.Decision.PROMPT -> {
@@ -284,6 +290,23 @@ class Ipv6UdpForwardingEngine(
                             payload = response
                         )
                         tunWriter.write(reply)
+                        val domainReasonCode = when {
+                            threatMatch != null -> "THREAT_DOMAIN"
+                            customDecision == CustomDomainRuleStore.Action.BLOCK -> "CUSTOM_DOMAIN_BLOCK"
+                            else -> "AD_TRACKER_BLOCKLIST"
+                        }
+                        val domainReasonDetail = listOfNotNull(
+                            queryName,
+                            threatMatch?.match?.name,
+                            threatMatch?.match?.family,
+                            threatMatch?.match?.source
+                        ).joinToString(" • ")
+                        ConnectionHistory.add(
+                            dnsResolution.uid, dnsResolution.packageName, "DNS/UDP", currentNetwork,
+                            formatEndpoint(key.srcAddr, key.srcPort), formatEndpoint(key.dstAddr, 53),
+                            allowed = false, event = "BLOCKED-DOMAIN-DNS",
+                            reasonCode = domainReasonCode, reasonDetail = domainReasonDetail
+                        )
                         TrafficAnalyzerStore.recordDns(dnsResolution.uid, dnsResolution.packageName, queryName, true)
                         if (threatMatch != null) {
                             ThreatSignatureStore.recordNetworkBlock(service)
@@ -330,9 +353,16 @@ class Ipv6UdpForwardingEngine(
                 return
             }
             val resolution = uidResolver.resolve(key, currentNetwork)
-            when (ruleEngine.evaluate(resolution.uid, currentNetwork, key.dstAddr, if (key.protocol == 6) "TCP" else "UDP", key.dstPort)) {
+            val policyEvaluation = ruleEngine.evaluateDetailed(
+                resolution.uid, currentNetwork, key.dstAddr,
+                if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+            )
+            when (policyEvaluation.decision) {
                 RuleEngine.Decision.BLOCK -> {
-                    DiagnosticLogger.logPolicyBlocked(key, resolution.uid, resolution.packageName, currentNetwork, "UDP", payload.size + 28)
+                    DiagnosticLogger.logPolicyBlocked(
+                        key, resolution.uid, resolution.packageName, currentNetwork, "UDP", payload.size + 28,
+                        policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+                    )
                     return
                 }
                 RuleEngine.Decision.PROMPT -> {
@@ -364,12 +394,21 @@ class Ipv6UdpForwardingEngine(
             }
             session = createSession(key, resolution.uid, resolution.packageName) ?: return
             DiagnosticLogger.logUdpRuntime(key, session.uid, session.packageName, "FIRST_SEEN network=${currentNetwork.displayName}")
-            DiagnosticLogger.logUdpFirstSeen(key, resolution, payload.size)
+            DiagnosticLogger.logUdpFirstSeen(key, resolution, payload.size, policyEvaluation.reasonCode, policyEvaluation.reasonDetail)
             TrafficAnalyzerStore.recordConnection(resolution.uid, resolution.packageName, "UDP", key.dstAddr.hostAddress ?: "?", key.dstPort, "CONNECT")
             TrafficStatsStore.recordConnection(resolution.uid, resolution.packageName)
         }
 
-        if (!ruleEngine.isAllowed(session.uid, currentNetwork, session.key.dstAddr, if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort)) {
+        val sessionPolicy = ruleEngine.evaluateDetailed(
+            session.uid, currentNetwork, session.key.dstAddr,
+            if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort
+        )
+        if (sessionPolicy.decision != RuleEngine.Decision.ALLOW) {
+            DiagnosticLogger.logPolicyBlocked(
+                session.key, session.uid, session.packageName, currentNetwork, "UDP",
+                payload.size + 28, sessionPolicy.reasonCode, sessionPolicy.reasonDetail,
+                updateBlockedStats = false
+            )
             DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "BLOCKED network=${currentNetwork.displayName}")
             closeSession(session)
             return
@@ -377,6 +416,14 @@ class Ipv6UdpForwardingEngine(
 
         val quicPolicy = QuicProtection.inspect(service, ruleEngine, session.uid, session.packageName, session.key.dstAddr, session.key.dstPort, payload)
         if (quicPolicy.blocked) {
+            val detail = listOf(quicPolicy.reason, quicPolicy.domain).filterNotNull().filter { it.isNotBlank() }.joinToString(" • ")
+            ConnectionHistory.add(
+                session.uid, session.packageName, "UDP", currentNetwork,
+                formatEndpoint(session.key.srcAddr, session.key.srcPort),
+                formatEndpoint(session.key.dstAddr, session.key.dstPort),
+                allowed = false, event = "BLOCKED-QUIC",
+                reasonCode = "QUIC_POLICY_BLOCK", reasonDetail = detail
+            )
             DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "BLOCKED ${quicPolicy.reason}${quicPolicy.domain?.let { " domain=$it" } ?: ""}")
             closeSession(session)
             return
@@ -395,9 +442,16 @@ class Ipv6UdpForwardingEngine(
     }
 
     private fun handleSecureDnsDatagram(key: SessionKey, payload: ByteArray, resolution: UidResolver.Resolution) {
-        when (ruleEngine.evaluate(resolution.uid, currentNetwork, key.dstAddr, if (key.protocol == 6) "TCP" else "UDP", key.dstPort)) {
+        val policyEvaluation = ruleEngine.evaluateDetailed(
+            resolution.uid, currentNetwork, key.dstAddr,
+            if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+        )
+        when (policyEvaluation.decision) {
             RuleEngine.Decision.BLOCK -> {
-                DiagnosticLogger.logPolicyBlocked(key, resolution.uid, resolution.packageName, currentNetwork, "DNS/UDP", payload.size + 28)
+                DiagnosticLogger.logPolicyBlocked(
+                    key, resolution.uid, resolution.packageName, currentNetwork, "DNS/UDP", payload.size + 28,
+                    policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+                )
                 return
             }
             RuleEngine.Decision.PROMPT -> {
@@ -430,7 +484,8 @@ class Ipv6UdpForwardingEngine(
         ConnectionHistory.add(
             resolution.uid, resolution.packageName, "DNS/UDP", currentNetwork,
             formatEndpoint(key.srcAddr, key.srcPort), formatEndpoint(key.dstAddr, 53),
-            allowed = true, event = "DNS-OVER-TLS"
+            allowed = true, event = "DNS-OVER-TLS",
+            reasonCode = policyEvaluation.reasonCode, reasonDetail = policyEvaluation.reasonDetail
         )
         DiagnosticLogger.logServiceEvent(
             "DNS OVER TLS query uid=${if (resolution.uid == android.os.Process.INVALID_UID) "INVALID" else resolution.uid} pkg=${resolution.packageName ?: "unknown"} dst=${key.dstAddr.hostAddress}"

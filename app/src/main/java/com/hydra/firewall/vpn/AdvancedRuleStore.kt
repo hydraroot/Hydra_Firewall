@@ -71,7 +71,8 @@ class AdvancedRuleStore(context: Context) {
         saveAll(getAll().filterNot { it.uid == uid })
     }
 
-    fun evaluate(uid: Int, protocol: String, port: Int): Boolean? {
+    /** Returns the exact rule selected by the same precedence used for enforcement. */
+    fun findMatch(uid: Int, protocol: String, port: Int): Rule? {
         val p = protocol.uppercase()
         // App-specific rules have priority over global rules. Within the same scope,
         // the narrowest matching port range wins.
@@ -79,12 +80,14 @@ class AdvancedRuleStore(context: Context) {
         val appMatch = all
             .filter { it.uid == uid && it.protocol == p && port in it.startPort..it.endPort }
             .minByOrNull { it.endPort - it.startPort }
-        if (appMatch != null) return appMatch.allowed
+        if (appMatch != null) return appMatch
         return all
             .filter { it.uid == GLOBAL_UID && it.protocol == p && port in it.startPort..it.endPort }
             .minByOrNull { it.endPort - it.startPort }
-            ?.allowed
     }
+
+    fun evaluate(uid: Int, protocol: String, port: Int): Boolean? =
+        findMatch(uid, protocol, port)?.allowed
 
     @Synchronized
     private fun saveAll(rules: List<Rule>) {

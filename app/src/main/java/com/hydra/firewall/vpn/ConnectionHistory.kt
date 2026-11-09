@@ -20,7 +20,11 @@ object ConnectionHistory {
         val source: String,
         val allowed: Boolean,
         val event: String,
-        val repeatCount: Int = 1
+        val repeatCount: Int = 1,
+        /** Cause captured when the packet was evaluated; null only for legacy/unclassified events. */
+        val reasonCode: String? = null,
+        /** Factual context captured with the decision (matched IP/domain/rule/network). */
+        val reasonDetail: String? = null
     )
 
     private var maxRecords: Int = 500
@@ -71,7 +75,11 @@ object ConnectionHistory {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_RETENTION_HOURS, 12)
 
     @Synchronized
-    fun add(uid: Int, pkg: String?, protocol: String, network: NetworkKind, source: String, destination: String, allowed: Boolean, event: String) {
+    fun add(
+        uid: Int, pkg: String?, protocol: String, network: NetworkKind,
+        source: String, destination: String, allowed: Boolean, event: String,
+        reasonCode: String? = null, reasonDetail: String? = null
+    ) {
         val now = System.currentTimeMillis()
         WeeklyStats.recordConnection(pkg, allowed, now)
 
@@ -98,7 +106,9 @@ object ConnectionHistory {
                         timestamp = now,
                         time = fmt.format(Date(now)),
                         source = source,
-                        repeatCount = existing.repeatCount + 1
+                        repeatCount = existing.repeatCount + 1,
+                        reasonCode = reasonCode ?: existing.reasonCode,
+                        reasonDetail = reasonDetail ?: existing.reasonDetail
                     )
                 )
                 pruneLocked(now)
@@ -107,7 +117,12 @@ object ConnectionHistory {
         }
 
         if (allowed) AlertEngine.onAllowedConnection(uid, pkg, destination, event)
-        buffer.addLast(Record(sequence.incrementAndGet(), now, fmt.format(Date(now)), uid, pkg, protocol, network, destination, source, allowed, event))
+        buffer.addLast(
+            Record(
+                sequence.incrementAndGet(), now, fmt.format(Date(now)), uid, pkg, protocol,
+                network, destination, source, allowed, event, reasonCode = reasonCode, reasonDetail = reasonDetail
+            )
+        )
         pruneLocked(now)
         while (buffer.size > maxRecords) buffer.removeFirst()
     }

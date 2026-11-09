@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.6.6] - 2026-11-09
+
+- Simplified the Connections tab: removed the redundant "Why? / Details" wording and kept one clear Details action.
+- Connection Details now explains the exact policy branch captured when the event was evaluated; it no longer guesses from the app's current rules or current threat lists.
+- Saved structured reason codes and factual match details for TCP/UDP policy blocks, DNS domain blocks, SNI blocks, QUIC blocks, and allowed TCP/UDP/DNS-over-TLS events across IPv4 and IPv6.
+- Grouped history now opens the most recent blocked attempt when a group contains both allowed and blocked events, matching the blocked badge.
+- Connection Details separates the saved historical decision reason from the clearly labeled port rules configured now, so current settings cannot be mistaken for the cause of an older event.
+- Updated connection-history help and English/Spanish README wording. Added unit tests for localized reason explanations.
+
 ## [3.6.5] - 2026-11-09
 
 - Enabled the combined Threats + ads protection by default on fresh installs while preserving an explicit saved opt-out.

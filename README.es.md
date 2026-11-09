@@ -16,7 +16,7 @@
 </p>
 
 
-> **Estado: beta / validación previa a publicación** (versión `3.6.5`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+> **Estado: beta / validación previa a publicación** (versión `3.6.6`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -26,7 +26,7 @@
 Hydra funciona como una **VPN local en tu teléfono**. Todo paquete que mandan tus apps pasa primero por
 Hydra, y Hydra decide —app por app, y por separado para Wi‑Fi y datos móviles— si puede salir del
 dispositivo. Además filtra anuncios, rastreadores y dominios/IP maliciosos, y te muestra con quién habla
-cada app y por qué.
+cada app y qué regla registrada permitió o bloqueó cada conexión.
 
 Todo ocurre **en el dispositivo**. No hay servidores de Hydra, ni cuenta, ni analíticas.
 
@@ -99,7 +99,7 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 - **Pack de inteligencia de amenazas firmado** (IP/dominios maliciosos de fuentes como Feodo Tracker y URLhaus, más reglas YARA‑Lite). Se instala solo si su firma se verifica.
 
 ### Entender tus apps
-- **Historial de conexiones y analizador en vivo**: app, destino, protocolo, puerto, decisión y hora.
+- **Historial de conexiones y analizador en vivo**: app, destino, protocolo, puerto, decisión y hora. En Detalles se muestra la causa de política guardada al evaluar el evento; los registros anteriores pueden no conservarla.
 - **Consumo por app**: ranking de tráfico (sesión / hoy / 7 días) con banderas como "sube más de lo que baja".
 - **Escáner de APK y puntaje APP RISK** (0–100): permisos, componentes exportados, accesibilidad/superposición/administrador de dispositivo, librerías nativas, certificados de firma.
 - **Motor de comportamiento**: correlaciona conexiones, DNS y bloqueos en un puntaje de comportamiento por app, usando solo metadatos que Hydra ya ve.
@@ -223,7 +223,7 @@ En Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) ejecu
 
 **¿Hydra ve mi tráfico?** Ve metadatos de los paquetes (app, IP de destino, puerto, nombres DNS, nombre del servidor TLS) para aplicar las reglas. No descifra HTTPS y no sube nada.
 
-**¿Por qué una app se quedó de repente sin internet?** Las apps nuevas arrancan bloqueadas. Abrí **CONEXIONES** para ver qué se bloqueó y por qué, y revisá la regla de la app, los interruptores Wi‑Fi/datos, los horarios y los ajustes globales.
+**¿Por qué una app se quedó de repente sin internet?** Las apps nuevas arrancan bloqueadas. Abrí **CONEXIONES → Detalles** para ver el motivo de política guardado cuando Hydra evaluó el intento (los registros anteriores pueden no conservarlo), y revisá la regla de la app, los interruptores Wi‑Fi/datos, los horarios y los ajustes globales.
 
 **¿Por qué una app con *Sin firewall* igual se conecta durante Bloquear todo?** Las apps fuera del túnel no las ve Hydra. Ver la limitación de arriba.
 

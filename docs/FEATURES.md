@@ -187,7 +187,7 @@ notification and a card in Security.
 
 ## 7. Visibility: history, analyzer, statistics
 
-- **Connections**: history of app, destination, protocol, port, decision and time — to understand what an app contacts and why a connection was allowed or blocked.
+- **Connections**: history of app, destination, protocol, port, decision and time. Details shows the policy branch and match data saved at decision time instead of re-evaluating the current settings; older entries may not contain the exact cause.
 - **Analyzer** (Advanced): live traffic by app, DNS, blocked connections and destinations. *Learning analysis* only builds suggestions and never changes decisions.
 - **Statistics**: traffic totals over time, with allowed and blocked traffic counted separately.
 - **Usage insights**: per-app ranking for the session, today and the last 7 days, with flags such as "uploads more than it downloads". Stored only on the phone.
