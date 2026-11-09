@@ -60,7 +60,7 @@ Esta versión usa el ID de aplicación `com.hydra.firewall`, para coincidir con 
 1. En la versión **vieja**: pestaña *Perfiles* → **Exportar** (guarda un `.json`; no incluye PIN, historial ni estadísticas).
 2. Instalá la versión nueva (puede convivir un rato con la vieja, pero **no actives las dos VPN a la vez**).
 3. En la nueva: instalá/abrí tus apps, *Perfiles* → **Importar**. Las reglas se aplican por nombre de app; las apps no instaladas se omiten y se avisa. Se guarda una copia automática y hay botón **Deshacer**.
-4. Desinstalá la versión vieja. Volvé a poner el PIN y la huella (no se exportan a propósito).
+4. Desinstalá la versión vieja. Volvé a configurar el PIN si hace falta; la huella es opcional, viene desactivada y se habilita después de activar la protección con PIN.
 
 > Importá solo archivos propios: un archivo ajeno podría permitir apps que hoy tenés bloqueadas.
 

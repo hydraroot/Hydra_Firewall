@@ -49,6 +49,11 @@
         </activity>
 
         <service
+            android:name=".vpn.BlocklistUpdateJobService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
             android:name=".vpn.FirewallVpnService"
             android:exported="false"
             android:foregroundServiceType="systemExempted"

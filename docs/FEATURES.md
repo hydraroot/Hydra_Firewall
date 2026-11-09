@@ -83,15 +83,21 @@ Wi‑Fi and mobile start ON when you allow. Turn the prompt off with *Ask on fir
 ## 4. Network filtering
 
 ### Domain blocklist (ads, trackers, malware)
-A list of about 18,000 domains is **bundled in the APK** and active from the first run (license-compatible
-sources only — see [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)). Blocked DNS lookups are answered
-with `0.0.0.0`, so the app simply fails to resolve the name. Optional live lists can be downloaded **when
-you ask**: HaGeZi (including the *Threat Intelligence* list), 1Hosts, StevenBlack and OISD. Custom
-domain rules are supported.
+A list of about 18,000 domains is **bundled in the APK** and active from the first run. The combined
+**Threats + ads** master switch is ON by default and controls the bundled/downloaded ad-tracker list
+and network threat matching (domains and IPs from the signed pack). You can disable both from that
+same switch. The live merged lists (HaGeZi Multi PRO mini, 1Hosts Lite, StevenBlack and HaGeZi Threat
+Intelligence mini) are checked by an Android JobScheduler task about every 24 hours on an unmetered
+physical network. The task persists across reboot; opening Hydra also checks whether an update is due.
+Manual check/update remains available. New data is atomically swapped into memory and is used by the
+running VPN for future DNS/SNI/QUIC checks without a VPN restart. Existing connections and app DNS
+caches may remain until reconnect/lookup; apps using their own encrypted DNS may hide queried domains.
+Custom domain rules are supported.
 
 > The row **"Threat intelligence (0 domains)"** in Security Center counts the dedicated malware list
-> (HaGeZi Threat Intelligence mini). It stays at 0 until you run an update with that source enabled — that
-> is expected on a fresh install.
+> (HaGeZi Threat Intelligence mini). It can remain at 0 until the first successful automatic background
+> refresh on an unmetered physical network or a manual list update. The bundled ad/tracker list is active
+> independently from the first run; both are controlled by the same **Threats + ads** master switch.
 
 ### Secure DNS
 Hydra can intercept IPv4 DNS (UDP/53) and forward it over encrypted **DNS‑over‑TLS** (default) with
@@ -192,11 +198,11 @@ notification and a card in Security.
 - **Profiles** (Advanced) save and reuse groups of firewall settings (for example "normal", "strict", "temporary").
 - **Export / import** the whole configuration (rules, schedules, advanced rules, IP exceptions, permissive apps) as a file. Rules are matched **by app name**, so the file is portable; apps not installed are skipped and reported. The PIN, fingerprint, history and statistics are deliberately not exported. A copy is saved automatically before an import, with an **Undo** button.
 - Only import files you created yourself: a foreign file could allow apps you currently block.
-- **Language** (System / Spanish / English), **theme** (system / light / dark), **low-power mode**, UI refresh rate, history size and screen-off options.
+- **Language** (System / Spanish / English), **six selectable color themes** with appearance (system / light / dark), **low-power mode**, UI refresh rate, history size and screen-off options.
 
 ## 9. Protecting Hydra itself
 
-- **PIN** of 5 to 8 digits (stored with PBKDF2; attempt limiting with delays up to 5 minutes that a clock change cannot shorten) and **fingerprint** unlock. Older 4-digit PINs keep working until changed. The PIN protects Hydra's screen, not the phone: root/ADB/Settings access can still stop the VPN.
+- **PIN** of 5 to 8 digits (stored with PBKDF2; attempt limiting with delays up to 5 minutes that a clock change cannot shorten). Fingerprint unlock is optional and OFF by default; it becomes available only after a configured PIN is enabled, and is turned off when PIN protection is disabled. Older 4-digit PINs keep working until changed. The PIN protects Hydra's screen, not the phone: root/ADB/Settings access can still stop the VPN.
 - `allowBackup=false`: Android does not back up Hydra's data.
 - **Tamper monitoring**: detects the service being stopped without a recorded request.
 - Signed threat packs and a signed release process (see [BUILD.md](BUILD.md)).

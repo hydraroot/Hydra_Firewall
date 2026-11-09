@@ -422,8 +422,8 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
 
         // ---- Threat pack
         LayerRow(
-            t("Pack de amenazas", "Threat pack"),
-            t("Versión ", "Version ") + ThreatSignatureStore.activePackVersion() + t(" • se actualiza solo cada ~24 h", " • updates itself every ~24 h"),
+            t("Firmas para escaneo de APK", "APK scan signatures"),
+            t("Base firmada v", "Signed database v") + ThreatSignatureStore.activePackVersion() + t(" • el bloqueo de red se maneja con Amenazas + publicidad", " • network blocking is controlled by Threats + ads"),
             true, packOn, { packOn = it; ThreatSignatureStore.setEnabled(context, it) }
         ) {
             TextButton(onClick = { packDetails = !packDetails }) {

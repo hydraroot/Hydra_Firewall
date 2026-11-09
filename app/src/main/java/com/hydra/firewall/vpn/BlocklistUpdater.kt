@@ -10,6 +10,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 import javax.net.ssl.HttpsURLConnection
 
@@ -109,6 +110,16 @@ object BlocklistUpdater {
 
     private const val META_PREFS = "hydra_blocklist_meta"
     private const val META_PREFIX = "src_date_"
+    private const val KEY_LAST_AUTO_CHECK = "last_auto_check_ms"
+    private const val AUTO_UPDATE_INTERVAL_MS = 24L * 60L * 60L * 1000L
+    private val updatingFlag = AtomicBoolean(false)
+
+    /** True while an automatic or manual domain-list update is checking/downloading/applying. */
+    fun isUpdating(): Boolean = updatingFlag.get()
+
+    internal fun shouldRunAutoUpdate(lastCheckMs: Long, nowMs: Long, force: Boolean): Boolean =
+        force || lastCheckMs <= 0L || nowMs < lastCheckMs || nowMs - lastCheckMs >= AUTO_UPDATE_INTERVAL_MS
+
 
     /**
      * ¿Hay algo más nuevo que lo instalado? Se compara fuente por fuente (fecha remota vs. la fecha que
@@ -170,7 +181,7 @@ object BlocklistUpdater {
         throw last ?: IllegalStateException("no_physical_network")
     }
 
-    private data class SourceResult(val id: String, val label: String, val count: Int, val date: String?)
+    private data class SourceResult(val id: String, val label: String, val date: String?)
 
     internal fun parseDomain(line: String): String? {
         var l = line.trim()
@@ -194,48 +205,6 @@ object BlocklistUpdater {
         return l
     }
 
-    private fun downloadSource(context: Context, source: Source): SourceResult {
-        var last: Throwable? = null
-        for (networkAttempt in 0..ThreatSignatureUpdater.physicalNetworks(context).size) {
-            try {
-                val conn = open(context, source.urls)
-                try {
-                    val code = conn.responseCode
-                    if (code !in 200..299) throw IllegalStateException("${source.id}_http_$code")
-                    val length = conn.contentLengthLong
-                    if (length > MAX_SOURCE_BYTES) throw IllegalStateException("${source.id}_too_large")
-                    var date: String? = null
-                    var count = 0
-                    val unique = HashSet<String>(16_384)
-                    BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
-                        while (true) {
-                            val line = reader.readLine() ?: break
-                            if (line.length > 4096) continue
-                            if (date == null) {
-                                val m = DATE_PATTERN.matcher(line)
-                                if (m.find()) date = m.group(1)?.trim()
-                            }
-                            val d = parseDomain(line) ?: continue
-                            if (unique.add(d)) count++
-                            if (count > MAX_COMBINED_DOMAINS) throw IllegalStateException("${source.id}_too_large")
-                        }
-                    }
-                    if (count < 1000) throw IllegalStateException("${source.id}_implausibly_small:$count")
-                    return SourceResult(source.id, source.label, count, date)
-                } finally { conn.disconnect() }
-            } catch (t: Throwable) {
-                last = t
-                Log.w(TAG, "Source failed: ${source.id}", t)
-            }
-        }
-        throw last ?: IllegalStateException("${source.id}_failed")
-    }
-
-    private fun readSourceIntoSet(context: Context, source: Source, merged: MutableSet<String>, threatDomains: MutableSet<String>? = null): SourceResult {
-        val result = downloadSourceToSet(context, source, merged, threatDomains)
-        return result
-    }
-
     private fun downloadSourceToSet(context: Context, source: Source, merged: MutableSet<String>, threatDomains: MutableSet<String>? = null): SourceResult {
         var last: Throwable? = null
         for (raw in source.urls) {
@@ -246,21 +215,24 @@ object BlocklistUpdater {
                     if (code !in 200..299) throw IllegalStateException("${source.id}_http_$code")
                     val length = conn.contentLengthLong
                     if (length > MAX_SOURCE_BYTES) throw IllegalStateException("${source.id}_too_large")
-                    var date: String? = null
-                    var added = 0
+                    var date: String? = conn.getHeaderField("Last-Modified")
+                        ?: conn.getHeaderField("ETag")
+                    val sourceDomains = HashSet<String>(16_384)
                     BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
                         while (true) {
                             val line = reader.readLine() ?: break
                             if (line.length > 4096) continue
                             if (date == null) DATE_PATTERN.matcher(line).takeIf { it.find() }?.let { date = it.group(1)?.trim() }
                             val d = parseDomain(line) ?: continue
-                            if (merged.add(d)) added++
-                            if (source.threatOnly) threatDomains?.add(d)
+                            if (sourceDomains.add(d)) {
+                                merged.add(d)
+                                if (source.threatOnly) threatDomains?.add(d)
+                            }
                             if (merged.size > MAX_COMBINED_DOMAINS) throw IllegalStateException("combined_list_too_large")
                         }
                     }
-                    if (added < 1000) throw IllegalStateException("${source.id}_implausibly_small:$added")
-                    return SourceResult(source.id, source.label, added, date)
+                    if (sourceDomains.size < 1000) throw IllegalStateException("${source.id}_implausibly_small:${sourceDomains.size}")
+                    return SourceResult(source.id, source.label, date)
                 } finally { conn.disconnect() }
             } catch (t: Throwable) {
                 last = t
@@ -270,82 +242,181 @@ object BlocklistUpdater {
         throw last ?: IllegalStateException("${source.id}_failed")
     }
 
+    private fun checkForUpdateNow(context: Context): CheckResult {
+        var lastError: Throwable? = null
+        val remoteDates = LinkedHashMap<String, String>()
+        for (source in enabledSources()) {
+            try {
+                val conn = open(context, source.urls)
+                try {
+                    val code = conn.responseCode
+                    if (code !in 200..299) throw IllegalStateException("${source.id}_http_$code")
+                    var remoteDate: String? = conn.getHeaderField("Last-Modified")
+                        ?: conn.getHeaderField("ETag")
+                    BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
+                        var n = 0
+                        while (n < 120 && remoteDate == null) {
+                            val line = reader.readLine() ?: break
+                            n++
+                            DATE_PATTERN.matcher(line).takeIf { it.find() }?.let { remoteDate = it.group(1)?.trim() }
+                        }
+                    }
+                    // A source without a header date cannot be compared and is ignored.
+                    remoteDate?.let { remoteDates[source.id] = it }
+                } finally { conn.disconnect() }
+            } catch (t: Throwable) {
+                lastError = t
+                Log.w(TAG, "Blocklist update check failed for ${source.id}", t)
+            }
+        }
+        if (remoteDates.isEmpty()) {
+            return CheckResult(null, null, lastError?.message ?: lastError?.javaClass?.simpleName ?: "date_not_found")
+        }
+        val newer = hasNewer(loadSavedDates(context), remoteDates)
+        return CheckResult(remoteDates.values.joinToString(" | ").take(240), null, null, newer)
+    }
+
     fun checkForUpdate(context: Context, callback: (CheckResult) -> Unit) {
+        executor.execute { callback(checkForUpdateNow(context.applicationContext)) }
+    }
+
+    /**
+     * Daily background refresh. It checks source dates first and only downloads
+     * the merged list when something changed. Automatic downloads are restricted
+     * to unmetered physical networks; manual Update now remains available on any
+     * supported physical network. The downloaded set is swapped atomically in
+     * DomainBlockStore/ThreatIntelDomainStore, so the running VPN uses it for new
+     * DNS/SNI/QUIC checks without being stopped or restarted.
+     */
+    fun updateIfDue(
+        context: Context,
+        force: Boolean = false,
+        callback: ((DownloadResult) -> Unit)? = null
+    ) {
         executor.execute {
-            var lastError: Throwable? = null
-            val remoteDates = LinkedHashMap<String, String>()
+            if (!updatingFlag.compareAndSet(false, true)) {
+                callback?.invoke(DownloadResult(true, DomainBlockStore.activeListInfo().domainCount, null, "already_updating", skipped = true))
+                return@execute
+            }
+            val app = context.applicationContext
+            val result = try {
+                DomainBlockStore.init(app)
+                ThreatIntelDomainStore.init(app)
+                val prefs = app.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
+                val now = System.currentTimeMillis()
+                val lastCheck = prefs.getLong(KEY_LAST_AUTO_CHECK, 0L)
+                when {
+                    !shouldRunAutoUpdate(lastCheck, now, force) ->
+                        DownloadResult(true, DomainBlockStore.activeListInfo().domainCount, null, null, skipped = true)
+                    !hasUnmeteredPhysicalNetwork(app) ->
+                        DownloadResult(true, DomainBlockStore.activeListInfo().domainCount, null, "waiting_for_unmetered_network", skipped = true)
+                    else -> {
+                        val check = checkForUpdateNow(app)
+                        if (check.remoteDate == null) {
+                            throw IllegalStateException(check.error ?: "blocklist_update_check_failed")
+                        }
+                        if (!check.newAvailable) {
+                            prefs.edit().putLong(KEY_LAST_AUTO_CHECK, now).apply()
+                            DownloadResult(true, DomainBlockStore.activeListInfo().domainCount, check.remoteDate, null, skipped = true)
+                        } else {
+                            val downloaded = downloadAndApplyNow(app)
+                            if (downloaded.success) prefs.edit().putLong(KEY_LAST_AUTO_CHECK, now).apply()
+                            downloaded
+                        }
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Automatic blocklist update failed", t)
+                DownloadResult(false, 0, null, t.message ?: t.javaClass.simpleName)
+            } finally {
+                updatingFlag.set(false)
+            }
+            callback?.invoke(result)
+        }
+    }
+
+    private fun hasUnmeteredPhysicalNetwork(context: Context): Boolean = runCatching {
+        val cm = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        ThreatSignatureUpdater.physicalNetworks(context).any { network ->
+            cm.getNetworkCapabilities(network)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true
+        }
+    }.getOrDefault(false)
+
+    private fun downloadAndApplyNow(context: Context): DownloadResult {
+        DomainBlockStore.init(context.applicationContext)
+        ThreatIntelDomainStore.init(context.applicationContext)
+        return runCatching {
+            val merged = LinkedHashSet<String>(160_000)
+            val threatDomains = LinkedHashSet<String>(16_384)
+            val successful = mutableListOf<SourceResult>()
+            var failures = 0
             for (source in enabledSources()) {
                 try {
-                    val conn = open(context, source.urls)
-                    try {
-                        val code = conn.responseCode
-                        if (code !in 200..299) throw IllegalStateException("${source.id}_http_$code")
-                        var remoteDate: String? = null
-                        BufferedReader(InputStreamReader(LimitedInputStream(conn.inputStream, MAX_SOURCE_BYTES), StandardCharsets.UTF_8)).use { reader ->
-                            var n = 0
-                            while (n < 120 && remoteDate == null) {
-                                val line = reader.readLine() ?: break
-                                n++
-                                DATE_PATTERN.matcher(line).takeIf { it.find() }?.let { remoteDate = it.group(1)?.trim() }
-                            }
-                        }
-                        // Una fuente sin fecha en su cabecera no puede compararse: se ignora.
-                        remoteDate?.let { remoteDates[source.id] = it }
-                    } finally { conn.disconnect() }
+                    successful += downloadSourceToSet(context, source, merged, threatDomains.takeIf { source.threatOnly })
                 } catch (t: Throwable) {
-                    lastError = t
-                    Log.w(TAG, "Blocklist update check failed for ${source.id}", t)
+                    failures++
+                    Log.w(TAG, "Enabled source skipped: ${source.id}", t)
                 }
             }
-            if (remoteDates.isEmpty()) {
-                callback(CheckResult(null, null, lastError?.message ?: lastError?.javaClass?.simpleName ?: "date_not_found"))
-            } else {
-                val newer = hasNewer(loadSavedDates(context), remoteDates)
-                callback(CheckResult(remoteDates.values.joinToString(" | ").take(240), null, null, newer))
+            if (successful.isEmpty() || merged.size < 1000) throw IllegalStateException("all_blocklist_sources_failed")
+            val sourceLabel = successful.joinToString(" + ") { it.label }
+            val remoteDate = successful.mapNotNull { it.date }.joinToString(" | ").take(240)
+            val local = DomainBlockStore.activeListInfo()
+            val liveThreatInfo = ThreatIntelDomainStore.info(context)
+            val liveThreatListCurrent = threatDomains.size < 100 ||
+                (liveThreatInfo.count == threatDomains.size &&
+                    liveThreatInfo.source == "HaGeZi Threat Intelligence mini" &&
+                    liveThreatInfo.date == remoteDate)
+            if (local.domainCount == merged.size && local.source == sourceLabel && local.date == remoteDate &&
+                DomainBlockStore.activeListUsable() && liveThreatListCurrent) {
+                saveDates(context, successful)
+                return@runCatching DownloadResult(true, local.domainCount, remoteDate, if (failures > 0) "partial_sources" else null, skipped = true)
             }
+            val applied = DomainBlockStore.applyDownloadedList(merged.toList(), remoteDate, sourceLabel)
+            if (!applied) throw IllegalStateException("apply_failed")
+            var threatIntelApplied = threatDomains.size < 100
+            if (threatDomains.size >= 100) {
+                threatIntelApplied = ThreatIntelDomainStore.install(
+                    context.applicationContext,
+                    threatDomains,
+                    "HaGeZi Threat Intelligence mini",
+                    remoteDate
+                )
+                if (!threatIntelApplied) {
+                    // The ad/tracker list is already live. Keep it rather than
+                    // rolling back a valid update, but leave the threat-only
+                    // source date stale so the next scheduled check retries it.
+                    Log.w(TAG, "Threat-intelligence list could not be activated; previous threat set retained")
+                }
+            }
+            val active = DomainBlockStore.activeListInfo()
+            if (!DomainBlockStore.activeListUsable() || active.domainCount != merged.size || active.source != sourceLabel) {
+                throw IllegalStateException("apply_verification_failed")
+            }
+            val datesToSave = if (threatIntelApplied) successful else successful.filterNot { it.id == "hagezi_tif_mini" }
+            saveDates(context, datesToSave)
+            DiagnosticLogger.logServiceEvent("BLOCKLIST_APPLIED_LIVE domains=${merged.size} threat_domains=${threatDomains.size} threat_intel_applied=$threatIntelApplied vpn=${FirewallVpnService.isRunning} restart_required=false")
+            DownloadResult(true, merged.size, remoteDate, when {
+                failures > 0 -> "partial_sources:${failures}"
+                !threatIntelApplied -> "threat_intel_apply_failed_retry_scheduled"
+                else -> null
+            })
+        }.getOrElse { e ->
+            Log.w(TAG, "Blocklist download failed", e)
+            DownloadResult(false, 0, null, e.message ?: e.javaClass.simpleName)
         }
     }
 
     fun downloadAndApply(context: Context, callback: (DownloadResult) -> Unit) {
         executor.execute {
-            val result = runCatching {
-                val merged = LinkedHashSet<String>(160_000)
-                val threatDomains = LinkedHashSet<String>(16_384)
-                val successful = mutableListOf<SourceResult>()
-                var failures = 0
-                for (source in enabledSources()) {
-                    try {
-                        successful += readSourceIntoSet(context, source, merged, threatDomains.takeIf { source.threatOnly })
-                    } catch (t: Throwable) {
-                        failures++
-                        Log.w(TAG, "Enabled source skipped: ${source.id}", t)
-                    }
-                }
-                if (successful.isEmpty() || merged.size < 1000) throw IllegalStateException("all_blocklist_sources_failed")
-                val sourceLabel = successful.joinToString(" + ") { it.label }
-                val remoteDate = successful.mapNotNull { it.date }.joinToString(" | ").take(240)
-                val local = DomainBlockStore.activeListInfo()
-                if (local.domainCount == merged.size && local.source == sourceLabel && DomainBlockStore.activeListUsable() &&
-                    ThreatIntelDomainStore.info(context).count > 0) {
-                    saveDates(context, successful)
-                    return@runCatching DownloadResult(true, local.domainCount, remoteDate, if (failures > 0) "partial_sources" else null, skipped = true)
-                }
-                val applied = DomainBlockStore.applyDownloadedList(merged.toList(), remoteDate, sourceLabel)
-                if (!applied) throw IllegalStateException("apply_failed")
-                if (threatDomains.size >= 100) {
-                    ThreatIntelDomainStore.install(context.applicationContext, threatDomains, "HaGeZi Threat Intelligence mini", remoteDate)
-                }
-                val active = DomainBlockStore.activeListInfo()
-                if (!DomainBlockStore.activeListUsable() || active.domainCount != merged.size || active.source != sourceLabel) {
-                    throw IllegalStateException("apply_verification_failed")
-                }
-                saveDates(context, successful)
-                DownloadResult(true, merged.size, remoteDate, if (failures > 0) "partial_sources:${failures}" else null)
-            }.getOrElse { e ->
-                Log.w(TAG, "Blocklist download failed", e)
-                DownloadResult(false, 0, null, e.message ?: e.javaClass.simpleName)
+            if (!updatingFlag.compareAndSet(false, true)) {
+                callback(DownloadResult(false, 0, null, "already_updating"))
+                return@execute
             }
+            val result = try { downloadAndApplyNow(context.applicationContext) }
+            finally { updatingFlag.set(false) }
             callback(result)
         }
     }
+
 }

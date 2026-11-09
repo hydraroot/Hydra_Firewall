@@ -23,5 +23,5 @@
 - Las apps nuevas arrancan bloqueadas: al principio vas a ver apps sin internet hasta aprobarlas.
 
 ## Privacidad
-- No hay telemetría. Las únicas conexiones propias son: listas de bloqueo (GitHub/OISD), DNS cifrado, el feed de amenazas firmado y la búsqueda de versiones nuevas de Hydra en los Releases de GitHub (se puede apagar en Seguridad).
+- No hay telemetría. Las conexiones propias son: comprobación automática de listas de anuncios/rastreadores y dominios de amenazas aproximadamente cada 24 horas en una red física no medida (también hay actualización manual), DNS cifrado, el feed de amenazas firmado y la búsqueda de versiones nuevas de Hydra en los Releases de GitHub (se puede apagar en Seguridad).
 - Permisos sensibles: `QUERY_ALL_PACKAGES` (nombre/ícono de apps) y `PACKAGE_USAGE_STATS` (estadísticas locales). `allowBackup=false`.

@@ -133,7 +133,7 @@ object ThreatSignatureStore {
 
     fun matchDomain(context: Context, domain: String): NetworkMatch? {
         init(context)
-        if (!isEnabled(context) || !isNetworkBlockEnabled(context)) return null
+        if (!isNetworkBlockEnabled(context)) return null
         val normalized = normalizeDomain(domain)
         if (normalized.isEmpty()) return null
         if (ThreatIntelDomainStore.match(normalized)) {
@@ -161,7 +161,7 @@ object ThreatSignatureStore {
 
     fun matchIp(context: Context, ip: String): NetworkMatch? {
         init(context)
-        if (!isEnabled(context) || !isNetworkBlockEnabled(context)) return null
+        if (!isNetworkBlockEnabled(context)) return null
         val normalized = ip.trim().removePrefix("[").removeSuffix("]").substringBefore('%')
         val match = active.get().ips[normalized] ?: return null
         return NetworkMatch(match, normalized)
@@ -169,7 +169,7 @@ object ThreatSignatureStore {
 
     fun matchUrl(context: Context, url: String): NetworkMatch? {
         init(context)
-        if (!isEnabled(context) || !isNetworkBlockEnabled(context)) return null
+        if (!isNetworkBlockEnabled(context)) return null
         val normalized = url.trim().lowercase(Locale.US)
         return active.get().urls[normalized]?.let { NetworkMatch(it, normalized) }
     }

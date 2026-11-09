@@ -159,6 +159,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        // Refresh domain ad/tracker + live threat-intelligence lists in the background.
+        // Download uses an explicitly bound physical network and applies atomically;
+        // established VPN sessions do not need to be stopped or restarted.
+        runCatching { BlocklistUpdateJobService.schedule(this) }
+        runCatching { BlocklistUpdater.updateIfDue(this) }
         // Antivirus: whenever the app is opened, check apps that are new/changed since the last check (cheap, background).
         runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
         runCatching { com.hydra.firewall.security.AppUpdater.autoCheck(this) }
@@ -278,6 +283,18 @@ fun FirewallScreen(
     val appSettings = remember { AppSettings(context.applicationContext) }
     remember { AppCompatibilityPolicyStore.init(context.applicationContext); true }
     remember { DomainBlockStore.init(context.applicationContext); true }
+    // Migrate the former split preferences into one authoritative master switch.
+    // AND preserves an explicit opt-out from either previous control; fresh installs
+    // default to enabled in both stores.
+    val initialThreatsAndAdsEnabled = remember {
+        val enabled = ruleStore.threatProtectionEnabled &&
+            DomainBlockStore.enabled &&
+            com.hydra.firewall.security.ThreatSignatureStore.isNetworkBlockEnabled(context)
+        ruleStore.threatProtectionEnabled = enabled
+        DomainBlockStore.enabled = enabled
+        com.hydra.firewall.security.ThreatSignatureStore.setNetworkBlockEnabled(context, enabled)
+        enabled
+    }
 
     var isOn by remember { mutableStateOf(FirewallVpnService.isRunning) }
     var showAlwaysOnPrompt by remember { mutableStateOf(false) }
@@ -361,8 +378,7 @@ fun FirewallScreen(
     var customDnsIpv6 by remember { mutableStateOf(ruleStore.customDnsIpv6) }
     var customDnsHostname by remember { mutableStateOf(ruleStore.customDnsHostname) }
     var customDnsDohUrl by remember { mutableStateOf(ruleStore.customDnsDohUrl) }
-    var blockAdsEnabled by remember { mutableStateOf(DomainBlockStore.enabled) }
-    var threatProtectionEnabled by remember { mutableStateOf(ruleStore.threatProtectionEnabled || DomainBlockStore.enabled) }
+    var threatProtectionEnabled by remember { mutableStateOf(initialThreatsAndAdsEnabled) }
     var blockAdsListInfo by remember { mutableStateOf(DomainBlockStore.activeListInfo()) }
     var blocklistProtectionRevision by remember { mutableIntStateOf(0) }
     var blockAdsBlockedToday by remember { mutableStateOf(DomainBlockStore.blockedToday()) }
@@ -395,6 +411,7 @@ fun FirewallScreen(
                 val totals = TrafficStatsStore.totals()
                 trafficTotals = totals
                 blockAdsBlockedToday = DomainBlockStore.blockedToday()
+                blockAdsListInfo = DomainBlockStore.activeListInfo()
                 val allowedDeltaMb = (totals.allowedBytes - lastAllowed).coerceAtLeast(0L) / (1024f * 1024f)
                 val blockedDeltaMb = (totals.blockedBytes - lastBlocked).coerceAtLeast(0L) / (1024f * 1024f)
                 lastAllowed = totals.allowedBytes
@@ -415,7 +432,7 @@ fun FirewallScreen(
     }
 
     val darkTheme = when (themeMode) { ThemeMode.DARK -> true; ThemeMode.LIGHT -> false; ThemeMode.SYSTEM -> isSystemInDarkTheme() }
-    val protection = remember(isOn, secureDns, threatProtectionEnabled, blockAdsEnabled, blockAdsListInfo, blocklistProtectionRevision) {
+    val protection = remember(isOn, secureDns, threatProtectionEnabled, blockAdsListInfo, blocklistProtectionRevision) {
         ProtectionStatus.read(context)
     }
 
@@ -592,12 +609,8 @@ fun FirewallScreen(
                             onThreatProtectionChange = { enabled ->
                                 threatProtectionEnabled = enabled
                                 ruleStore.threatProtectionEnabled = enabled
-                                blockAdsEnabled = enabled
                                 DomainBlockStore.enabled = enabled
-                                if (enabled) {
-                                    secureDns = true
-                                    ruleStore.secureDnsEnabled = true
-                                }
+                                com.hydra.firewall.security.ThreatSignatureStore.setNetworkBlockEnabled(context, enabled)
                                 blocklistProtectionRevision++
                                 notifyRulesChanged(context)
                             },
@@ -3132,9 +3145,9 @@ private fun ProtectionTabContent(
         SettingSwitchCard(
             if (language.isEnglish()) "Threats + ads" else "Amenazas + publicidad",
             if (language.isEnglish())
-                "Uses the local blocklist to block ads and trackers. Secure DNS is configured separately in Settings."
+                "Blocks known ad/tracker domains and known threat domains/IPs. Lists update automatically in the background and new data applies to future DNS/SNI checks without restarting the VPN. Secure DNS remains configurable in Settings."
             else
-                "Usa la lista local para bloquear anuncios y rastreadores. El DNS seguro se configura por separado en Ajustes.",
+                "Bloquea dominios conocidos de anuncios/rastreadores y dominios/IP de amenazas. Las listas se actualizan solas y se aplican a las próximas consultas DNS/SNI sin reiniciar la VPN. El DNS seguro sigue siendo configurable en Ajustes.",
             threatProtectionEnabled,
             onThreatProtectionChange
         )
@@ -3305,14 +3318,23 @@ private fun ProtectionTabContent(
 }
 
 @Composable
-private fun SettingSwitchRow(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean)->Unit) {
+private fun SettingSwitchRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean)->Unit
+) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f).padding(end=8.dp)) { Text(title); Text(subtitle, style=MaterialTheme.typography.bodySmall) }
-        Switch(checked, onCheckedChange)
+        Column(Modifier.weight(1f).padding(end=8.dp)) {
+            Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(subtitle, style=MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -3625,6 +3647,14 @@ private fun BlockAdsSection(
         Text(
             String.format(tr(context, "block_ads_blocked_today"), blockedToday.toString()),
             style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            if (AppSettings(context).language.isEnglish())
+                "Automatic background updates (about every 24 hours, on unmetered networks). New lists are applied live; you do not need to turn the VPN off and on. Apps may keep cached DNS or existing connections until they reconnect."
+            else
+                "Actualización automática en segundo plano (aprox. cada 24 horas, con redes no medidas). Las listas nuevas se aplican en vivo: no hace falta apagar y encender la VPN. Las apps pueden conservar DNS en caché o conexiones existentes hasta reconectarse.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(8.dp))
 
@@ -4522,7 +4552,9 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
                             cryptoBusy = false
                             if (ok) {
                                 lockStore.enabled = false
+                                lockStore.biometricEnabled = false
                                 enabled = false
+                                biometric = false
                                 showDisableDialog = false
                                 onChanged()
                             } else disableError = true
@@ -4534,7 +4566,11 @@ private fun SecuritySettingsSection(context: Context, lockStore: LockStore, onCh
         )
     }
 
-    SettingSwitchRow(tr(context, "use_fingerprint"), tr(context, "fingerprint_sub"), biometric) { checked ->
+    val biometricAllowed = enabled && lockStore.configured
+    val biometricSubtitle = if (biometricAllowed) tr(context, "fingerprint_sub") else
+        if (AppSettings(context).language.isEnglish()) "Enable PIN protection first; fingerprint unlock is optional and off by default." else
+            "Primero activá la protección con PIN; la huella es opcional y viene desactivada."
+    SettingSwitchRow(tr(context, "use_fingerprint"), biometricSubtitle, biometric, enabled = biometricAllowed) { checked ->
         biometric = checked
         lockStore.biometricEnabled = checked
     }

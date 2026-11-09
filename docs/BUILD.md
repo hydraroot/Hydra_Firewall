@@ -52,7 +52,7 @@ This release uses application ID `com.hydra.firewall` to match the app registere
 1. In the **old** version: *Profiles* tab → **Export** (saves a `.json`; it does not include the PIN, history or statistics).
 2. Install the new version (the two can coexist for a while, but **do not enable both VPNs at once**).
 3. In the new one: install/open your apps, *Profiles* → **Import**. Rules are applied by app name; apps not installed are skipped and reported. An automatic copy is saved and there is an **Undo** button.
-4. Uninstall the old version. Set the PIN and fingerprint again (they are deliberately not exported).
+4. Uninstall the old version. Set the PIN again if needed; fingerprint unlock is optional, off by default and must be enabled after PIN protection.
 
 > Import only your own files: a file from someone else could allow apps you currently block.
 

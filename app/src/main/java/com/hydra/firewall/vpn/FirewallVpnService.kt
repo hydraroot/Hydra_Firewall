@@ -145,6 +145,7 @@ class FirewallVpnService : VpnService() {
         DomainBlockStore.init(this)
         AppCompatibilityPolicyStore.init(this)
         ThreatSignatureUpdater.scheduleDaily(this)
+        BlocklistUpdateJobService.schedule(this)
         // La carga del pack (verificación ECDSA + parseo) es pesada: fuera del hilo principal para evitar ANR.
         // Incremental: only apps that changed (or all, if the pack changed) are checked; otherwise it does nothing.
         ThreatSignatureStore.initInBackground(this) {

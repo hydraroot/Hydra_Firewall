@@ -29,11 +29,17 @@ class LockStore(context: Context) {
 
     var enabled: Boolean
         get() = prefs.getBoolean(KEY_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_ENABLED, value).apply()
+        set(value) {
+            val editor = prefs.edit().putBoolean(KEY_ENABLED, value)
+            // Biometrics are meaningful only while the app is protected by a PIN.
+            if (!value) editor.putBoolean(KEY_BIOMETRIC, false)
+            editor.apply()
+        }
 
+    /** Fingerprint/biometric unlock is opt-in and requires an active, configured PIN. */
     var biometricEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BIOMETRIC, true)
-        set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC, value).apply()
+        get() = prefs.getBoolean(KEY_BIOMETRIC, false) && enabled && configured
+        set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC, value && enabled && configured).apply()
 
     /** Remaining lockout time in seconds, rounded up. */
     fun lockoutRemainingSeconds(): Long {

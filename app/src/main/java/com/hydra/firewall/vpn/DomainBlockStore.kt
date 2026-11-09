@@ -82,7 +82,7 @@ object DomainBlockStore {
         get() = ctxOrNull()?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     var enabled: Boolean
-        get() = prefsOrNull?.getBoolean(KEY_ENABLED, false) ?: false
+        get() = prefsOrNull?.getBoolean(KEY_ENABLED, true) ?: true
         set(value) { prefsOrNull?.edit()?.putBoolean(KEY_ENABLED, value)?.apply() }
 
     /** True if a downloaded (user-updated) list file exists and is in use. */
@@ -262,8 +262,9 @@ object DomainBlockStore {
     /**
      * Replaces the active list with newly downloaded, cleaned domain lines
      * (one domain per line, already parsed by the caller) plus the remote
-     * list's date. Called only after the user explicitly requests an update
-     * and confirms; never invoked automatically.
+     * list's date. Used by both the scheduled updater and the manual Update now
+     * action. The in-memory AtomicReference is swapped only after the downloaded
+     * file is complete, so the running VPN sees the new list without a restart.
      */
     @Synchronized
     fun applyDownloadedList(domainLines: List<String>, remoteDate: String): Boolean =
@@ -290,7 +291,11 @@ object DomainBlockStore {
             val set = HashSet<String>(domainLines.size + 1024)
             set.addAll(domainLines)
             if (set.isEmpty()) throw IllegalStateException("empty_active_list")
+            // AtomicReference replacement makes the new list visible to the running VPN
+            // immediately. DNS and SNI lookups read this reference per request; no VPN
+            // stop/start cycle is required for future connections.
             domains.set(set)
+            Log.i(TAG, "Applied blocklist live: ${set.size} domains; VPN restart not required")
             prefs.edit()
                 .putString(KEY_ACTIVE_DATE, remoteDate)
                 .putInt(KEY_ACTIVE_COUNT, set.size)

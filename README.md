@@ -15,7 +15,8 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Connections">
 </p>
 
-> **Status: beta / pre-release validation** (version `3.6.4`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
+
+> **Status: beta / pre-release validation** (version `3.6.5`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -90,7 +91,8 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 - **IP blocking and port rules** (advanced mode) by protocol, address and port.
 
 ### Filter what they connect to
-- **Ad/tracker/malware domain blocking** with a list bundled in the APK (~18,000 domains) plus optional live lists (HaGeZi, 1Hosts, StevenBlack, OISD).
+- **Ad/tracker and network-threat blocking**, ON by default through one **Threats + ads** master switch; includes a bundled list plus live HaGeZi, 1Hosts and StevenBlack lists, with signed threat-pack domain/IP indicators.
+- **Automatic list refresh** about every 24 hours on unmetered physical networks; new lists are applied in memory without restarting the VPN. Manual check/update remains available.
 - **Encrypted DNS** over DNS‑over‑TLS (with DNS‑over‑HTTPS fallback) using Cloudflare, Google or Quad9.
 - **HTTPS filtering by server name (SNI)** — without decrypting anything.
 - **QUIC / HTTP3** filtering on a best-effort basis by correlating with the DNS answer the same app got earlier.
@@ -107,10 +109,10 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 - **Diagnostics** you can read over ADB on debug builds (release builds keep no connection log).
 
 ### Protect Hydra itself
-- **PIN** of **5 to 8 digits** (PBKDF2, 120,000 iterations) and **fingerprint** unlock. Wrong attempts add growing delays (15 s up to 5 min) that survive restarts and cannot be shortened by changing the phone's clock. PINs of 4 digits created by older versions keep working until you change them. `allowBackup=false`.
+- **PIN** of **5 to 8 digits** (PBKDF2, 120,000 iterations). **Fingerprint unlock is optional and OFF by default**; it becomes available only after Protect app with PIN is enabled. Wrong attempts add growing delays (15 s up to 5 min) that survive restarts and cannot be shortened by changing the phone's clock. PINs of 4 digits created by older versions keep working until you change them. `allowBackup=false`.
 - **Tamper and recovery monitoring**: a notification and a card when the VPN stops by itself, Doze correlation (Advanced), restart after boot. Redundant IP/port rules are cleaned up in *Apps → IP and ports → Cleanup* (Advanced).
 - **Configuration export/import** (rules, schedules, advanced rules, IP exceptions) as a file that is portable by app name, with automatic undo.
-- **Normal and Advanced mode**, English/Spanish UI, light/dark theme, battery options. **Normal mode is deliberately simple**: Security is one screen (status, suspicious apps with a plain-language reason, quarantine, update watch and security history), the first-connection prompt has just *Allow* / *Block* (everything else under *More options*), and Settings shows only the basics. A short first-run guide explains the three things that matter. **Advanced mode** adds IP and ports, Profiles, the Analyzer, the experimental APK scanner, traffic correlation, Doze and the technical settings.
+- **Normal and Advanced mode**, English/Spanish UI, six visual themes with light/dark/system appearance, battery options. **Normal mode is deliberately simple**: Security is one screen (status, suspicious apps with a plain-language reason, quarantine, update watch and security history), the first-connection prompt has just *Allow* / *Block* (everything else under *More options*), and Settings shows only the basics. A short first-run guide explains the three things that matter. **Advanced mode** adds IP and ports, Profiles, the Analyzer, the experimental APK scanner, traffic correlation, Doze and the technical settings.
 
 ## Updates and network activity
 
@@ -121,7 +123,7 @@ Hydra has **no telemetry**. Since 1.3.0 it can check for (and download) new vers
 | **Signed threat pack** | Automatically about once every 24 h (inexact alarm), or on demand with *Update now* in Security Center. The default build points to this repository's `threat-pack` branch. | `raw.githubusercontent.com` |
 | **Hydra updates** | About once a day (and when you tap *Check for update*): asks the GitHub API for the latest release; downloads the APK only on unmetered networks. | `api.github.com`, `github.com` releases |
 | **Antivirus app checks** | Local only, no network: when an app is installed/updated and after each pack update, installed apps are compared with the downloaded pack. Can be turned off in Security → Overview. | — |
-| **Domain blocklists** | Only when **you** tap *Update lists* / *Check for update* in the blocklist screen. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) and, if enabled, `big.oisd.nl` |
+| **Ad/tracker and threat domain lists** | Checks for changes about every 24 h on unmetered physical networks; *Check for update* and *Update now* are also available. New lists are applied in memory without restarting the VPN. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) |
 | **Encrypted DNS** | Continuously, to resolve names. | Cloudflare / Google / Quad9 (your choice) |
 
 How the threat pack is protected:
@@ -171,8 +173,7 @@ Permissions requested:
 
 Full list: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
-One Security Center row legitimately starts at zero on a fresh install: **"Threat intelligence
-(0 domains)"** (until you update lists with the HaGeZi Threat Intelligence source enabled).
+The **"Threat intelligence (0 domains)"** row can start at zero on a fresh install until the first successful automatic background refresh on an unmetered physical network, or a manual list update. This is separate from the bundled ad/tracker list, which is active from the first run; both network layers share the **Threats + ads** master switch.
 
 ## What the built-in AI does
 
@@ -186,7 +187,7 @@ Hydra includes three very small models that run **entirely on your phone** (no c
 
 Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful, 90–100 suspicious** (the higher, the more suspicious), based on how often the model was right at that score in testing. If too little of the app's code could be analyzed, the result is **no conclusion**.
 
-**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** (since 1.2.1) lets you switch on/off and update each layer (VPN, threat pack, antivirus and domain blocklists) in one place.
+**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** lets you manage the VPN and antivirus; network threat blocking and ad/tracker filtering share the single **Threats + ads** master switch on Protection.
 
 Together with the YARA‑Lite rules, and the signed threat pack, they feed **Security Center** so you can decide with more information. The decision is always yours.
 

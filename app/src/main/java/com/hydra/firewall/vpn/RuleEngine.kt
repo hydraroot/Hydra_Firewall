@@ -89,8 +89,13 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     fun isQuicProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
         customProtectionForUid(uid, packageName)?.quicProtection ?: true
 
+    /**
+     * Network threat matching is controlled by the single global "Threats + ads"
+     * switch. A per-app CUSTOM profile may further disable this layer, but cannot
+     * re-enable it after the global master switch has been turned off.
+     */
     fun isThreatProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
-        customProtectionForUid(uid, packageName)?.threatProtection ?: true
+        store.threatProtectionEnabled && (customProtectionForUid(uid, packageName)?.threatProtection ?: true)
 
     fun shouldBlockLocalNetwork(uid: Int, packageName: String? = null, destination: InetAddress? = null): Boolean {
         if (destination == null || !isLocalNetwork(destination)) return false

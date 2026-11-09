@@ -15,7 +15,8 @@
   <img src="docs/img/4-connections.png" width="23%" alt="Conexiones">
 </p>
 
-> **Estado: beta / validación previa a publicación** (versión `3.6.4`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+
+> **Estado: beta / validación previa a publicación** (versión `3.6.5`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -89,7 +90,8 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 - **Bloqueo de IP y reglas de puertos** (modo avanzado) por protocolo, dirección y puerto.
 
 ### Filtrar a qué se conectan
-- **Bloqueo de dominios de anuncios/rastreadores/malware** con una lista incluida en el APK (~18.000 dominios) más listas en vivo opcionales (HaGeZi, 1Hosts, StevenBlack, OISD).
+- **Bloqueo de anuncios/rastreadores y amenazas de red** activado por defecto con un único interruptor **Amenazas + publicidad**; incluye una lista en el APK y listas vivas de HaGeZi, 1Hosts y StevenBlack. El pack firmado añade indicadores de dominios/IP.
+- **Actualización automática de listas** aproximadamente cada 24 horas en redes físicas no medidas; las listas nuevas se aplican en memoria sin reiniciar la VPN. También se pueden comprobar y actualizar manualmente.
 - **DNS cifrado** por DNS‑sobre‑TLS (con respaldo DNS‑sobre‑HTTPS) usando Cloudflare, Google o Quad9.
 - **Filtrado HTTPS por nombre del servidor (SNI)**, sin descifrar nada.
 - **Filtrado QUIC / HTTP3** con mejor esfuerzo, correlacionando con la respuesta DNS que esa misma app obtuvo antes.
@@ -106,10 +108,10 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 - **Diagnóstico** del estado de la VPN, DNS y reglas (el log detallado solo existe en builds de depuración).
 
 ### Proteger a Hydra misma
-- **PIN de 5 a 8 dígitos** (PBKDF2, 120.000 iteraciones) y desbloqueo con **huella**. Los intentos fallidos agregan esperas crecientes (de 15 s hasta 5 min) que sobreviven a reinicios y no se pueden acortar cambiando el reloj del teléfono. Los PIN de 4 dígitos creados por versiones anteriores siguen funcionando hasta que los cambies. `allowBackup=false`.
+- **PIN de 5 a 8 dígitos** (PBKDF2, 120.000 iteraciones). La **huella es opcional y viene desactivada**; solo se puede habilitar después de activar Proteger app con PIN. Los intentos fallidos agregan esperas crecientes (de 15 s hasta 5 min) que sobreviven a reinicios y no se pueden acortar cambiando el reloj del teléfono. Los PIN de 4 dígitos creados por versiones anteriores siguen funcionando hasta que los cambies. `allowBackup=false`.
 - **Monitoreo de manipulación y recuperación**: una notificación y una tarjeta cuando la VPN se detiene sola, correlación con Doze (Avanzado), reinicio tras el arranque. Las reglas de IP/puerto redundantes se limpian en *Apps → IP y puertos → Limpieza* (Avanzado).
 - **Exportar/importar configuración** (reglas, horarios, reglas avanzadas, excepciones de IP) como un archivo portable por nombre de app, con deshacer automático.
-- **Modo Normal y Avanzado**, interfaz en español/inglés, tema claro/oscuro, opciones de batería. **El modo Normal es simple a propósito**: Seguridad es una sola pantalla (estado, apps sospechosas con el motivo en lenguaje simple, cuarentena, vigilancia de updates e historial de seguridad), el aviso de primera conexión tiene solo *Permitir* / *Bloquear* (lo demás en *Más opciones*) y Ajustes muestra solo lo básico. Una guía corta la primera vez explica lo esencial. El **modo Avanzado** agrega IP y puertos, Perfiles, el Analizador, el analizador APK experimental, la correlación de tráfico, Doze y los ajustes técnicos.
+- **Modo Normal y Avanzado**, interfaz en español/inglés, seis temas visuales con apariencia clara/oscura/según el sistema y opciones de batería. **El modo Normal es simple a propósito**: Seguridad es una sola pantalla (estado, apps sospechosas con el motivo en lenguaje simple, cuarentena, vigilancia de updates e historial de seguridad), el aviso de primera conexión tiene solo *Permitir* / *Bloquear* (lo demás en *Más opciones*) y Ajustes muestra solo lo básico. Una guía corta la primera vez explica lo esencial. El **modo Avanzado** agrega IP y puertos, Perfiles, el Analizador, el analizador APK experimental, la correlación de tráfico, Doze y los ajustes técnicos.
 
 ## Qué hace la IA incorporada
 
@@ -123,9 +125,9 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 Cada puntaje viene con un resultado simple: **0–49 parece normal, 50–89 dudosa, 90–100 sospechosa** (cuanto más alto, más sospechosa), según cuán acertado fue el modelo con ese puntaje en las pruebas. Si se pudo analizar muy poco código de la app, el resultado es **sin conclusión**.
 
-**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** (desde 1.2.1) permite activar/desactivar y actualizar cada capa (VPN, pack de amenazas, antivirus y listas de dominios) en un solo lugar.
+**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** permite administrar VPN y antivirus; el bloqueo de amenazas de red y anuncios/rastreadores se controla con el único interruptor **Amenazas + publicidad** en Protección.
 
-Junto con las reglas YARA‑Lite, el pack de amenazas firmado y la línea base de comportamiento por app (se aprende localmente cuando activás el registro de tráfico), alimentan el **Centro de seguridad** para que decidas con más información. La decisión siempre es tuya.
+Las reglas YARA‑Lite y el pack de amenazas firmado alimentan el **Centro de seguridad**. El bloqueo de red del pack comparte el interruptor **Amenazas + publicidad**; la opción separada de firmas para escaneo de APK controla únicamente la búsqueda de hashes/YARA en aplicaciones.
 
 ## Actualizaciones y actividad de red
 
@@ -136,7 +138,7 @@ Hydra **no tiene telemetría**. Desde la 1.3.0 puede buscar (y descargar) versio
 | **Pack de amenazas firmado** | Automáticamente cada ~24 h (alarma inexacta), o a pedido con *Actualizar ahora* en el Centro de seguridad. La compilación por defecto apunta a la rama `threat-pack` de este repositorio. | `raw.githubusercontent.com` |
 | **Actualización de Hydra** | Cada ~24 h (y cuando tocás *Buscar actualización*): consulta la API de GitHub por el último release; descarga el APK solo en redes sin datos medidos. | `api.github.com`, releases de `github.com` |
 | **Revisión antivirus de apps** | Solo local, sin red: cuando se instala o actualiza una app y después de cada actualización del pack, las apps instaladas se comparan con el pack descargado. Se puede apagar en Seguridad → Resumen. | — |
-| **Listas de dominios** | Solo cuando **vos** tocás *Actualizar listas* / *Buscar actualización* en la pantalla de listas. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) y, si lo activás, `big.oisd.nl` |
+| **Listas de anuncios/rastreadores y amenazas** | Comprueba cambios aproximadamente cada 24 h en redes físicas no medidas; también admite *Buscar actualización* y *Actualizar ahora*. Las listas nuevas se aplican en memoria sin reiniciar la VPN; las conexiones ya abiertas o el DNS en caché pueden seguir activos hasta reconectarse. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) |
 | **DNS cifrado** | De forma continua, para resolver nombres. | Cloudflare / Google / Quad9 (a tu elección) |
 
 Cómo se protege el pack de amenazas:
@@ -185,10 +187,7 @@ Permisos que pide la app:
 
 Lista completa: [`docs/es/LIMITATIONS.md`](docs/es/LIMITATIONS.md).
 
-Dos filas del Centro de seguridad arrancan legítimamente en cero en una instalación nueva: **"Inteligencia
-de amenazas (0 dominios)"** (hasta que actualizás las listas con la fuente HaGeZi Threat Intelligence
-activada) y **"Aprendizaje local de comportamiento (0 apps)"** (hasta que activás el registro de tráfico
-en la pestaña Analizador y reabrís el Centro de seguridad tras algo de uso real).
+La fila **"Inteligencia de amenazas (0 dominios)"** puede arrancar en cero en una instalación nueva hasta la primera actualización automática exitosa en segundo plano con una red física no medida, o hasta una actualización manual. La lista incluida de anuncios/rastreadores ya está activa desde el primer uso; ambas capas de red comparten el interruptor **Amenazas + publicidad**.
 
 ## Inicio rápido
 

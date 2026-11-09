@@ -119,7 +119,7 @@ class RuleStore(context: Context) {
 
 
     var threatProtectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_THREAT_PROTECTION, false)
+        get() = prefs.getBoolean(KEY_THREAT_PROTECTION, true)
         set(value) { prefs.edit().putBoolean(KEY_THREAT_PROTECTION, value).apply() }
 
     var secureDnsEnabled: Boolean

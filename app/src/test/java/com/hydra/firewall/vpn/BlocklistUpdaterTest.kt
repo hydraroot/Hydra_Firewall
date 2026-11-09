@@ -30,6 +30,24 @@ class BlocklistUpdaterTest {
         assertFalse(BlocklistUpdater.hasNewer(installed, mapOf("stevenblack" to "26 Oct 2026 03:00:00 (UTC)")))
     }
 
+    @Test fun autoUpdateRunsOnFirstCheck() {
+        assertTrue(BlocklistUpdater.shouldRunAutoUpdate(0L, 1_000L, force = false))
+    }
+
+    @Test fun autoUpdateWaitsUntilTwentyFourHoursHaveElapsed() {
+        val day = 24L * 60L * 60L * 1000L
+        assertFalse(BlocklistUpdater.shouldRunAutoUpdate(10_000L, 10_000L + day - 1L, force = false))
+        assertTrue(BlocklistUpdater.shouldRunAutoUpdate(10_000L, 10_000L + day, force = false))
+    }
+
+    @Test fun forcedAutoUpdateIgnoresTheInterval() {
+        assertTrue(BlocklistUpdater.shouldRunAutoUpdate(10_000L, 10_001L, force = true))
+    }
+
+    @Test fun clockMovingBackwardsDoesNotSuppressAutoUpdate() {
+        assertTrue(BlocklistUpdater.shouldRunAutoUpdate(20_000L, 10_000L, force = false))
+    }
+
     @Test fun updateAndDnsHostsCanNeverBeBlockedByADownloadedList() {
         assertNull(BlocklistUpdater.parseDomain("0.0.0.0 github.com"))
         assertNull(BlocklistUpdater.parseDomain("0.0.0.0 raw.githubusercontent.com"))

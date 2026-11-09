@@ -5,6 +5,9 @@ It is installed only if the signature verifies with the public key compiled into
 pack is discarded.
 
 ## Default state
+- Network matching from this pack is controlled together with ad/tracker blocking by the **Threats + ads** master switch in the Protection screen. It is ON by default on a fresh install; turning it off disables network domain/IP threat matches and the ad/tracker domain list from the same switch.
+- The separate **APK scan signatures** option in Security controls only whether hashes/YARA rules are used by the APK scanner; it does not enable or disable network threat blocking.
+- Android schedules the ad/tracker and live threat-domain list checks with JobScheduler about every 24 hours on an unmetered physical network. The job persists across reboots; opening Hydra also checks whether an update is due. New list sets are atomically swapped into memory and the running VPN uses them for subsequent DNS/SNI/QUIC decisions; restarting the VPN is not required. Existing sessions and app DNS caches may remain until they reconnect or resolve again.
 - The pack bundled in the app (`assets/hydra_threat_pack_v1.json`) contains **YARA‑Lite rules only** and is signed with the project's original key — the same public key that is in `app/build.gradle.kts` and in `ThreatSignatureVerifier.DEFAULT_PUBLIC_KEY_B64`. Both must match; `ThreatKeyConsistencyTest` checks it.
 - A blank `HYDRA_THREAT_PUBLIC_KEY` is treated as unset (the default key is used).
 - **The default build already has a feed URL:** `https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json`. The app checks for a new pack about **once every 24 hours** (inexact alarm, scheduled when the VPN service starts and after boot), or on demand with *Update now* in Security Center. Override it at build time with `HYDRA_THREAT_FEED_URL`.

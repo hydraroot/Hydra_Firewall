@@ -1,3 +1,17 @@
+# Changelog
+
+## [3.6.5] - 2026-11-09
+
+- Enabled the combined Threats + ads protection by default on fresh installs while preserving an explicit saved opt-out.
+- Unified the master switch across ad/tracker domains, live threat domains/IPs and the global per-app threat policy.
+- Added a persisted Android JobScheduler task for automatic daily domain-list date checks and refreshes on unmetered physical networks; the job survives reboots and is not reset every time the app opens.
+- Applied new ad/tracker and live threat-domain sets atomically to the running VPN without restarting it; existing sessions and app DNS caches may still need to reconnect/resolve before using the new list.
+- Kept manual blocklist checks/updates available on supported physical networks.
+- Separated the signed pack's APK-scan database switch from network threat blocking.
+- Made fingerprint unlock opt-in and unavailable until PIN protection is configured and enabled; disabling PIN protection also disables biometrics.
+- Updated in-app help, English/Spanish README and technical documentation; removed obsolete help about local behavior-learning counts and corrected the threat-intelligence zero-count explanation.
+- Added English/Spanish illustrative website preview images for the master switch/live updates, PIN + optional fingerprint, six themes and live-apply behavior.
+
 ## 3.6.4 (versionCode 30604)
 Selector de seis temas visuales, con preferencias persistentes e independencia entre paleta y modo claro/oscuro.
 - **Temas:** Neon Tech, Dark Premium, Light Modern, Cyber Orange, Material Modern y Glass Green; cada uno dispone de variante clara y oscura.

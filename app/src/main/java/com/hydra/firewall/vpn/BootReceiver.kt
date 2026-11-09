@@ -18,6 +18,9 @@ class BootReceiver : BroadcastReceiver() {
         val action = intent?.action ?: return
         if (action == ACTION_THREAT_UPDATE) {
             ThreatSignatureUpdater.updateIfDue(context, force = true)
+            // The signed pack uses this daily alarm. Ad/tracker + live threat-domain
+            // lists use their own persisted, unmetered JobScheduler task.
+            BlocklistUpdateJobService.schedule(context)
             ThreatSignatureUpdater.scheduleDaily(context)
             return
         }
@@ -61,6 +64,7 @@ class BootReceiver : BroadcastReceiver() {
             action != Intent.ACTION_USER_UNLOCKED) return
 
         ThreatSignatureUpdater.scheduleDaily(context)
+        BlocklistUpdateJobService.schedule(context)
         if (action == Intent.ACTION_USER_UNLOCKED) DirectBootState.markUnlocked(context)
         TempAllowManager.revertExpired(context)
         if (PauseManager.handleBoot(context)) return

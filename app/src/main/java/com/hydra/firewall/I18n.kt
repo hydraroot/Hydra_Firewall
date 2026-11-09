@@ -146,7 +146,7 @@ fun tr(context: Context, key: String): String {
         "lock_app" -> if (en) "Protect app with PIN" else "Proteger app con PIN"
         "lock_sub" -> if (en) "Require authentication when opening the app." else "Pide autenticación al abrir la app."
         "use_fingerprint" -> if (en) "Use fingerprint" else "Usar huella"
-        "fingerprint_sub" -> if (en) "Use biometric authentication when available." else "Usa autenticación biométrica cuando esté disponible."
+        "fingerprint_sub" -> if (en) "Optional and off by default. Enable PIN protection first, then turn fingerprint unlock on here." else "Opcional y desactivada de forma predeterminada. Primero activá la protección con PIN y después habilitá la huella acá."
         "change_pin" -> if (en) "Change PIN" else "Cambiar PIN"
         "language" -> if (en) "Language" else "Idioma"
         "system_language" -> if (en) "System" else "Sistema"
