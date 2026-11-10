@@ -50,7 +50,6 @@ android {
         // tiempo de ejecución según Build.VERSION.SDK_INT (ver UidResolver.kt).
         minSdk = 24
         targetSdk = 36
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V$appVersionName\"")
@@ -125,9 +124,6 @@ dependencies {
 
 
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test:core:1.7.0")
-    androidTestImplementation("androidx.test:runner:1.7.0")
-    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // org.json real para tests JVM (el de android.jar es un stub que devuelve null/0).
     testImplementation("org.json:json:20240303")
 }

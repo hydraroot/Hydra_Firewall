@@ -14,17 +14,16 @@ Windows: `./BUILD-AND-INSTALL.ps1` (usa `ANDROID_HOME`/`%LOCALAPPDATA%\Android\S
 
 La APK debug se instala directamente (activá "instalar apps desconocidas" si la pasás a mano).
 
-## 2. Pruebas JVM y Android instrumentadas
+## 2. Pruebas automatizadas (solo JVM; sin emulador)
 
 ```bash
 ./gradlew --no-daemon testDebugUnitTest
-./gradlew --no-daemon connectedDebugAndroidTest
 ```
 
-Las pruebas JVM incluyen casos de estrés concurrente para los presupuestos de sesiones y colas. Las pruebas
-instrumentadas se ejecutan en Android/emulador y verifican el registro del servicio VPN con
-`BIND_VPN_SERVICE` y los límites de recursos en el runtime Android. No reemplazan una prueba manual del
-permiso VPN, tráfico real IPv4/IPv6, conectividad y batería en un teléfono.
+La suite JVM incluye pruebas de paquetes, reglas y estrés concurrente de los presupuestos de recursos. CI
+luego compila `assembleDebug` y publica la APK para instalarla en un teléfono Android real. El permiso VPN,
+ruteo IPv4/IPv6, DNS, SNI, bloqueo de publicidad, reconexión y batería se comprueban en el teléfono; estas
+pruebas de dispositivo no se ejecutan en un emulador.
 
 ## 3. APK release firmada
 1. Creá la keystore **una sola vez** y guardala con backup (sin ella no podrás actualizar la app instalada):

@@ -16,17 +16,16 @@ The debug APK installs directly (enable "install unknown apps" if you transfer i
 
 > **Updating a debug build:** debug APKs are signed with a debug key. APKs built on different machines — including each GitHub Actions run — have different keys, and Android refuses to update an app signed with another key. Export your configuration, uninstall, then install the new APK. A release keystore (below) avoids this.
 
-## 2. Tests (JVM and Android emulator)
+## 2. Automated tests (JVM only; no emulator)
 
 ```bash
 ./gradlew --no-daemon testDebugUnitTest
-./gradlew --no-daemon connectedDebugAndroidTest
 ```
 
-The JVM suite covers packet parsing, rule decisions and resource-budget stress cases. The instrumented suite
-runs on an Android device/emulator and checks that the VPN service is registered with Android's required
-`BIND_VPN_SERVICE` permission and that the bounded resource guards execute on the Android runtime. It does
-not replace manual end-to-end VPN consent, routing, IPv4/IPv6 connectivity and battery testing on a phone.
+The JVM suite covers packet parsing, rule decisions and concurrent resource-budget stress cases. CI then
+builds `assembleDebug` and uploads the APK so it can be installed on a physical Android phone. VPN consent,
+real IPv4/IPv6 routing, DNS, SNI, ad blocking, reconnection and battery behavior must be checked on the phone;
+these device-level checks are intentionally not run in an emulator.
 
 ## 3. Signed release APK
 1. Create the keystore **once** and back it up (without it you cannot update the installed app):

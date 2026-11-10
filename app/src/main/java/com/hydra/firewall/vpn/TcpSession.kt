@@ -32,7 +32,7 @@ class TcpSession(
 
     var state: State = State.CONNECTING
     /** Shared IPv4/IPv6 session-cap reservation, released exactly once on close. */
-    var budgetLease: SessionBudgetLease? = null
+    internal var budgetLease: SessionBudgetLease? = null
     var clientExpectedSeq: Long = TcpSequence.add(clientInitialSeq, 1)
     var localNextSeq: Long = localInitialSeq
     var localAckedSeq: Long = localInitialSeq
