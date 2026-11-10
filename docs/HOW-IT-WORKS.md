@@ -52,8 +52,11 @@ flowchart TD
 ### Backpressure
 TCP packets waiting for the engine thread are held in a bounded queue (2048 packets / 4 MB). When it is
 full, new packets are dropped and TCP retransmission recovers. The engine also processes packets in
-batches so timers and sockets keep being served under load. Nominal configured capacity is 1,152 simultaneous
-sessions (TCP: IPv4 512 + IPv6 128; UDP: IPv4 256 + IPv6 256). These are independent per-engine limits, not a promise of that many sessions on every device.
+batches so timers and sockets keep being served under load. TCP uses one shared 512-session budget across IPv4
+and IPv6 (not 512 per family). UDP permits up to 256 sessions per family and shares a process-wide pending
+upstream queue budget of 4,096 datagrams / 16 MiB, in addition to the existing per-session limits. When the
+global UDP queue is full, Hydra drops the new datagram rather than closing an otherwise healthy UDP session.
+These are defensive ceilings, not a promise of that many simultaneous sessions on every device.
 
 ## 3. DNS handling
 

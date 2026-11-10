@@ -14,7 +14,19 @@ Windows: `./BUILD-AND-INSTALL.ps1` (usa `ANDROID_HOME`/`%LOCALAPPDATA%\Android\S
 
 La APK debug se instala directamente (activá "instalar apps desconocidas" si la pasás a mano).
 
-## 2. APK release firmada
+## 2. Pruebas JVM y Android instrumentadas
+
+```bash
+./gradlew --no-daemon testDebugUnitTest
+./gradlew --no-daemon connectedDebugAndroidTest
+```
+
+Las pruebas JVM incluyen casos de estrés concurrente para los presupuestos de sesiones y colas. Las pruebas
+instrumentadas se ejecutan en Android/emulador y verifican el registro del servicio VPN con
+`BIND_VPN_SERVICE` y los límites de recursos en el runtime Android. No reemplazan una prueba manual del
+permiso VPN, tráfico real IPv4/IPv6, conectividad y batería en un teléfono.
+
+## 3. APK release firmada
 1. Creá la keystore **una sola vez** y guardala con backup (sin ella no podrás actualizar la app instalada):
    ```bash
    keytool -genkeypair -v -keystore hydra-release.jks -alias hydra -keyalg RSA -keysize 4096 -validity 10000
@@ -51,7 +63,7 @@ Ninguna de las dos debe estar solo en la máquina donde compilás:
    el repo o se pierde acceso a la organización de GitHub, esos secrets se
    pierden con él.
 
-## 3. Compilar en GitHub (sin Android Studio)
+## 4. Compilar en GitHub (sin Android Studio)
 Subí el proyecto a un repositorio. `.github/workflows/android.yml` corre los tests y publica la APK debug como artefacto (pestaña *Actions*).
 Para una release firmada al crear un tag `vX.Y.Z`, cargá estos *secrets*: `HYDRA_KEYSTORE_BASE64` (`base64 -w0 hydra-release.jks`), `HYDRA_KEYSTORE_PASSWORD`, `HYDRA_KEY_ALIAS`, `HYDRA_KEY_PASSWORD`.
 

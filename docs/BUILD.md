@@ -16,7 +16,19 @@ The debug APK installs directly (enable "install unknown apps" if you transfer i
 
 > **Updating a debug build:** debug APKs are signed with a debug key. APKs built on different machines — including each GitHub Actions run — have different keys, and Android refuses to update an app signed with another key. Export your configuration, uninstall, then install the new APK. A release keystore (below) avoids this.
 
-## 2. Signed release APK
+## 2. Tests (JVM and Android emulator)
+
+```bash
+./gradlew --no-daemon testDebugUnitTest
+./gradlew --no-daemon connectedDebugAndroidTest
+```
+
+The JVM suite covers packet parsing, rule decisions and resource-budget stress cases. The instrumented suite
+runs on an Android device/emulator and checks that the VPN service is registered with Android's required
+`BIND_VPN_SERVICE` permission and that the bounded resource guards execute on the Android runtime. It does
+not replace manual end-to-end VPN consent, routing, IPv4/IPv6 connectivity and battery testing on a phone.
+
+## 3. Signed release APK
 1. Create the keystore **once** and back it up (without it you cannot update the installed app):
    ```bash
    keytool -genkeypair -v -keystore hydra-release.jks -alias hydra -keyalg RSA -keysize 4096 -validity 10000
@@ -43,7 +55,7 @@ Neither should live only on the machine where you build:
 3. Store each key's passwords/alias with it (`HYDRA_KEYSTORE_PASSWORD`, `HYDRA_KEY_ALIAS`, `HYDRA_KEY_PASSWORD`) — a keystore without its password is as useless as not having it.
 4. GitHub Actions secrets (`HYDRA_KEYSTORE_BASE64`, `HYDRA_THREAT_SIGNING_KEY`, etc.) are needed for CI but **do not replace** the backup: if the repository is deleted or you lose access to the GitHub organization, those secrets are lost with it.
 
-## 3. Build on GitHub (no Android Studio)
+## 4. Build on GitHub (no Android Studio)
 Push the project to a repository. `.github/workflows/android.yml` runs the tests and publishes the debug APK as an artifact (*Actions* tab).
 For a signed release when you create a `vX.Y.Z` tag, add these *secrets*: `HYDRA_KEYSTORE_BASE64` (`base64 -w0 hydra-release.jks`), `HYDRA_KEYSTORE_PASSWORD`, `HYDRA_KEY_ALIAS`, `HYDRA_KEY_PASSWORD`.
 

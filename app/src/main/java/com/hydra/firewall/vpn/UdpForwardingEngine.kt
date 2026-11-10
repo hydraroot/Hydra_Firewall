@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * IPv4/UDP forwarding engine for V1.3-alpha1.
+ * IPv4 UDP forwarding adapter.
  *
  * Each application 5-tuple gets its own protected connected DatagramChannel.
  * The socket is protected before connect(), then multiplexed on one Selector.
@@ -528,6 +528,7 @@ class UdpForwardingEngine(
             return null
         }
 
+        var registeredSession: UdpSession? = null
         try {
             // Critical anti-loop order: bind to the physical network and then
             // protect the socket from being captured by the VPN itself.
@@ -544,29 +545,60 @@ class UdpForwardingEngine(
             channel.configureBlocking(false)
             channel.connect(InetSocketAddress(key.dstAddr, key.dstPort))
             val session = UdpSession(key, uid, packageName, channel)
-            sessions[key] = session
+
+            // Do not overwrite a live 5-tuple. If selector registration fails
+            // after publication, the catch block removes this exact entry and
+            // restores the local counter before returning.
+            val existing = sessions.putIfAbsent(key, session)
+            if (existing != null) {
+                channel.close()
+                return existing
+            }
             sessionCounter.incrementAndGet()
+            registeredSession = session
             session.selectionKey = channel.register(selector, SelectionKey.OP_READ, session)
             return session
         } catch (e: Exception) {
+            registeredSession?.let { session ->
+                session.closed = true
+                try { session.selectionKey?.cancel() } catch (_: Exception) { }
+                if (sessions.remove(key, session)) sessionCounter.decrementAndGet()
+            }
             try { channel.close() } catch (_: Exception) { }
             DiagnosticLogger.logUdpRuntime(key, uid, packageName, "SESSION_CREATE_FAILED: ${e.javaClass.simpleName}")
             return null
         }
     }
 
-    private fun queueOrSendDatagram(session: UdpSession, payload: ByteArray): Boolean {
-        if (payload.size > 65_507) return false
+    private fun enqueuePendingDatagram(session: UdpSession, buffer: ByteBuffer): Boolean {
+        val bytes = buffer.capacity()
         if (session.toSocket.size >= MAX_SESSION_QUEUE_DATAGRAMS ||
-            session.queuedBytes + payload.size > MAX_SESSION_QUEUE_BYTES) {
+            session.queuedBytes > MAX_SESSION_QUEUE_BYTES - bytes) {
             DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "REMOTE_QUEUE_OVERFLOW")
             return false
         }
-        if (session.toSocket.isNotEmpty()) {
-            val copy = payload.copyOf()
-            session.toSocket.addLast(ByteBuffer.wrap(copy))
-            session.queuedBytes += copy.size
+        if (!UdpPendingDatagramBudget.tryReserve(bytes)) {
+            // UDP is best-effort: under process-wide pressure drop only this
+            // datagram instead of tearing down an otherwise healthy session.
+            // Rate-limit diagnostics globally so overload cannot flood logs.
+            val drops = UdpPendingDatagramBudget.recordQueueDrop()
+            if (drops == 1L || drops % 500L == 0L) {
+                DiagnosticLogger.logUdpRuntime(
+                    session.key, session.uid, session.packageName,
+                    "GLOBAL_UDP_QUEUE_FULL_DROP bytes=$bytes totalDrops=$drops"
+                )
+            }
             return true
+        }
+        session.toSocket.addLast(buffer)
+        session.queuedBytes += bytes
+        return true
+    }
+
+    private fun queueOrSendDatagram(session: UdpSession, payload: ByteArray): Boolean {
+        if (payload.size > 65_507) return false
+        if (session.toSocket.isNotEmpty()) {
+            return enqueuePendingDatagram(session, ByteBuffer.wrap(payload.copyOf()))
         }
 
         return try {
@@ -574,11 +606,7 @@ class UdpForwardingEngine(
             val written = session.channel.write(buffer)
             when {
                 written == payload.size -> true
-                written == 0 -> {
-                    session.toSocket.addLast(buffer)
-                    session.queuedBytes += payload.size
-                    true
-                }
+                written == 0 -> enqueuePendingDatagram(session, buffer)
                 else -> {
                     DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "PARTIAL_DATAGRAM_WRITE")
                     false
@@ -649,6 +677,7 @@ class UdpForwardingEngine(
     private fun handleWrite(session: UdpSession) {
         while (session.toSocket.isNotEmpty()) {
             val buffer = session.toSocket.first()
+            val isEmptyDatagram = !buffer.hasRemaining()
             val written = try {
                 session.channel.write(buffer)
             } catch (e: IOException) {
@@ -656,14 +685,22 @@ class UdpForwardingEngine(
                 closeSession(session)
                 return
             }
-            if (written == 0) return
+            // A zero-length UDP payload is a valid datagram. DatagramChannel
+            // reports 0 bytes for it even when the empty datagram was sent.
+            if (written == 0 && !isEmptyDatagram) return
             if (buffer.hasRemaining()) {
                 // DatagramChannel should write a whole datagram or fail; never split one datagram.
                 DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "PARTIAL_DATAGRAM_WRITE")
                 closeSession(session)
                 return
             }
-            session.toSocket.removeFirstOrNull()?.let { session.queuedBytes = (session.queuedBytes - it.capacity()).coerceAtLeast(0) }
+            session.toSocket.removeFirstOrNull()?.let {
+                val bytes = it.capacity()
+                session.queuedBytes = (session.queuedBytes - bytes).coerceAtLeast(0)
+                if (!UdpPendingDatagramBudget.release(bytes)) {
+                    DiagnosticLogger.logServiceEvent("UDP QUEUE BUDGET RELEASE MISMATCH bytes=$bytes")
+                }
+            }
         }
     }
 
@@ -691,6 +728,14 @@ class UdpForwardingEngine(
         session.closed = true
         try { session.selectionKey?.cancel() } catch (_: Exception) { }
         try { session.channel.close() } catch (_: Exception) { }
+        while (session.toSocket.isNotEmpty()) {
+            val bytes = session.toSocket.removeFirst().capacity()
+            session.queuedBytes = (session.queuedBytes - bytes).coerceAtLeast(0)
+            if (!UdpPendingDatagramBudget.release(bytes)) {
+                DiagnosticLogger.logServiceEvent("UDP QUEUE BUDGET RELEASE MISMATCH bytes=$bytes")
+            }
+        }
+        session.queuedBytes = 0
         if (sessions.remove(session.key, session)) sessionCounter.decrementAndGet()
         DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "CLOSED")
     }

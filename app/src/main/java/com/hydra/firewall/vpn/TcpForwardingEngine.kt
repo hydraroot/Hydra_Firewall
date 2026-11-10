@@ -2,8 +2,6 @@ package com.hydra.firewall.vpn
 
 import android.net.VpnService
 import android.util.Log
-import com.hydra.firewall.security.SecurityEventStore
-import com.hydra.firewall.security.Severity
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -39,30 +37,11 @@ class TcpForwardingEngine(
         private const val CONNECT_TIMEOUT_MS = 10_000L
         private const val IDLE_TIMEOUT_MS = 5 * 60_000L
         private const val READ_CHUNK = 16 * 1024
-        // F4 (security audit): 128 was a device-wide cap with no user-visible
-        // signal on exhaustion -- new connections silently got RST'd. Each
-        // session here is one SocketChannel plus small buffers (no fixed
-        // READ_CHUNK-sized buffer is retained per idle session), so the
-        // per-session footprint is modest; 512 gives a real margin for a
-        // browser with several tabs plus background apps without materially
-        // changing worst-case memory. This is a conservative bump based on
-        // code-level reasoning only -- actual per-session memory under load
-        // still needs to be measured on a real device (Phase 6 of the audit)
-        // before raising it further.
-        private const val MAX_SESSIONS = 512
-        // How often (in limit-reached events) to escalate a sustained
-        // exhaustion into a user-visible security event, so the user isn't
-        // left wondering why connections are failing with no signal from
-        // Hydra at all (previously: internal diagnostic log only).
-        private const val SESSION_LIMIT_NOTIFY_EVERY = 50
         private const val MAX_QUEUED_PACKETS = 2048
         private const val MAX_QUEUED_BYTES = 4 * 1024 * 1024
         private const val MAX_DRAIN_PER_LOOP = 256
         private val random = SecureRandom()
     }
-
-    private val sessionLimitHits = java.util.concurrent.atomic.AtomicLong(0)
-    @Volatile private var sessionLimitNotifiedAtCount = -1L
 
     private val running = AtomicBoolean(false)
     private val packetQueue = ConcurrentLinkedQueue<PendingTunPacket>()
@@ -298,120 +277,89 @@ class TcpForwardingEngine(
         updateInterestOps(session)
     }
 
-    /**
-     * F4 (security audit): hitting MAX_SESSIONS previously produced only an
-     * internal diagnostic log line -- from the user's side, new connections
-     * just started failing with no indication Hydra was the cause. This
-     * surfaces a sustained exhaustion (not a single transient spike) as a
-     * SecurityEventStore entry, which the user can already see in the
-     * existing Security events screen, without adding a new notification
-     * channel or UI.
-     */
-    private fun notifySessionLimitIfSustained(hits: Long) {
-        if (hits % SESSION_LIMIT_NOTIFY_EVERY != 0L) return
-        if (sessionLimitNotifiedAtCount == hits) return
-        sessionLimitNotifiedAtCount = hits
-        SecurityEventStore.record(
-            service,
-            "TCP_SESSION_LIMIT",
-            "Too many active connections",
-            "Hydra's connection limit ($MAX_SESSIONS) was reached $hits time(s) in a row; " +
-                "new TCP connections are being refused until existing ones close.",
-            Severity.INFO
-        )
-    }
-
     private fun createSession(key: SessionKey, tcp: TcpHeader, packetSize: Int): TcpSession? {
-        if (sessionCounter.get() >= MAX_SESSIONS) {
-            val hits = sessionLimitHits.incrementAndGet()
-            DiagnosticLogger.logServiceEvent("TCP SESSION LIMIT REACHED: $MAX_SESSIONS (hit #$hits)")
-            notifySessionLimitIfSustained(hits)
+        // One bounded budget is shared by both IP families. Acquiring before
+        // socket creation prevents IPv4 and IPv6 from racing past the same cap.
+        val budgetLease = TcpSessionBudget.tryAcquire()
+        if (budgetLease == null) {
+            TcpSessionBudget.recordLimitReached(service, "IPv4")
             sendStatelessResetForSyn(key, tcp)
             return null
         }
 
-        val resolution = uidResolver.resolve(key, currentNetwork)
-        if (resolution.uid == android.os.Process.INVALID_UID) {
-            // Android 7 may publish the new socket in /proc/net slightly after
-            // the SYN reaches the TUN. Do NOT answer with RST here: that turns a
-            // transient attribution miss into a permanent connection failure and
-            // prevents the background UID recovery/prompt path from ever getting
-            // a fresh SYN. Drop the SYN and let the application retransmit while
-            // UidResolver keeps retrying in the background.
-            DiagnosticLogger.logServiceEvent(
-                "TCP_UID_PENDING src=${key.srcAddr.hostAddress}:${key.srcPort} dst=${key.dstAddr.hostAddress}:${key.dstPort} network=${currentNetwork.displayName} via=${resolution.resolvedVia}"
-            )
-            return null
-        }
-        val policyEvaluation = ruleEngine.evaluateDetailed(
-            resolution.uid, currentNetwork, key.dstAddr,
-            if (key.protocol == 6) "TCP" else "UDP", key.dstPort
-        )
-        when (policyEvaluation.decision) {
-            RuleEngine.Decision.BLOCK -> {
-                DiagnosticLogger.logPolicyBlocked(
-                    key, resolution.uid, resolution.packageName, currentNetwork, "TCP", packetSize,
-                    policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+        var leaseTransferred = false
+        var openedChannel: SocketChannel? = null
+        var registeredSession: TcpSession? = null
+        try {
+            val resolution = uidResolver.resolve(key, currentNetwork)
+            if (resolution.uid == android.os.Process.INVALID_UID) {
+                // Android 7 may publish the new socket in /proc/net slightly after
+                // the SYN reaches the TUN. Drop it and let the app retransmit while
+                // UID attribution recovers; do not turn a transient miss into an RST.
+                DiagnosticLogger.logServiceEvent(
+                    "IPV4_TCP_UID_PENDING src=${key.srcAddr.hostAddress}:${key.srcPort} dst=${key.dstAddr.hostAddress}:${key.dstPort} network=${currentNetwork.displayName} via=${resolution.resolvedVia}"
                 )
+                return null
+            }
+            val policyEvaluation = ruleEngine.evaluateDetailed(
+                resolution.uid, currentNetwork, key.dstAddr,
+                if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+            )
+            when (policyEvaluation.decision) {
+                RuleEngine.Decision.BLOCK -> {
+                    DiagnosticLogger.logPolicyBlocked(
+                        key, resolution.uid, resolution.packageName, currentNetwork, "TCP", packetSize,
+                        policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+                    )
+                    sendStatelessResetForSyn(key, tcp)
+                    return null
+                }
+                RuleEngine.Decision.PROMPT -> {
+                    val rule = ruleEngine.getRule(resolution.uid)
+                    DecisionRequestManager.request(
+                        context = service,
+                        key = key,
+                        uid = resolution.uid,
+                        packageName = resolution.packageName,
+                        network = currentNetwork,
+                        protocolLabel = "TCP",
+                        initialWifiAllowed = rule.wifiAllowed,
+                        initialMobileAllowed = rule.mobileAllowed
+                    ) { wifiAllowed, mobileAllowed ->
+                        RuleStore(service).apply {
+                            setWifiAllowed(resolution.uid, wifiAllowed)
+                            setMobileAllowed(resolution.uid, mobileAllowed)
+                        }
+                        // Do not replay a stale SYN after a delayed user decision.
+                        DiagnosticLogger.logServiceEvent(
+                            "ACCESS_DECISION_APPLIED uid=${resolution.uid} pkg=${resolution.packageName ?: "unknown"} tcp_pending=discarded_wait_for_fresh_syn"
+                        )
+                    }
+                    return null
+                }
+                RuleEngine.Decision.ALLOW -> Unit
+            }
+
+            val localInitialSeq = random.nextLong() and 0xFFFF_FFFFL
+            val channel = try {
+                SocketChannel.open().also { openedChannel = it }
+            } catch (e: IOException) {
+                DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "SOCKET_CREATE_FAILED")
                 sendStatelessResetForSyn(key, tcp)
                 return null
             }
-            RuleEngine.Decision.PROMPT -> {
-                val rule = ruleEngine.getRule(resolution.uid)
-                val requested = DecisionRequestManager.request(
-                    context = service,
-                    key = key,
-                    uid = resolution.uid,
-                    packageName = resolution.packageName,
-                    network = currentNetwork,
-                    protocolLabel = "TCP",
-                    initialWifiAllowed = rule.wifiAllowed,
-                    initialMobileAllowed = rule.mobileAllowed
-                ) { wifiAllowed, mobileAllowed ->
-                    RuleStore(service).apply {
-                        setWifiAllowed(resolution.uid, wifiAllowed)
-                        setMobileAllowed(resolution.uid, mobileAllowed)
-                    }
-                    // Do not replay the original SYN: the user may take
-                    // several seconds/minutes to decide and the app can have
-                    // abandoned that TCP 5-tuple already. Replaying a stale
-                    // SYN can resolve to INVALID uid and immediately trigger
-                    // an app RST. The next fresh connection attempt will see
-                    // the saved explicit rule and proceed normally.
-                    DiagnosticLogger.logServiceEvent(
-                        "ACCESS_DECISION_APPLIED uid=${resolution.uid} pkg=${resolution.packageName ?: "unknown"} tcp_pending=discarded_wait_for_fresh_syn"
-                    )
-                }
-                if (!requested) {
-                    // Another SYN from the same app is already covered by the
-                    // open decision prompt; discard this packet and wait for
-                    // the first fresh SYN after the user decides.
-                }
-                return null
-            }
-            RuleEngine.Decision.ALLOW -> Unit
-        }
 
-        val localInitialSeq = random.nextLong() and 0xFFFF_FFFFL
-        val channel = try {
-            SocketChannel.open()
-        } catch (e: IOException) {
-            DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "SOCKET_CREATE_FAILED")
-            sendStatelessResetForSyn(key, tcp)
-            return null
-        }
-
-        try {
-            // Critical anti-loop order: bind to the physical network and then
-            // protect the socket from being captured by the VPN itself.
+            // Critical anti-loop order: bind to the physical network, then protect.
             if (!service.bindUpstreamSocketToPhysicalNetworkCompat(channel.socket())) {
                 channel.close()
+                openedChannel = null
                 DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "SOCKET_NETWORK_BIND_FAILED")
                 sendStatelessResetForSyn(key, tcp)
                 return null
             }
             if (!service.protect(channel.socket())) {
                 channel.close()
+                openedChannel = null
                 DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "SOCKET_PROTECT_FAILED")
                 sendStatelessResetForSyn(key, tcp)
                 return null
@@ -429,7 +377,7 @@ class TcpForwardingEngine(
                 channel = channel,
                 clientInitialSeq = tcp.sequenceNumber,
                 localInitialSeq = localInitialSeq
-            )
+            ).apply { this.budgetLease = budgetLease }
             session.clientWindow = (tcp.window.toLong() shl session.peerWindowScale)
                 .coerceAtMost(64L * 1024 * 1024)
 
@@ -440,8 +388,16 @@ class TcpForwardingEngine(
                 false
             }
 
-            sessions[key] = session
+            // Never overwrite an existing 5-tuple: a duplicate SYN must not leak
+            // a socket or corrupt the per-engine session count.
+            val existing = sessions.putIfAbsent(key, session)
+            if (existing != null) {
+                channel.close()
+                openedChannel = null
+                return existing
+            }
             sessionCounter.incrementAndGet()
+            registeredSession = session
 
             if (connectedImmediately) {
                 onRemoteConnected(session)
@@ -449,9 +405,12 @@ class TcpForwardingEngine(
                 session.selectionKey = channel.register(selector, SelectionKey.OP_CONNECT, session)
                 DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "CONNECTING")
             } else {
+                if (sessions.remove(key, session)) sessionCounter.decrementAndGet()
+                registeredSession = null
+                session.state = TcpSession.State.CLOSED
+                session.budgetLease = null
                 channel.close()
-                sessions.remove(key)
-                sessionCounter.decrementAndGet()
+                openedChannel = null
                 DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "CONNECT_FAILED")
                 sendStatelessResetForSyn(key, tcp)
                 return null
@@ -460,14 +419,24 @@ class TcpForwardingEngine(
             DiagnosticLogger.logTcpOpen(key, resolution.uid, resolution.packageName, policyEvaluation.reasonCode, policyEvaluation.reasonDetail)
             TrafficAnalyzerStore.recordConnection(resolution.uid, resolution.packageName, "TCP", key.dstAddr.hostAddress ?: "?", key.dstPort, "CONNECT")
             TrafficStatsStore.recordConnection(resolution.uid, resolution.packageName)
+            leaseTransferred = true
+            openedChannel = null // TcpSession now owns the channel and its budget lease.
             return session
         } catch (e: Exception) {
-            try { channel.close() } catch (_: Exception) { }
-            sessions.remove(key)
-            if (sessionCounter.get() > 0) sessionCounter.decrementAndGet()
-            DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "SESSION_CREATE_FAILED: ${e.javaClass.simpleName}")
+            registeredSession?.let { session ->
+                session.state = TcpSession.State.CLOSED
+                try { session.selectionKey?.cancel() } catch (_: Exception) { }
+                if (sessions.remove(key, session)) sessionCounter.decrementAndGet()
+                session.budgetLease = null
+            }
+            try { openedChannel?.close() } catch (_: Exception) { }
+            DiagnosticLogger.logTcpRuntime(key, android.os.Process.INVALID_UID, null, "SESSION_CREATE_FAILED: ${e.javaClass.simpleName}")
             sendStatelessResetForSyn(key, tcp)
             return null
+        } finally {
+            // If creation did not complete, this idempotent lease returns the
+            // reservation. On success it remains owned by TcpSession.
+            if (!leaseTransferred) budgetLease.close()
         }
     }
 
@@ -897,12 +866,20 @@ class TcpForwardingEngine(
     }
 
     private fun closeSession(session: TcpSession, sendReset: Boolean) {
-        if (session.state == TcpSession.State.CLOSED) return
+        if (session.state == TcpSession.State.CLOSED) {
+            session.budgetLease?.close()
+            session.budgetLease = null
+            return
+        }
         if (sendReset) sendStatelessResetForSession(session)
         session.state = TcpSession.State.CLOSED
         try { session.selectionKey?.cancel() } catch (_: Exception) { }
         try { session.channel.close() } catch (_: Exception) { }
         if (sessions.remove(session.key, session)) sessionCounter.decrementAndGet()
+        // The lease is idempotent: release it even if the map entry was already
+        // removed by a rollback path, preventing a rare capacity leak.
+        session.budgetLease?.close()
+        session.budgetLease = null
         DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "CLOSED")
     }
 

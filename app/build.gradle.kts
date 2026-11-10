@@ -31,7 +31,7 @@ val appVersionCode: Int = run {
     parts[0] * 10000 + parts[1] * 100 + parts[2]
 }
 
-// Feed de firmas de amenazas (HTTPS). Vacío = actualización desactivada por defecto.
+// Feed HTTPS de firmas de amenazas. Si no se define una URL, se usa el feed oficial del proyecto.
 val threatFeedUrl = cfg("HYDRA_THREAT_FEED_URL", "https://raw.githubusercontent.com/hydraroot/Hydra_Firewall/threat-pack/hydra_threat_pack.json")
 // Clave pública P-256 (X.509 DER en Base64) que verifica el pack. Vacío = clave original del proyecto.
 val threatPublicKey = cfg("HYDRA_THREAT_PUBLIC_KEY", "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENTRk3PVkMi+VV6Wx3K/Q1bskCvterMtBMY8kPTAuN1ME6p2HIdn/hv4fii7xFOpL9Ha5pqenDnT4u8UDWRb0Bg==")
@@ -50,6 +50,7 @@ android {
         // tiempo de ejecución según Build.VERSION.SDK_INT (ver UidResolver.kt).
         minSdk = 24
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "BUILD_LABEL", "\"Hydra Firewall - V$appVersionName\"")
@@ -124,6 +125,9 @@ dependencies {
 
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // org.json real para tests JVM (el de android.jar es un stub que devuelve null/0).
     testImplementation("org.json:json:20240303")
 }

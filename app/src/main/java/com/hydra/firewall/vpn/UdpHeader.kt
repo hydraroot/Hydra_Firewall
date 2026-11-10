@@ -1,9 +1,9 @@
 package com.hydra.firewall.vpn
 
 /**
- * V1.1 - Solo lectura. Extrae puertos y longitud del payload UDP.
- * No hay sesión UDP con estado en V1.1 (eso es V1.4 según el plan acordado);
- * solo se usa para detectar "primera vez visto" (ver SessionTable) y loguear.
+ * Validated UDP header fields shared by the IPv4 and IPv6 forwarding adapters.
+ * Stateful UDP flows are maintained by UdpForwardingEngine and
+ * Ipv6UdpForwardingEngine; this parser only extracts and validates the header.
  */
 data class UdpHeader(
     val sourcePort: Int,

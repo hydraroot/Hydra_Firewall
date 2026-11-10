@@ -16,7 +16,7 @@
 </p>
 
 
-> **Status: beta / pre-release validation** (version `3.6.6`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
+> **Status: beta / pre-release validation** (version `3.6.7`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -163,7 +163,7 @@ Permissions requested:
   are not blocked. For a hard cutoff use Android's *Always-on VPN* + *Block connections without VPN*.
 - **One VPN at a time** (Android limitation). Malware with root/system privileges can ignore the VPN.
 - **Performance:** forwarding runs in user space, so expect more battery use and some latency
-  compared with a native firewall. Nominal configured limit of 1,152 concurrent sessions (TCP: IPv4 512 + IPv6 128; UDP: IPv4 256 + IPv6 256).
+  compared with a native firewall. TCP has one shared 512-session budget across IPv4/IPv6; UDP allows 256 sessions per family and shares a 16 MiB / 4,096-datagram upstream queue budget.
   IPv6 does not have full parity (ESP and unsupported extension headers are rejected).
 - **Android 7–9** identify the owning app through `/proc/net`, which can fail transiently; such
   connections are dropped (*fail closed*) and re-resolved in the background.

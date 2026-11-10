@@ -17,7 +17,7 @@
 
 ## Rendimiento y compatibilidad
 - El reenvío TCP/UDP se hace en espacio de usuario: más consumo de batería y algo de latencia que un firewall nativo.
-- Límite configurado nominal de 1.152 sesiones simultáneas (TCP: IPv4 512 + IPv6 128; UDP: IPv4 256 + IPv6 256). IPv6 sin paridad total (ESP y cabeceras no soportadas se rechazan).
+- TCP usa un presupuesto compartido de 512 sesiones entre IPv4/IPv6; UDP permite 256 sesiones por familia y comparte una cola global de 16 MiB / 4.096 datagramas. IPv6 sin paridad total (ESP y cabeceras no soportadas se rechazan).
 - Android 7–9 identifica la app dueña de cada conexión leyendo `/proc/net`; puede fallar de forma transitoria (en ese caso la conexión se descarta, "fail closed").
 - Si no se identifica la app dueña de una conexión, se descarta: Hydra no infiere la identidad por la IP de destino.
 - Las apps nuevas arrancan bloqueadas: al principio vas a ver apps sin internet hasta aprobarlas.

@@ -59,6 +59,52 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  android-instrumented:
+    name: Android emulator resource and manifest tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android platform 36
+        run: sdkmanager "platforms;android-36"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run instrumentation tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ./gradlew --no-daemon connectedDebugAndroidTest
+
   python-tools:
     name: Python tools and bundled threat pack
     runs-on: ubuntu-latest
@@ -86,7 +132,7 @@ jobs:
   release:
     name: Signed GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [android, python-tools]
+    needs: [android, android-instrumented, python-tools]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

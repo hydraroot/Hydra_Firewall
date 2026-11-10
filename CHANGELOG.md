@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.6.7] - 2026-11-10
+
+- Resource accounting: fixed TCP session-counter underflow on failures that occurred before a session was registered; cleanup now decrements only when the exact session entry is removed.
+- Shared TCP capacity: IPv4 and IPv6 now reserve from one race-safe process-wide budget of 512 active sessions, replacing independent 512/128 caps; sustained exhaustion is reported consistently for both families.
+- UDP creation rollback: if selector registration fails after a session is published, Hydra now removes that exact session, restores the counter and closes the channel.
+- UDP memory backpressure: added a process-wide IPv4/IPv6 queue budget of 4,096 pending datagrams / 16 MiB in addition to per-session limits. At global capacity, only the new best-effort UDP datagram is dropped; the existing session remains open.
+- Added concurrent unit tests for the actual shared TCP/UDP budgets plus Android instrumentation smoke tests for the VPN service declaration and resource guards. CI runs instrumentation on an Android emulator before publishing a Release (with KVM enabled and current stable AndroidX Test dependencies).
+- Rate-limited TCP/UDP saturation diagnostics to prevent an overloaded flow from flooding the diagnostic log; queued zero-length UDP datagrams still consume a queue slot and release it on completion/close. VPN stop-time counters now include both address-family engines.
+- Removed the unused legacy SessionTable and corrected stale UDP-header and network-capacity documentation.
+
 ## [3.6.6] - 2026-11-09
 
 - Build fix: moved `SessionKey.totalPacketBytesEstimate()` to package scope so both IPv4 and IPv6 TCP forwarding engines can access the shared estimator used by the diagnostic logger. No packet-processing behavior or byte-estimation formula changed.

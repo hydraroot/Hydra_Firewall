@@ -16,7 +16,7 @@
 </p>
 
 
-> **Estado: beta / validación previa a publicación** (versión `3.6.6`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+> **Estado: beta / validación previa a publicación** (versión `3.6.7`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -178,7 +178,7 @@ Permisos que pide la app:
 - **El PIN protege la pantalla de Hydra, no el teléfono.** Alguien con root, ADB o acceso a los Ajustes de Android igual puede detener la VPN o borrar los datos de Hydra sin el PIN. Para más protección usá el bloqueo de pantalla de Android y *VPN siempre activa* + *Bloquear conexiones sin VPN*.
 - **Una sola VPN a la vez** (limitación de Android). El malware con privilegios de root/sistema puede ignorar la VPN.
 - **Rendimiento:** el reenvío corre en espacio de usuario, así que esperá más consumo de batería y algo de
-  latencia que con un firewall nativo. Límite configurado nominal de 1.152 sesiones simultáneas (TCP: IPv4 512 + IPv6 128; UDP: IPv4 256 + IPv6 256).
+  latencia que con un firewall nativo. TCP utiliza un presupuesto compartido de 512 sesiones entre IPv4/IPv6; UDP permite 256 sesiones por familia y comparte una cola global de 16 MiB / 4.096 datagramas.
   IPv6 no tiene paridad total (se rechazan ESP y cabeceras de extensión no soportadas).
 - **Android 7–9** identifican la app dueña mediante `/proc/net`, que puede fallar de forma transitoria; esas
   conexiones se descartan (*falla cerrada*) y se vuelven a resolver en segundo plano.

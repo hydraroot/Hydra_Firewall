@@ -615,16 +615,15 @@ class FirewallVpnService : VpnService() {
         try { tunInputPfd?.close() } catch (_: Exception) { }
         tunInputPfd = null
 
-        if (::tcpEngine.isInitialized) {
-            tcpEngine.stop()
-            activeTcpSessions = tcpEngine.activeSessions()
-        }
-        if (::udpEngine.isInitialized) {
-            udpEngine.stop()
-            activeUdpSessions = udpEngine.activeSessions()
-        }
+        if (::tcpEngine.isInitialized) tcpEngine.stop()
+        if (::udpEngine.isInitialized) udpEngine.stop()
         if (::ipv6TcpEngine.isInitialized) ipv6TcpEngine.stop()
         if (::ipv6UdpEngine.isInitialized) ipv6UdpEngine.stop()
+        // Keep the exported counters consistent with the combined IPv4/IPv6 engines.
+        activeTcpSessions = (if (::tcpEngine.isInitialized) tcpEngine.activeSessions() else 0) +
+            (if (::ipv6TcpEngine.isInitialized) ipv6TcpEngine.activeSessions() else 0)
+        activeUdpSessions = (if (::udpEngine.isInitialized) udpEngine.activeSessions() else 0) +
+            (if (::ipv6UdpEngine.isInitialized) ipv6UdpEngine.activeSessions() else 0)
         if (::uidResolver.isInitialized) uidResolver.clear()
 
         try { tunOutputPfd?.close() } catch (_: Exception) { }
