@@ -150,7 +150,6 @@ class ApkScanner(private val context: Context) {
         for (split in splitFiles) {
             runCatching {
                 if (split.length() <= MAX_APK_BYTES) {
-                    splitHashes += sha256(split)
                     ZipFile(split).use { zip ->
                         val e = zip.entries()
                         while (e.hasMoreElements()) {
@@ -183,8 +182,20 @@ class ApkScanner(private val context: Context) {
         val appFirstInstallTime = runCatching { if (packageNameIsInstalled(pm, pi.packageName)) pm.getPackageInfo(pi.packageName, 0).firstInstallTime else 0L }.getOrDefault(0L)
         val appLastUpdateTime = runCatching { if (packageNameIsInstalled(pm, pi.packageName)) pm.getPackageInfo(pi.packageName, 0).lastUpdateTime else 0L }.getOrDefault(0L)
 
-        val threatMatches = runCatching { ThreatSignatureStore.scanApk(context, file, splitFiles) }
-            .getOrElse { errors += "Threat signatures: ${it.message ?: it.javaClass.simpleName}"; emptyList() }
+        val signatureScan = runCatching {
+            ThreatSignatureStore.scanApkDetailed(context, file, splitFiles, includeHashesWhenDisabled = true)
+        }.getOrElse {
+            errors += "Threat signatures: ${it.message ?: it.javaClass.simpleName}"
+            null
+        }
+        val threatMatches = signatureScan?.matches.orEmpty()
+        if (signatureScan != null) {
+            splitHashes += signatureScan.splitSha256
+        } else {
+            // Keep the security report complete if the signature scanner itself fails.
+            splitFiles.filter { it.isFile && it.canRead() && it.length() <= MAX_APK_BYTES }
+                .forEach { split -> runCatching { splitHashes += sha256(split) } }
+        }
         threatMatches.forEach { match ->
             staticHints += "threat:${match.name}"
         }
@@ -232,7 +243,8 @@ class ApkScanner(private val context: Context) {
             packageName = pi.packageName,
             versionName = pi.versionName,
             versionCode = versionCode(pi),
-            sha256 = sha256(file),
+            sha256 = signatureScan?.baseSha256?.takeIf { it.isNotBlank() } ?: sha256(file),
+            signatureScanCompleted = signatureScan != null && ThreatSignatureStore.isEnabled(context) && ThreatSignatureStore.hasValidActivePack(),
             certificateSha256 = certs,
             splitApkSha256 = splitHashes.distinct(),
             permissions = permissions.sorted(),

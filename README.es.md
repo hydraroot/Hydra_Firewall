@@ -16,7 +16,7 @@
 </p>
 
 
-> **Estado: beta / validación previa a publicación** (versión `3.6.8`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+> **Estado: beta / validación previa a publicación** (versión `3.6.9`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -125,7 +125,7 @@ Hydra incluye tres modelos muy pequeños que se ejecutan **por completo en tu te
 
 Cada puntaje viene con un resultado simple: **0–49 parece normal, 50–89 dudosa, 90–100 sospechosa** (cuanto más alto, más sospechosa), según cuán acertado fue el modelo con ese puntaje en las pruebas. Si se pudo analizar muy poco código de la app, el resultado es **sin conclusión**.
 
-**Protección tipo antivirus (desde 1.2.0).** Hydra revisa tus apps instaladas contra el pack de amenazas firmado (hashes SHA‑256 de malware conocido + patrones YARA‑Lite) cuando se instala o actualiza una app y después de cada actualización del pack (y al abrir la app o en la revisión diaria del pack, aun con la VPN apagada; la detección instantánea al instalar requiere la VPN activa), y te avisa de las coincidencias. Solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** permite administrar VPN y antivirus; el bloqueo de amenazas de red y anuncios/rastreadores se controla con el único interruptor **Amenazas + publicidad** en Protección.
+**Protección tipo antivirus (desde 1.2.0).** Hydra revisa una app cuando Android informa una instalación o actualización mientras el servicio VPN está activo. Si la VPN estaba detenida, al abrir Hydra hace una reconciliación liviana por fecha de versión y analiza solo las apps nuevas o modificadas. El análisis completo de las apps de usuario se ejecuta cuando se activa una nueva revisión del pack firmado o cuando lo pedís expresamente; Hydra **no** programa un escaneo diario de todo el teléfono. Si Cuarentena y el antivirus inspeccionan el mismo APK nuevo, comparten el resultado SHA‑256/YARA en lugar de repetir el análisis de firmas. Los análisis corren en segundo plano y su bloqueo de caché está separado de las consultas de amenazas de la VPN. Hydra solo detecta amenazas *conocidas*, nunca borra nada por sí sola y no reemplaza a Google Play Protect. **Seguridad → Resumen → «Control y actualizaciones»** permite administrar VPN y antivirus; el bloqueo de amenazas de red y anuncios/rastreadores se controla con el único interruptor **Amenazas + publicidad** en Protección.
 
 Las reglas YARA‑Lite y el pack de amenazas firmado alimentan el **Centro de seguridad**. El bloqueo de red del pack comparte el interruptor **Amenazas + publicidad**; la opción separada de firmas para escaneo de APK controla únicamente la búsqueda de hashes/YARA en aplicaciones.
 
@@ -137,7 +137,7 @@ Hydra **no tiene telemetría**. Desde la 1.3.0 puede buscar (y descargar) versio
 |---|---|---|
 | **Pack de amenazas firmado** | Automáticamente cada ~24 h (alarma inexacta), o a pedido con *Actualizar ahora* en el Centro de seguridad. La compilación por defecto apunta a la rama `threat-pack` de este repositorio. | `raw.githubusercontent.com` |
 | **Actualización de Hydra** | Cada ~24 h (y cuando tocás *Buscar actualización*): consulta la API de GitHub por el último release; descarga el APK solo en redes sin datos medidos. | `api.github.com`, releases de `github.com` |
-| **Revisión antivirus de apps** | Solo local, sin red: cuando se instala o actualiza una app y después de cada actualización del pack, las apps instaladas se comparan con el pack descargado. Se puede apagar en Seguridad → Resumen. | — |
+| **Revisión antivirus de apps** | Solo local, sin red: revisa la app instalada/actualizada; si Hydra se abre después de que la VPN estuvo detenida, consulta fechas y analiza solo apps modificadas. El análisis completo se ejecuta solo ante una nueva revisión del pack firmado o a pedido: no hay un escaneo diario programado de todo el teléfono. Cuarentena y antivirus reutilizan el mismo resultado de firmas para una instalación nueva. Se puede apagar en Seguridad → Resumen. | — |
 | **Listas de anuncios/rastreadores y amenazas** | Comprueba cambios aproximadamente cada 24 h en redes físicas no medidas; también admite *Buscar actualización* y *Actualizar ahora*. Las listas nuevas se aplican en memoria sin reiniciar la VPN; las conexiones ya abiertas o el DNS en caché pueden seguir activos hasta reconectarse. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) |
 | **DNS cifrado** | De forma continua, para resolver nombres. | Cloudflare / Google / Quad9 (a tu elección) |
 

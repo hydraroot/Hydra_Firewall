@@ -151,6 +151,9 @@ Details, keys and how to run your own feed: [THREAT-PACK.md](THREAT-PACK.md).
 The Security Engine adds *evidence for investigation* on top of the firewall. It does **not** replace
 network policy and is **not** a malware detector.
 
+### Automatic installed-app signature checks
+The automatic signature scanner checks only the app reported by Android on install/update while the VPN service is active. When Hydra is opened after the VPN was stopped, a lightweight reconciliation compares installed-package timestamps and scans only new or changed apps. A full user-app pass is triggered by a newly activated signed threat-pack revision or an explicit user request; there is no scheduled daily full-device scan. When quarantine performs a full APK inspection for a new install, the antivirus reuses the threat-signature result from that report instead of launching a second signature pass. A bounded SHA-256/YARA result cache is keyed by base/split APK file identity and pack revision. The APK scanner uses a dedicated cache lock, separate from the synchronized threat-store initialization used by live VPN domain/IP lookups, so background file reads do not hold up packet filtering. Failed/unreadable APKs remain pending and are retried at most once per day for that pack revision.
+
 ### APK scanner
 Analyzes an APK file or an installed app: SHA‑256, package/version, signing-certificate fingerprints,
 requested permissions, number of activities/services/receivers/providers, exported components,

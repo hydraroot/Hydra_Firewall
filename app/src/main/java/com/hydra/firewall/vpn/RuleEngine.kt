@@ -23,6 +23,10 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     private val essentialAppsStore = EssentialAppsStore(appContext)
     private val customProtectionStore = CustomProtectionProfileStore(appContext)
     private val promptSuppressionLogged = ConcurrentHashMap.newKeySet<Int>()
+    // PackageManager.getPackagesForUid() is a Binder call. Cache stable UID ownership
+    // for the VPN service lifetime and invalidate on PACKAGE_ADDED/REPLACED/REMOVED.
+    private val packagesByUid = ConcurrentHashMap<Int, List<String>>()
+    private val maxPackageUidCacheEntries = 1024
 
     @Volatile
     private var configuredVpnDnsServers: Set<String> = emptySet()
@@ -45,7 +49,7 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         if (uid == Process.INVALID_UID && packageName.isNullOrBlank()) return false
         if (AppCompatibilityPolicyStore.isProtectedCompatibility(packageName)) return true
         if (uid != Process.INVALID_UID) {
-            val packages = runCatching { appContext.packageManager.getPackagesForUid(uid) }.getOrNull().orEmpty()
+            val packages = packagesForUid(uid)
             if (packages.any { AppCompatibilityPolicyStore.isProtectedCompatibility(it) }) return true
         }
         return false
@@ -64,7 +68,7 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     fun isUserEssential(uid: Int): Boolean {
         if (uid == Process.INVALID_UID) return false
         if (essentialAppsStore.isUserEssential(uid)) return true
-        val packages = runCatching { appContext.packageManager.getPackagesForUid(uid) }.getOrNull().orEmpty()
+        val packages = packagesForUid(uid)
         return packages.any { pkg ->
             AppCompatibilityPolicyStore.getMode(pkg) == AppCompatibilityMode.ESSENTIAL
         }
@@ -109,7 +113,7 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         if (direct != null && AppCompatibilityPolicyStore.getMode(direct) == AppCompatibilityMode.CUSTOM) {
             return customProtectionStore.get(uid)
         }
-        val packages = runCatching { appContext.packageManager.getPackagesForUid(uid) }.getOrNull().orEmpty()
+        val packages = packagesForUid(uid)
         if (packages.any { AppCompatibilityPolicyStore.getMode(it) == AppCompatibilityMode.CUSTOM }) {
             return customProtectionStore.get(uid)
         }
@@ -476,9 +480,23 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     }
 
 
-    private fun packageNameForUid(uid: Int): String? = runCatching {
-        appContext.packageManager.getPackagesForUid(uid)?.firstOrNull()
-    }.getOrNull()
+    private fun packageNameForUid(uid: Int): String? = packagesForUid(uid).firstOrNull()
+
+    private fun packagesForUid(uid: Int): List<String> {
+        if (uid == Process.INVALID_UID || uid < 0) return emptyList()
+        packagesByUid[uid]?.let { return it }
+        val resolved = runCatching {
+            appContext.packageManager.getPackagesForUid(uid)?.toList().orEmpty()
+        }.getOrDefault(emptyList())
+        if (resolved.isEmpty()) return emptyList() // Do not cache transient/unknown results.
+        if (packagesByUid.size >= maxPackageUidCacheEntries) packagesByUid.clear()
+        return packagesByUid.putIfAbsent(uid, resolved) ?: resolved
+    }
+
+    /** Called on package lifecycle broadcasts so shared-UID ownership never stays stale. */
+    fun invalidatePackageCache() {
+        packagesByUid.clear()
+    }
 
 
     companion object {

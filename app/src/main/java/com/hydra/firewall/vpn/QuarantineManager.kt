@@ -2,6 +2,7 @@ package com.hydra.firewall.vpn
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.hydra.firewall.security.ApkScanReport
 import com.hydra.firewall.security.SecurityEngine
 import com.hydra.firewall.security.SecurityEventStore
 import java.text.SimpleDateFormat
@@ -52,12 +53,16 @@ class QuarantineManager(context: Context) {
         newlyAppeared.forEach { onPackageAdded(context, it) }
     }
 
-    fun onPackageAdded(context: Context, packageName: String) {
-        if (!enabled || packageName == context.packageName) return
+    fun onPackageAdded(
+        context: Context,
+        packageName: String,
+        onScanComplete: ((ApkScanReport?) -> Unit)? = null
+    ): Boolean {
+        if (!enabled || packageName == context.packageName) return false
         val known = prefs.getStringSet(KEY_KNOWN, emptySet()).orEmpty()
-        if (packageName in known) return
+        if (packageName in known) return false
         val pm = context.packageManager
-        val ai = runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() ?: return
+        val ai = runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() ?: return false
         val uid = ai.uid
         val label = runCatching { ai.loadLabel(pm).toString() }.getOrDefault(packageName)
         val sharedPackages = runCatching { pm.getPackagesForUid(uid)?.filter { it != packageName }.orEmpty() }.getOrDefault(emptyList())
@@ -78,10 +83,12 @@ class QuarantineManager(context: Context) {
         // APK parsing can be expensive. Never do it on the BroadcastReceiver main thread.
         SCAN_EXECUTOR.execute {
             val report = runCatching { SecurityEngine(context).scanInstalledPackage(packageName) }.getOrNull()
-            if (report != null) {
-                updateRisk(packageName, report.risk.level.name, report.risk.score)
-            }
+            if (report != null) updateRisk(packageName, report.risk.level.name, report.risk.score)
+            // The antivirus can consume this exact report instead of opening,
+            // hashing and signature-scanning the same freshly installed APK again.
+            runCatching { onScanComplete?.invoke(report) }
         }
+        return true
     }
 
     private fun updateRisk(packageName: String, riskLevel: String, riskScore: Int) {
@@ -132,7 +139,9 @@ class QuarantineManager(context: Context) {
     }
 
     companion object {
-        private val SCAN_EXECUTOR: ExecutorService = Executors.newSingleThreadExecutor { r -> Thread(r, "Hydra-QuarantineScan") }
+        private val SCAN_EXECUTOR: ExecutorService = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "Hydra-QuarantineScan").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }
+        }
         private const val KEY_ENABLED = "enabled"
         private const val KEY_PRIMED = "primed"
         private const val KEY_KNOWN = "known_packages"

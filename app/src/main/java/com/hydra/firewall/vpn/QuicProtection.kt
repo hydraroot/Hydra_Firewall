@@ -12,7 +12,7 @@ import com.hydra.firewall.security.ThreatSignatureStore
  * domain policy. Known threat IPs are handled by RuleEngine before this point.
  */
 object QuicProtection {
-    data class Result(val blocked: Boolean, val reason: String = "", val domain: String? = null, val version: Long = 0L)
+    data class Result(val blocked: Boolean, val reason: String = "", val domain: String? = null, val version: Long = 0L, val cacheable: Boolean = false)
 
     fun inspect(
         context: Context,
@@ -26,26 +26,32 @@ object QuicProtection {
         if (destinationPort != 443 || !QuicDetector.isLikelyQuicUdp(payload, destinationPort)) return Result(false)
         val info = QuicInspector.inspect(payload)
 
-        // First check a known-bad destination IP. This covers QUIC flows even when
-        // the app never performed a DNS lookup visible to Hydra.
-        val ipThreat = if (ruleEngine.isThreatProtectionEnabled(uid, packageName)) {
-            ThreatSignatureStore.matchIp(context, destination.hostAddress?.substringBefore('%') ?: "")
-        } else null
-        if (ipThreat != null) {
-            ThreatSignatureStore.recordNetworkBlock(context)
-            SecurityEventStore.record(context, "THREAT_NETWORK_BLOCK", "Threat blocked: ${ipThreat.match.name}",
-                "QUIC IP ${destination.hostAddress ?: "?"} • ${ipThreat.match.family ?: "network threat"}", ipThreat.match.severity)
-            NotificationHelper.notifyThreatBlocked(context, packageName, destination.hostAddress, ipThreat.match.family, ipThreat.match.severity)
-            return Result(true, "QUIC_THREAT_IP", null, info.version)
+        // For attributed application UIDs, RuleEngine.evaluateDetailed() has already
+        // checked the destination IP threat index immediately before this inspector
+        // runs (and rechecks active sessions at the bounded policy cadence). Repeating
+        // the same hash-map lookup for every QUIC datagram was redundant. Keep the
+        // explicit fallback for INVALID_UID flows, whose RuleEngine precheck can allow
+        // traffic before destination-level threat matching when the user opted in.
+        if (uid == android.os.Process.INVALID_UID && ruleEngine.isThreatProtectionEnabled(uid, packageName)) {
+            val ipThreat = ThreatSignatureStore.matchIp(context, destination.hostAddress?.substringBefore('%') ?: "")
+            if (ipThreat != null) {
+                ThreatSignatureStore.recordNetworkBlock(context)
+                SecurityEventStore.record(context, "THREAT_NETWORK_BLOCK", "Threat blocked: ${ipThreat.match.name}",
+                    "QUIC IP ${destination.hostAddress ?: "?"} • ${ipThreat.match.family ?: "network threat"}", ipThreat.match.severity)
+                NotificationHelper.notifyThreatBlocked(context, packageName, destination.hostAddress, ipThreat.match.family, ipThreat.match.severity)
+                return Result(true, "QUIC_THREAT_IP", null, info.version, cacheable = true)
+            }
         }
 
         // PERSONALIZADO can disable the optional QUIC inspection layer without
         // disabling the independent confirmed-threat protection above.
         if (!ruleEngine.isQuicProtectionEnabled(uid, packageName)) {
-            return Result(false, version = info.version)
+            return Result(false, reason = "QUIC_DISABLED", version = info.version, cacheable = true)
         }
 
-        val domain = DnsIpCorrelationStore.lookup(uid, destination) ?: return Result(false, version = info.version)
+        // Do not cache an unknown domain: the DNS-to-IP correlation can arrive
+        // after the first UDP packet (or a later QUIC Initial may complete it).
+        val domain = DnsIpCorrelationStore.lookup(uid, destination) ?: return Result(false, reason = "NO_DNS_CORRELATION", version = info.version)
         val threat = if (ruleEngine.isThreatProtectionEnabled(uid, packageName)) {
             ThreatSignatureStore.matchDomain(context, domain)
         } else null
@@ -62,7 +68,7 @@ object QuicProtection {
                 "DOMAIN COMPAT BYPASS QUIC domain=$domain uid=$uid pkg=${packageName ?: "unknown"} reason=ESSENTIAL"
             )
         }
-        if (!block && threat == null) return Result(false, version = info.version)
+        if (!block && threat == null) return Result(false, domain = domain, version = info.version, cacheable = true)
         val reason = when {
             threat != null -> "QUIC_THREAT_DOMAIN"
             custom == CustomDomainRuleStore.Action.BLOCK -> "QUIC_CUSTOM_DOMAIN"
@@ -89,6 +95,6 @@ object QuicProtection {
                 Severity.INFO
             )
         }
-        return Result(true, reason, domain, info.version)
+        return Result(true, reason, domain, info.version, cacheable = true)
     }
 }

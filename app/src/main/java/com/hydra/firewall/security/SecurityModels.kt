@@ -37,6 +37,8 @@ data class ApkScanReport(
     val versionName: String?,
     val versionCode: Long?,
     val sha256: String,
+    /** True only when the signed SHA-256/YARA pass completed; the file hash alone is not proof. */
+    val signatureScanCompleted: Boolean = false,
     val certificateSha256: List<String>,
     val splitApkSha256: List<String> = emptyList(),
     val permissions: List<String>,

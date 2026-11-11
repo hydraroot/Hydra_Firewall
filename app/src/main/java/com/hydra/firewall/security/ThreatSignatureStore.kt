@@ -43,6 +43,14 @@ object ThreatSignatureStore {
     private val contextRef = AtomicReference<Context?>(null)
     private val dailyBlocks = AtomicReference(0L)
 
+    // APK scanning must never hold this object's monitor: matchDomain()/matchIp()
+    // call init() from the VPN packet path. Keep APK work behind a separate lock
+    // so a large SHA-256/YARA scan cannot stall live network filtering.
+    private const val MAX_APK_SCAN_CACHE_ENTRIES = 64
+    private const val MAX_APK_SCAN_FILE_BYTES = 512L * 1024L * 1024L
+    private val apkScanCacheLock = Any()
+    private val apkScanCache = LinkedHashMap<String, ApkScanResult>(16, 0.75f, true)
+
     data class Pack(
         val version: String,
         val generatedAt: Long,
@@ -59,25 +67,49 @@ object ThreatSignatureStore {
 
     data class NetworkMatch(val match: ThreatSignatureMatch, val normalized: String)
 
+    /** Hashes and signature matches for one base APK plus its split APKs. */
+    data class ApkScanResult(
+        val baseSha256: String,
+        val splitSha256: List<String>,
+        val matches: List<ThreatSignatureMatch>
+    )
+
     /**
      * Idempotente y thread-safe: llamadas concurrentes esperan a que termine la primera carga en vez de
      * ver un pack vacío. La carga es pesada (hasta 3 verificaciones ECDSA + parseo JSON), por eso
      * FirewallVpnService la invoca desde un hilo de fondo (ver [initInBackground]).
      */
-    @Synchronized
     fun init(context: Context) {
         val app = context.applicationContext
-        contextRef.set(app)
-        ThreatIntelDomainStore.init(app)
-        if (initialized.compareAndSet(false, true)) {
-            lastLoadAttemptMs = System.currentTimeMillis()
-            loadBestPack(app)
-            refreshDailyCounter(app)
-        } else if (active.get() === EMPTY_PACK) {
-            // Sin pack válido: reintentar, pero no en cada consulta del camino de paquetes.
-            val now = System.currentTimeMillis()
-            if (now - lastLoadAttemptMs >= RELOAD_RETRY_MS) {
-                lastLoadAttemptMs = now
+        contextRef.compareAndSet(null, app)
+
+        // The packet path calls init() before domain/IP lookups. Once a valid pack is
+        // active, avoid entering a monitor (and the ThreatIntelDomainStore monitor)
+        // for every packet. Initialization and failed-pack retries remain serialized.
+        if (active.get() !== EMPTY_PACK) return
+        val now = System.currentTimeMillis()
+        if (initialized.get() && now - lastLoadAttemptMs < RELOAD_RETRY_MS) return
+
+        synchronized(this) {
+            contextRef.set(app)
+            if (active.get() !== EMPTY_PACK) return
+            val attemptNow = System.currentTimeMillis()
+            if (!initialized.get()) {
+                ThreatIntelDomainStore.init(app)
+                lastLoadAttemptMs = attemptNow
+                try {
+                    loadBestPack(app)
+                    refreshDailyCounter(app)
+                } finally {
+                    // Publish initialization only after the first load completes.
+                    // Concurrent packet lookups must wait for this monitor rather
+                    // than briefly observing an empty pack during cold startup.
+                    initialized.set(true)
+                }
+            } else if (attemptNow - lastLoadAttemptMs >= RELOAD_RETRY_MS) {
+                // No valid signed pack: retry at a bounded cadence, never on every packet.
+                ThreatIntelDomainStore.init(app)
+                lastLoadAttemptMs = attemptNow
                 loadBestPack(app)
             }
         }
@@ -124,6 +156,15 @@ object ThreatSignatureStore {
     }
 
     fun activePackVersion(): String = active.get().version
+
+    /** True only when a verified bundled or downloaded pack is active (not the empty fallback). */
+    fun hasValidActivePack(): Boolean = active.get() !== EMPTY_PACK
+
+    /** Stable identity for a signed pack revision, including regenerated packs with the same label. */
+    fun activePackRevision(): String {
+        val pack = active.get()
+        return "${pack.version}|${pack.generatedAt}"
+    }
 
     fun lookupSha256(context: Context, hash: String): ThreatSignatureMatch? {
         init(context)
@@ -187,20 +228,85 @@ object ThreatSignatureStore {
         return dailyBlocks.get()
     }
 
-    fun scanApk(context: Context, file: File, splitFiles: List<File> = emptyList()): List<ThreatSignatureMatch> {
+    fun scanApk(context: Context, file: File, splitFiles: List<File> = emptyList()): List<ThreatSignatureMatch> =
+        scanApkDetailed(context, file, splitFiles, includeHashesWhenDisabled = false).matches
+
+    /**
+     * Performs one signature pass and returns the digests for the APK report too.
+     * The dedicated cache lock serializes duplicate quarantine/antivirus scans,
+     * but it is deliberately independent from this store's initialization monitor
+     * used by live VPN threat lookups.
+     *
+     * [includeHashesWhenDisabled] is used by the general APK inspector, which
+     * still needs report fingerprints even if signature matching was disabled.
+     */
+    fun scanApkDetailed(
+        context: Context,
+        file: File,
+        splitFiles: List<File> = emptyList(),
+        includeHashesWhenDisabled: Boolean = true
+    ): ApkScanResult {
         init(context)
-        if (!isEnabled(context)) return emptyList()
-        val matches = mutableListOf<ThreatSignatureMatch>()
-        val hash = sha256(file)
-        active.get().sha256[hash]?.let { matches += it }
-        matches += HydraYaraLite.scanApk(file, active.get().yara)
-        for (split in splitFiles) {
-            if (!split.isFile || !split.canRead()) continue
-            val splitHash = sha256(split)
-            active.get().sha256[splitHash]?.let { matches += it.copy(detail = "${it.detail} • split ${split.name}") }
-            matches += HydraYaraLite.scanApk(split, active.get().yara)
+        val signaturesEnabled = isEnabled(context)
+        if (!signaturesEnabled && !includeHashesWhenDisabled) {
+            return ApkScanResult("", emptyList(), emptyList())
         }
-        return matches.distinctBy { "${it.kind}:${it.name}:${it.family}:${it.detail}" }
+
+        val pack = active.get()
+        val validSplits = splitFiles.filter {
+            it.isFile && it.canRead() && it.length() <= MAX_APK_SCAN_FILE_BYTES
+        }
+        val cacheKey = if (signaturesEnabled) apkScanCacheKey(file, validSplits, pack.version, pack.generatedAt) else null
+
+        synchronized(apkScanCacheLock) {
+            if (cacheKey != null) apkScanCache[cacheKey]?.let { return it }
+
+            // Compute each digest once. ApkScanner reuses these values for its
+            // report instead of independently rereading the same large files.
+            val baseHash = sha256(file)
+            val splitHashes = validSplits.map(::sha256)
+            val matches = mutableListOf<ThreatSignatureMatch>()
+            if (signaturesEnabled) {
+                pack.sha256[baseHash]?.let { matches += it }
+                matches += HydraYaraLite.scanApk(file, pack.yara)
+                validSplits.forEachIndexed { index, split ->
+                    val splitHash = splitHashes[index]
+                    pack.sha256[splitHash]?.let { matches += it.copy(detail = "${it.detail} • split ${split.name}") }
+                    matches += HydraYaraLite.scanApk(split, pack.yara)
+                }
+            }
+            val result = ApkScanResult(
+                baseSha256 = baseHash,
+                splitSha256 = splitHashes,
+                matches = matches.distinctBy { "${it.kind}:${it.name}:${it.family}:${it.detail}" }
+            )
+            if (cacheKey != null) {
+                apkScanCache[cacheKey] = result
+                while (apkScanCache.size > MAX_APK_SCAN_CACHE_ENTRIES) {
+                    val eldest = apkScanCache.entries.iterator()
+                    if (!eldest.hasNext()) break
+                    eldest.next()
+                    eldest.remove()
+                }
+            }
+            return result
+        }
+    }
+
+    /** Pure cache identity helper; includes base/split metadata and the signed pack revision. */
+    internal fun apkScanCacheKey(
+        file: File,
+        splitFiles: List<File>,
+        packVersion: String,
+        packGeneratedAt: Long
+    ): String = buildString {
+        append(packVersion).append('|').append(packGeneratedAt)
+        fun appendFile(f: File) {
+            val path = runCatching { f.canonicalPath }.getOrDefault(f.absolutePath)
+            append('|').append(path).append('|').append(f.length()).append('|').append(f.lastModified())
+        }
+        appendFile(file)
+        for (split in splitFiles) appendFile(split)
     }
 
     /** Replace the active pack only after full cryptographic and structural validation. */
@@ -247,6 +353,7 @@ object ThreatSignatureStore {
             }
 
             active.set(installedPack)
+            synchronized(apkScanCacheLock) { apkScanCache.clear() }
             prefs(context).edit()
                 .putString(KEY_LAST_ERROR, null)
                 .putLong(KEY_LAST_UPDATE, now)

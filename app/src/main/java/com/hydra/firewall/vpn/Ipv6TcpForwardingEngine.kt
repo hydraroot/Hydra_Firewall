@@ -1,5 +1,6 @@
 package com.hydra.firewall.vpn
 
+import android.os.SystemClock
 import android.net.VpnService
 import android.util.Log
 import java.io.IOException
@@ -175,8 +176,9 @@ class Ipv6TcpForwardingEngine(
             for (session in sessions.values.toList()) {
                 val evaluation = ruleEngine.evaluateDetailed(
                     session.uid, currentNetwork, session.key.dstAddr,
-                    if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort
+                    "TCP", session.key.dstPort
                 )
+                session.markPolicyChecked()
                 if (evaluation.decision != RuleEngine.Decision.ALLOW) {
                     DiagnosticLogger.logPolicyBlocked(
                         session.key, session.uid, session.packageName, currentNetwork, "TCP",
@@ -216,17 +218,23 @@ class Ipv6TcpForwardingEngine(
             session = createSession(key, tcp, packet.size) ?: return
         }
 
-        val policyEvaluation = ruleEngine.evaluateDetailed(
-            session.uid, currentNetwork, session.key.dstAddr,
-            if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort
-        )
-        if (policyEvaluation.decision != RuleEngine.Decision.ALLOW) {
-            DiagnosticLogger.logPolicyBlocked(
-                key, session.uid, session.packageName, currentNetwork, "TCP", packet.size,
-                policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+        // Session creation already made the initial decision. Re-evaluate in a short
+        // bounded interval and immediately on refreshPolicies(), rather than on every
+        // TCP segment (large uploads can contain thousands of segments).
+        val policyNow = SystemClock.elapsedRealtime()
+        if (session.needsPolicyRecheck(policyNow)) {
+            val policyEvaluation = ruleEngine.evaluateDetailed(
+                session.uid, currentNetwork, session.key.dstAddr, "TCP", session.key.dstPort
             )
-            sendResetAndClose(session)
-            return
+            session.markPolicyChecked(policyNow)
+            if (policyEvaluation.decision != RuleEngine.Decision.ALLOW) {
+                DiagnosticLogger.logPolicyBlocked(
+                    key, session.uid, session.packageName, currentNetwork, "TCP", packet.size,
+                    policyEvaluation.reasonCode, policyEvaluation.reasonDetail
+                )
+                sendResetAndClose(session)
+                return
+            }
         }
 
         session.lastActivityMs = System.currentTimeMillis()
@@ -378,7 +386,10 @@ class Ipv6TcpForwardingEngine(
                 channel = channel,
                 clientInitialSeq = tcp.sequenceNumber,
                 localInitialSeq = localInitialSeq
-            ).apply { this.budgetLease = budgetLease }
+            ).apply {
+                this.budgetLease = budgetLease
+                markPolicyChecked()
+            }
             session.clientWindow = (tcp.window.toLong() shl session.peerWindowScale)
                 .coerceAtMost(64L * 1024 * 1024)
 

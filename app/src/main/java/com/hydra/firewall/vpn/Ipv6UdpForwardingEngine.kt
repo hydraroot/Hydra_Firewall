@@ -1,5 +1,6 @@
 package com.hydra.firewall.vpn
 
+import android.os.SystemClock
 import android.net.VpnService
 import android.os.Process
 import com.hydra.firewall.security.ThreatSignatureStore
@@ -36,6 +37,7 @@ class Ipv6UdpForwardingEngine(
         private const val TAG = "FirewallIpv6UdpEngine"
         private const val SELECT_TIMEOUT_MS = 100L
         private const val IDLE_TIMEOUT_MS = 60_000L
+        private const val IDLE_SWEEP_INTERVAL_MS = 1_000L
         private const val MAX_SESSIONS = 256
         private const val MAX_UDP_PACKET = 65_535
         private const val MAX_PENDING_TUN_PACKETS = 512
@@ -51,7 +53,9 @@ class Ipv6UdpForwardingEngine(
     private val pendingPacketCount = AtomicInteger(0)
     private val sessions = ConcurrentHashMap<SessionKey, UdpSession>()
     private val sessionCounter = AtomicInteger(0)
+    private var lastIdleSweepElapsedMs = 0L
     private val pendingNetwork = java.util.concurrent.atomic.AtomicReference(initialNetwork)
+    private val policyRefresh = AtomicBoolean(false)
     private var currentNetwork = initialNetwork
     private lateinit var selector: Selector
     private lateinit var thread: Thread
@@ -83,6 +87,7 @@ class Ipv6UdpForwardingEngine(
     }
 
     fun refreshPolicies() {
+        policyRefresh.set(true)
         if (::selector.isInitialized) selector.wakeup()
     }
 
@@ -106,7 +111,7 @@ class Ipv6UdpForwardingEngine(
     private fun runLoop() {
         try {
             while (running.get()) {
-                applyNetworkChangeIfNeeded()
+                applyPolicyUpdates()
                 drainTunQueue()
                 processTimers(System.currentTimeMillis())
 
@@ -135,23 +140,31 @@ class Ipv6UdpForwardingEngine(
         }
     }
 
-    private fun applyNetworkChangeIfNeeded() {
+    private fun applyPolicyUpdates() {
         val next = pendingNetwork.get()
-        if (next == currentNetwork) {
-            enforceCurrentPolicies()
+        val networkChanged = next != currentNetwork
+        if (networkChanged) {
+            currentNetwork = next
+            DiagnosticLogger.logServiceEvent("NETWORK CHANGED: ${currentNetwork.displayName} (UDP) RECONNECT_SESSIONS")
+            // Protected UDP sockets are bound to the previous physical network.
+            // Close them on a transition; the next app datagram creates a fresh socket.
+            sessions.values.toList().forEach(::closeSession)
+            policyRefresh.set(false)
             return
         }
-        currentNetwork = next
-        DiagnosticLogger.logServiceEvent("NETWORK CHANGED: ${currentNetwork.displayName} (UDP) RECONNECT_SESSIONS")
-        // Existing protected sockets may still be tied to the old default network.
-        // Close them all so the next datagram creates a fresh upstream socket.
-        sessions.values.toList().forEach { session -> closeSession(session) }
-        enforceCurrentPolicies()
+
+        // Do not scan every session on every 100ms selector wakeup. TCP already
+        // uses this event-driven pattern; UDP now revalidates only on an explicit
+        // rule refresh (UI changes, lifecycle changes, or the service's 30s guard).
+        if (policyRefresh.getAndSet(false)) enforceCurrentPolicies()
     }
 
     private fun enforceCurrentPolicies() {
         for (session in sessions.values.toList()) {
-            if (!ruleEngine.isAllowed(session.uid, currentNetwork, session.key.dstAddr, if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort)) {
+            val allowed = ruleEngine.isAllowed(session.uid, currentNetwork, session.key.dstAddr, "UDP", session.key.dstPort)
+            session.markPolicyChecked()
+            session.invalidateQuicResult()
+            if (!allowed) {
                 DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "BLOCKED_ACTIVE network=${currentNetwork.displayName}")
                 closeSession(session)
             }
@@ -399,22 +412,37 @@ class Ipv6UdpForwardingEngine(
             TrafficStatsStore.recordConnection(resolution.uid, resolution.packageName)
         }
 
-        val sessionPolicy = ruleEngine.evaluateDetailed(
-            session.uid, currentNetwork, session.key.dstAddr,
-            if (session.key.protocol == 6) "TCP" else "UDP", session.key.dstPort
-        )
-        if (sessionPolicy.decision != RuleEngine.Decision.ALLOW) {
-            DiagnosticLogger.logPolicyBlocked(
-                session.key, session.uid, session.packageName, currentNetwork, "UDP",
-                payload.size + 28, sessionPolicy.reasonCode, sessionPolicy.reasonDetail,
-                updateBlockedStats = false
+        // Initial policy was checked before the session was created. Keep dynamic
+        // policy responsive without repeating full PackageManager/SharedPreferences
+        // and threat-IP work for every QUIC/UDP datagram.
+        val policyNow = SystemClock.elapsedRealtime()
+        if (session.needsPolicyRecheck(policyNow)) {
+            val sessionPolicy = ruleEngine.evaluateDetailed(
+                session.uid, currentNetwork, session.key.dstAddr, "UDP", session.key.dstPort
             )
-            DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "BLOCKED network=${currentNetwork.displayName}")
-            closeSession(session)
-            return
+            session.markPolicyChecked(policyNow)
+            session.invalidateQuicResult()
+            if (sessionPolicy.decision != RuleEngine.Decision.ALLOW) {
+                DiagnosticLogger.logPolicyBlocked(
+                    session.key, session.uid, session.packageName, currentNetwork, "UDP",
+                    payload.size + 28, sessionPolicy.reasonCode, sessionPolicy.reasonDetail,
+                    updateBlockedStats = false
+                )
+                DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "BLOCKED network=${currentNetwork.displayName}")
+                closeSession(session)
+                return
+            }
         }
 
-        val quicPolicy = QuicProtection.inspect(service, ruleEngine, session.uid, session.packageName, session.key.dstAddr, session.key.dstPort, payload)
+        val looksQuic = QuicDetector.isLikelyQuicUdp(payload, session.key.dstPort)
+        val quicPolicy = if (!looksQuic) {
+            QuicProtection.Result(false)
+        } else {
+            session.cachedQuicResult(policyNow) ?: QuicProtection.inspect(
+                service, ruleEngine, session.uid, session.packageName,
+                session.key.dstAddr, session.key.dstPort, payload
+            ).also { session.cacheQuicResult(it, policyNow) }
+        }
         if (quicPolicy.blocked) {
             val detail = listOf(quicPolicy.reason, quicPolicy.domain).filterNotNull().filter { it.isNotBlank() }.joinToString(" • ")
             ConnectionHistory.add(
@@ -431,7 +459,7 @@ class Ipv6UdpForwardingEngine(
 
         session.lastActivityMs = System.currentTimeMillis()
         TrafficStatsStore.recordTx(session.uid, session.packageName, payload.size)
-        if (QuicDetector.isLikelyQuicUdp(payload, session.key.dstPort)) {
+        if (looksQuic) {
             DiagnosticLogger.logUdpData(session.key, session.uid, session.packageName, "QUIC/UDP DATA", payload.size)
             TrafficAnalyzerStore.recordData(session.uid, session.packageName, "UDP", session.key.dstAddr.hostAddress ?: "?", session.key.dstPort, payload.size, "QUIC/UDP DATA")
         }
@@ -541,7 +569,7 @@ class Ipv6UdpForwardingEngine(
             }
             channel.configureBlocking(false)
             channel.connect(InetSocketAddress(key.dstAddr, key.dstPort))
-            val session = UdpSession(key, uid, packageName, channel)
+            val session = UdpSession(key, uid, packageName, channel).apply { markPolicyChecked() }
 
             // Do not overwrite a live 5-tuple. If selector registration fails
             // after publication, the catch block removes this exact entry and
@@ -708,7 +736,13 @@ class Ipv6UdpForwardingEngine(
 
     private fun processTimers(now: Long) {
         uidResolver.purgeExpired()
-        enforceCurrentPolicies()
+        // This timer runs every selector timeout. A 60s idle timeout does not need
+        // a full session-map walk every 100ms; one sweep per second is sufficient.
+        val elapsedNow = SystemClock.elapsedRealtime()
+        if (elapsedNow - lastIdleSweepElapsedMs < IDLE_SWEEP_INTERVAL_MS) return
+        lastIdleSweepElapsedMs = elapsedNow
+        // Policy revalidation is event-driven via policyRefresh / refreshPolicies().
+        // Never rescan every UDP session from this periodic idle-expiry timer.
         for (session in sessions.values.toList()) {
             if (now - session.lastActivityMs > IDLE_TIMEOUT_MS) {
                 DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "IDLE_TIMEOUT")

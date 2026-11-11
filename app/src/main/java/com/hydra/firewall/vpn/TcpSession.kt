@@ -3,6 +3,7 @@ package com.hydra.firewall.vpn
 import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey
 import java.nio.channels.SocketChannel
+import android.os.SystemClock
 
 /** Per-connection TCP proxy state. Owned by the single selector thread. */
 class TcpSession(
@@ -28,6 +29,8 @@ class TcpSession(
         const val RECEIVE_BUFFER_LIMIT = 64 * 1024
         const val RETRANSMIT_MS = 1000L
         const val MAX_RETRANSMISSIONS = 6
+        /** Re-check dynamic policy once per second; explicit refresh events remain immediate. */
+        const val POLICY_RECHECK_INTERVAL_MS = 1000L
     }
 
     var state: State = State.CONNECTING
@@ -52,6 +55,15 @@ class TcpSession(
     var createdMs: Long = System.currentTimeMillis()
     var lastActivityMs: Long = createdMs
     var selectionKey: SelectionKey? = null
+
+    @Volatile private var lastPolicyCheckElapsedMs: Long = 0L
+
+    fun needsPolicyRecheck(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Boolean =
+        lastPolicyCheckElapsedMs == 0L || nowElapsedMs - lastPolicyCheckElapsedMs >= POLICY_RECHECK_INTERVAL_MS
+
+    fun markPolicyChecked(nowElapsedMs: Long = SystemClock.elapsedRealtime()) {
+        lastPolicyCheckElapsedMs = nowElapsedMs
+    }
 
     /** Bytes received from the app and waiting to be written to the real socket. */
     val toSocket = java.util.ArrayDeque<ByteBuffer>()

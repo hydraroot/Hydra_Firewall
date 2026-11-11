@@ -127,6 +127,7 @@ class FirewallVpnService : VpnService() {
             if (::ipv6UdpEngine.isInitialized) ipv6UdpEngine.refreshPolicies()
             if (::dozeAnomalyMonitor.isInitialized) dozeAnomalyMonitor.poll()
             if (::uidResolver.isInitialized) uidResolver.purgeExpired()
+            TrafficStatsStore.flushPendingDailyUsage()
             policyHandler.postDelayed(this, 30_000L)
         }
     }
@@ -149,8 +150,12 @@ class FirewallVpnService : VpnService() {
         // La carga del pack (verificación ECDSA + parseo) es pesada: fuera del hilo principal para evitar ANR.
         // Incremental: only apps that changed (or all, if the pack changed) are checked; otherwise it does nothing.
         ThreatSignatureStore.initInBackground(this) {
-            ThreatSignatureUpdater.updateIfDue(this)
-            runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
+            // ThreatSignatureUpdater invokes AppThreatScanner.onPackUpdated exactly once
+            // after its check/download completes. Refresh live sessions only if a new
+            // signed pack was actually installed.
+            ThreatSignatureUpdater.updateIfDue(this) { result ->
+                if (result.success && !result.skipped && running.get()) refreshPolicyEngines()
+            }
         }
         AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)
@@ -160,11 +165,17 @@ class FirewallVpnService : VpnService() {
             createNotificationChannel()
         }
         lifecycleWatcher = AppLifecycleWatcher(this, quarantineManager) {
-            if (running.get()) {
-                tcpEngine.refreshPolicies(); udpEngine.refreshPolicies()
-                ipv6TcpEngine.refreshPolicies(); ipv6UdpEngine.refreshPolicies()
-            }
+            ruleEngine.invalidatePackageCache()
+            if (running.get()) refreshPolicyEngines()
         }.also { it.register() }
+    }
+
+    private fun refreshPolicyEngines() {
+        if (!running.get()) return
+        if (::tcpEngine.isInitialized) tcpEngine.refreshPolicies()
+        if (::udpEngine.isInitialized) udpEngine.refreshPolicies()
+        if (::ipv6TcpEngine.isInitialized) ipv6TcpEngine.refreshPolicies()
+        if (::ipv6UdpEngine.isInitialized) ipv6UdpEngine.refreshPolicies()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -176,14 +187,8 @@ class FirewallVpnService : VpnService() {
                 START_NOT_STICKY
             }
             ACTION_RULES_CHANGED -> {
-                if (running.get()) {
-                    tcpEngine.refreshPolicies()
-                    udpEngine.refreshPolicies()
-                    ipv6TcpEngine.refreshPolicies()
-                    ipv6UdpEngine.refreshPolicies()
-                } else {
-                    DiagnosticLogger.logServiceEvent("RULES_CHANGED_IGNORED_VPN_STOPPED")
-                }
+                if (running.get()) refreshPolicyEngines()
+                else DiagnosticLogger.logServiceEvent("RULES_CHANGED_IGNORED_VPN_STOPPED")
                 START_NOT_STICKY
             }
             ACTION_COMPATIBILITY_CHANGED -> {
@@ -625,6 +630,8 @@ class FirewallVpnService : VpnService() {
         activeUdpSessions = (if (::udpEngine.isInitialized) udpEngine.activeSessions() else 0) +
             (if (::ipv6UdpEngine.isInitialized) ipv6UdpEngine.activeSessions() else 0)
         if (::uidResolver.isInitialized) uidResolver.clear()
+        TrafficStatsStore.flushPendingDailyUsage()
+        AppDailyUsageStore.flush()
 
         try { tunOutputPfd?.close() } catch (_: Exception) { }
         tunOutputPfd = null

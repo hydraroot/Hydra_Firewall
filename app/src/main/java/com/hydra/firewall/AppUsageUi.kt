@@ -38,7 +38,11 @@ fun AppUsageCard(english: Boolean, sessionStats: List<TrafficStatsStore.Snapshot
     var range by remember { mutableStateOf(0) } // 0 = sesión, 1 = hoy, 2 = 7 días
     var tick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
-        while (true) { delay(5_000L); tick++ }
+        while (true) {
+            delay(5_000L)
+            TrafficStatsStore.flushPendingDailyUsage()
+            tick++
+        }
     }
 
     val rows = remember(range, tick, sessionStats) {

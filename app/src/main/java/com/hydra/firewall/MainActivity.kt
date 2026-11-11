@@ -165,8 +165,9 @@ class MainActivity : AppCompatActivity() {
         // established VPN sessions do not need to be stopped or restarted.
         runCatching { BlocklistUpdateJobService.schedule(this) }
         runCatching { BlocklistUpdater.updateIfDue(this) }
-        // Antivirus: whenever the app is opened, check apps that are new/changed since the last check (cheap, background).
-        runCatching { com.hydra.firewall.security.AppThreatScanner.onPackUpdated(this) }
+        // Incremental metadata reconciliation catches installs/updates made while VPN was stopped.
+        // APK contents are scanned only for changed packages or when the signed pack revision changes.
+        runCatching { com.hydra.firewall.security.AppThreatScanner.onAppOpened(this) }
         runCatching { com.hydra.firewall.security.AppUpdater.autoCheck(this) }
         if (lastBackgroundMs > 0L && lockStore.enabled && lockStore.configured &&
             System.currentTimeMillis() - lastBackgroundMs >= 30_000L) {

@@ -24,6 +24,11 @@ object TrafficStatsStore {
     }
 
     private val stats = ConcurrentHashMap<Int, MutableStat>()
+
+    private data class UsageKey(val uid: Int, val packageName: String?)
+    private val dailyUsageBatches = ConcurrentHashMap<UsageKey, TrafficUsageBatcher>()
+    private const val DAILY_USAGE_BATCH_BYTES = 64L * 1024L
+    private const val MAX_DAILY_USAGE_BATCHES = 1024
     @Volatile private var dailyInitialized = false
     @Volatile private var lastDailyAllowed = 0L
     @Volatile private var lastDailyBlocked = 0L
@@ -49,10 +54,55 @@ object TrafficStatsStore {
         if (bytes > 0) s.blockedBytes.addAndGet(bytes.toLong())
     }
     fun recordTx(uid: Int, pkg: String?, bytes: Int) {
-        if (bytes > 0) { stat(uid, pkg).txBytes.addAndGet(bytes.toLong()); AppDailyUsageStore.add(uid, pkg, bytes) }
+        if (bytes > 0) {
+            stat(uid, pkg).txBytes.addAndGet(bytes.toLong())
+            accumulateDailyUsage(uid, pkg, bytes)
+        }
     }
     fun recordRx(uid: Int, pkg: String?, bytes: Int) {
-        if (bytes > 0) { stat(uid, pkg).rxBytes.addAndGet(bytes.toLong()); AppDailyUsageStore.add(uid, pkg, bytes) }
+        if (bytes > 0) {
+            stat(uid, pkg).rxBytes.addAndGet(bytes.toLong())
+            accumulateDailyUsage(uid, pkg, bytes)
+        }
+    }
+
+    /**
+     * Keep the packet hot path lock-free for daily per-app usage. Small packet
+     * updates are accumulated atomically and merged into the synchronized
+     * persistent ledger in 64 KiB batches (or during an explicit flush).
+     */
+    private fun accumulateDailyUsage(uid: Int, pkg: String?, bytes: Int) {
+        if (!dailyInitialized) return
+        val key = UsageKey(uid, pkg)
+        val batch = dailyUsageBatches[key] ?: run {
+            if (dailyUsageBatches.size >= MAX_DAILY_USAGE_BATCHES) {
+                // This should be rare (normal installed-app count is far lower).
+                // Preserve accounting rather than dropping data if the safety cap is reached.
+                AppDailyUsageStore.add(uid, pkg, bytes)
+                return
+            }
+            dailyUsageBatches.computeIfAbsent(key) { TrafficUsageBatcher(DAILY_USAGE_BATCH_BYTES) }
+        }
+        val ready = batch.addAndDrainIfReady(bytes)
+        if (ready > 0L) addDailyUsage(uid, pkg, ready)
+    }
+
+    /** Flushes sub-64 KiB tails for daily usage views and orderly service shutdown. */
+    fun flushPendingDailyUsage() {
+        if (!dailyInitialized) return
+        for ((key, batch) in dailyUsageBatches) {
+            val pending = batch.drain()
+            if (pending > 0L) addDailyUsage(key.uid, key.packageName, pending)
+        }
+    }
+
+    private fun addDailyUsage(uid: Int, pkg: String?, bytes: Long) {
+        var remaining = bytes
+        while (remaining > 0L) {
+            val chunk = minOf(remaining, Int.MAX_VALUE.toLong()).toInt()
+            AppDailyUsageStore.add(uid, pkg, chunk)
+            remaining -= chunk.toLong()
+        }
     }
 
     fun snapshot(uid: Int): Snapshot {
@@ -73,6 +123,7 @@ object TrafficStatsStore {
     }.sortedByDescending { it.connections + it.blocked }
 
     fun totals(): Totals {
+        flushPendingDailyUsage()
         var allowed = 0L
         var blocked = 0L
         var blockedPackets = 0L
@@ -101,5 +152,24 @@ object TrafficStatsStore {
         val blockedPackets: Long
     )
 
-    fun clear() = stats.clear()
+    fun clear() {
+        flushPendingDailyUsage()
+        stats.clear()
+    }
+}
+
+/** Atomic byte bucket used to amortize per-packet daily-usage bookkeeping. */
+internal class TrafficUsageBatcher(private val thresholdBytes: Long) {
+    private val pending = AtomicLong(0L)
+
+    init { require(thresholdBytes > 0L) }
+
+    fun addAndDrainIfReady(bytes: Int): Long {
+        if (bytes <= 0) return 0L
+        val total = pending.addAndGet(bytes.toLong())
+        return if (total >= thresholdBytes) drain() else 0L
+    }
+
+    fun drain(): Long = pending.getAndSet(0L).coerceAtLeast(0L)
+    fun pendingBytes(): Long = pending.get()
 }

@@ -65,6 +65,18 @@ class TcpReassembly(
             return Result(ResultType.OUT_OF_WINDOW, emptyList(), expectedSeq, bytesBuffered)
         }
 
+        // The common case is an in-order segment with no gaps buffered. Deliver
+        // the caller-owned payload directly: no Segment wrapper, list snapshot,
+        // merge pass, byte-array copy or sort on every TCP data packet.
+        if (segments.isEmpty() && TcpSequence.compare(seq, expectedSeq) == 0) {
+            return Result(
+                ResultType.ACCEPTED,
+                listOf(data),
+                TcpSequence.add(seq, data.size.toLong()),
+                bytesBuffered
+            )
+        }
+
         // Merge/ignore overlaps with already buffered ranges. The buffers are
         // intentionally small, so a bounded linear scan is preferable to a
         // more complicated sequence-tree implementation here.

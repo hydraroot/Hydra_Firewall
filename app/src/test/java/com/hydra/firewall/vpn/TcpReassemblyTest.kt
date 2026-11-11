@@ -15,6 +15,20 @@ class TcpReassemblyTest {
     }
 
     @Test
+    fun inOrderFastPathDeliversOriginalPayloadWithoutBufferingOrCopying() {
+        val r = TcpReassembly()
+        val payload = "large-upload-chunk".toByteArray()
+        val result = r.offer(100, payload, 100)
+
+        assertEquals(TcpReassembly.ResultType.ACCEPTED, result.type)
+        assertEquals(1, result.delivered.size)
+        assertTrue("in-order fast path should reuse the already-owned TUN payload", result.delivered[0] === payload)
+        assertEquals(100L + payload.size, result.nextExpected)
+        assertEquals(0, r.bufferedBytes())
+        assertEquals(0, r.segmentCount())
+    }
+
+    @Test
     fun outOfOrderIsBufferedThenReleasedWhenGapArrives() {
         val r = TcpReassembly()
         val late = r.offer(106, "ghi".toByteArray(), 100)

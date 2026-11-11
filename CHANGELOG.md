@@ -1,3 +1,21 @@
+## [3.6.9] - 2026-11-11
+- Added a lock-free fast path after the signed threat pack has completed initialization, keeping packet-time domain/IP lookups out of the cold-start monitor while preserving synchronization during first load and retry.
+- Keyed app-scan completion to the signed pack revision (version plus generated timestamp), so regenerated packs with the same display version still trigger the appropriate rescan.
+
+### Performance and scanning
+- APK signature scanning now uses a dedicated cache lock, separate from the threat-store initialization monitor used by live VPN domain/IP lookups. Long SHA-256/YARA scans therefore no longer hold the network threat-lookup lock.
+- Quarantine and the installed-app antivirus share the same SHA-256/YARA result for the same newly installed APK and signed pack revision, avoiding a second signature pass. APK scanning runs on a low-priority background worker.
+- Reused base and split APK digests from the signature scan in the APK report instead of rereading those files to calculate the same hashes again.
+- The Quarantine-to-antivirus handoff marks a signature pass reusable only when a verified active pack was present and the pass actually completed; a missing/empty pack can never make an APK appear fully scanned.
+- Added a TCP reassembly fast path for in-order payloads: it forwards the original payload without creating a segment snapshot, sorting, merging or copying the byte array. Out-of-order and overlapping segments retain the existing bounded reassembly path.
+- Added a ready-pack fast path to threat-store initialization so live domain/IP lookups do not enter initialization monitors or the threat-domain store monitor for every packet. Initialization and failed-pack retries remain serialized.
+- Kept per-session policy and QUIC result caching, UID-to-package caching, background usage batching, and event-driven policy refreshes to reduce repeated work on packet paths. QUIC caches only terminal decisions (known domain, policy-disabled or blocked); an unknown DNS-to-IP correlation is rechecked on subsequent datagrams rather than cached as ALLOW.
+- Removed the full UDP session-policy sweep from the 100ms selector timer; rules are revalidated on explicit refresh events, the existing per-session cadence, and the service safety refresh. UDP idle-session cleanup now walks the session table once per second, while the shared UID/affinity cache purge is throttled to once per five seconds across IPv4/IPv6 engines.
+
+### Validation notes
+- The changes target duplicate APK work and avoidable packet-path allocations; they do not weaken firewall, DNS, SNI, QUIC or threat decisions.
+- Full Android/Gradle build must be confirmed by GitHub Actions; this environment could not resolve services.gradle.org.
+
 ## [3.6.8] - 2026-11-11
 
 ### Changed

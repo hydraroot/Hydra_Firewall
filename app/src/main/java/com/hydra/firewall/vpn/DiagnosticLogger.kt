@@ -218,6 +218,9 @@ object DiagnosticLogger {
     }
 
     private fun aggregateData(key: SessionKey, uid: Int, protocol: String, event: String, bytes: Int = 0) {
+        // Release builds are intentionally quiet. Return before allocating endpoint
+        // strings or touching aggregation maps in the per-packet data path.
+        if (level == Level.OFF || level == Level.ERROR) return
         val src = formatAddr(key.srcAddr, key.srcPort)
         val dst = formatAddr(key.dstAddr, key.dstPort)
         if (level == Level.DEBUG) {

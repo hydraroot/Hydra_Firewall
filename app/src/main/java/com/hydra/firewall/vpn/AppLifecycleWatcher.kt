@@ -46,19 +46,23 @@ class AppLifecycleWatcher(
                     // Handled by ACTION_PACKAGE_REPLACED instead, to avoid double-counting.
                     return
                 }
-                quarantineManager.onPackageAdded(ctx, packageName)
+                val quarantineScanScheduled = quarantineManager.onPackageAdded(ctx, packageName) { report ->
+                    AppThreatScanner.onPackageChangedFromReport(ctx, packageName, report)
+                }
                 onRulesChanged()
                 NotificationHelper.notifyQuarantine(ctx, packageName)
-                AppThreatScanner.onPackageChanged(ctx, packageName)
+                if (!quarantineScanScheduled) AppThreatScanner.onPackageChanged(ctx, packageName)
             }
             Intent.ACTION_PACKAGE_REPLACED -> {
                 AppNetworkProfileStore.onAppUpdated(packageName)
                 AppThreatScanner.onPackageChanged(ctx, packageName)
+                onRulesChanged()
             }
             Intent.ACTION_PACKAGE_FULLY_REMOVED -> {
                 quarantineManager.onPackageRemoved(packageName)
                 AppNetworkProfileStore.onAppRemoved(packageName)
                 AppThreatScanner.onPackageRemoved(ctx, packageName)
+                onRulesChanged()
             }
         }
     }

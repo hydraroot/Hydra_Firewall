@@ -16,7 +16,7 @@
 </p>
 
 
-> **Status: beta / pre-release validation** (version `3.6.8`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
+> **Status: beta / pre-release validation** (version `3.6.9`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -122,7 +122,7 @@ Hydra has **no telemetry**. Since 1.3.0 it can check for (and download) new vers
 |---|---|---|
 | **Signed threat pack** | Automatically about once every 24 h (inexact alarm), or on demand with *Update now* in Security Center. The default build points to this repository's `threat-pack` branch. | `raw.githubusercontent.com` |
 | **Hydra updates** | About once a day (and when you tap *Check for update*): asks the GitHub API for the latest release; downloads the APK only on unmetered networks. | `api.github.com`, `github.com` releases |
-| **Antivirus app checks** | Local only, no network: when an app is installed/updated and after each pack update, installed apps are compared with the downloaded pack. Can be turned off in Security → Overview. | — |
+| **Antivirus app checks** | Local only, no network: checks the installed/updated app; when Hydra opens after the VPN was stopped, it checks timestamps and scans only changed apps. A full pass runs only for a new signed pack revision or on demand—no scheduled daily full-device scan. Quarantine and antivirus reuse the same APK signature result for a new install. Can be turned off in Security → Overview. | — |
 | **Ad/tracker and threat domain lists** | Checks for changes about every 24 h on unmetered physical networks; *Check for update* and *Update now* are also available. New lists are applied in memory without restarting the VPN. | GitHub raw (HaGeZi, 1Hosts, StevenBlack) |
 | **Encrypted DNS** | Continuously, to resolve names. | Cloudflare / Google / Quad9 (your choice) |
 
@@ -187,7 +187,7 @@ Hydra includes three very small models that run **entirely on your phone** (no c
 
 Each score comes with one plain result: **0–49 looks normal, 50–89 doubtful, 90–100 suspicious** (the higher, the more suspicious), based on how often the model was right at that score in testing. If too little of the app's code could be analyzed, the result is **no conclusion**.
 
-**Antivirus-style protection (since 1.2.0).** Hydra checks your installed apps against the signed threat pack (known-malware SHA‑256 hashes + YARA‑Lite patterns) when an app is installed or updated and after every pack update (and when you open the app or on the daily pack check, even with the VPN off; instant detection on install needs the VPN on), and notifies you of matches. It only detects *known* threats, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** lets you manage the VPN and antivirus; network threat blocking and ad/tracker filtering share the single **Threats + ads** master switch on Protection.
+**Antivirus-style protection (since 1.2.0).** Hydra checks an app when Android reports an install or update while the VPN service is running. If the VPN was stopped, opening Hydra performs a lightweight timestamp reconciliation and scans only newly installed or changed apps. A full pass over user-installed apps runs when a new signed threat-pack revision becomes active or when you explicitly request it; Hydra does **not** run a scheduled daily full-device scan. When Quarantine and antivirus inspect the same new APK, they share the SHA‑256/YARA result instead of repeating the signature scan. APK checks run in the background and their cache lock is separate from live VPN threat lookups. Hydra detects *known* threats only, never removes anything by itself, and does not replace Google Play Protect. **Security → Overview → "Control and updates"** lets you manage the VPN and antivirus; network threat blocking and ad/tracker filtering share the single **Threats + ads** master switch on Protection.
 
 Together with the YARA‑Lite rules, and the signed threat pack, they feed **Security Center** so you can decide with more information. The decision is always yours.
 

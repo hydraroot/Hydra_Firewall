@@ -33,6 +33,11 @@ object AppThreatScanner {
     private const val KEY_AUTO = "auto_enabled"
     private const val KEY_LAST_FULL = "last_full_scan"
     private const val KEY_LAST_PACK = "last_full_scan_pack"
+    private const val KEY_LAST_ATTEMPT_PACK = "last_pack_scan_attempt_pack"
+    private const val KEY_LAST_ATTEMPT_AT = "last_pack_scan_attempt_at"
+    private const val KEY_LAST_RECONCILE_AT = "last_incremental_reconcile_at"
+    private const val RECONCILE_INTERVAL_MS = 60L * 1000L
+    private const val PACK_SCAN_RETRY_MS = 24L * 60L * 60L * 1000L
     private const val KEY_FINDINGS = "findings"
     private const val KEY_IGNORED = "ignored"
     private const val KEY_POLICY = "policy_version"
@@ -246,6 +251,48 @@ object AppThreatScanner {
 
     // ---- triggers ---------------------------------------------------------------------------------------
 
+    /**
+     * Reuses the full APK report produced by QuarantineManager for the same install event.
+     * This prevents a second signature/hash pass; if the report could not be produced,
+     * fall back to the lightweight signature-only scanner.
+     */
+    fun onPackageChangedFromReport(
+        context: Context,
+        packageName: String,
+        report: ApkScanReport?
+    ) {
+        val app = context.applicationContext
+        if (!isAutoEnabled(app) || packageName == app.packageName) return
+        executor.execute {
+            runCatching {
+                val reusable = report?.takeIf {
+                    canReuseSignatureScanReport(it.packageName, packageName, it.signatureScanCompleted, it.sha256)
+                }
+                if (reusable != null) {
+                    val label = runCatching {
+                        app.packageManager.getApplicationLabel(app.packageManager.getApplicationInfo(packageName, 0)).toString()
+                    }.getOrDefault(packageName)
+                    val finding = reusable.threatMatches.takeIf { it.isNotEmpty() }?.let {
+                        Finding(packageName, label, it, System.currentTimeMillis())
+                    }
+                    recordResult(app, packageName, finding)
+                    markSeen(app, packageName)
+                } else {
+                    val finding = scanOne(app, packageName)
+                    recordResult(app, packageName, finding)
+                    markSeen(app, packageName)
+                }
+            }
+        }
+    }
+
+    internal fun canReuseSignatureScanReport(
+        reportPackageName: String?,
+        expectedPackageName: String,
+        signatureScanCompleted: Boolean,
+        sha256: String
+    ): Boolean = reportPackageName == expectedPackageName && signatureScanCompleted && sha256.isNotBlank()
+
     /** An app was installed or updated: check just that app (if automatic checks are on). */
     fun onPackageChanged(context: Context, packageName: String) {
         val app = context.applicationContext
@@ -273,9 +320,82 @@ object AppThreatScanner {
         }
     }
 
-    /** A new signed pack was installed: apps must be checked again because the pack may know new hashes. */
+    /**
+     * A new signed pack may contain hashes/patterns unknown to the last scan.
+     * Do not launch an incremental full-app walk every time the UI opens or an
+     * updater check is skipped: only scan when the active pack revision changed.
+     * Failed/unreadable APKs are retried at most once per day for that revision.
+     */
     fun onPackUpdated(context: Context) {
-        if (isAutoEnabled(context)) scanAll(context, force = false)
+        val app = context.applicationContext
+        if (!isAutoEnabled(app)) return
+        executor.execute {
+            runCatching { ThreatSignatureStore.init(app) }
+            val currentPack = ThreatSignatureStore.activePackRevision()
+            val p = prefs(app)
+            val now = System.currentTimeMillis()
+            val lastSuccessfulPack = p.getString(KEY_LAST_PACK, "").orEmpty()
+            val lastAttemptPack = p.getString(KEY_LAST_ATTEMPT_PACK, "").orEmpty()
+            val lastAttemptAt = p.getLong(KEY_LAST_ATTEMPT_AT, 0L)
+            if (shouldStartPackScan(lastSuccessfulPack, currentPack, lastAttemptPack, lastAttemptAt, now)) {
+                scanAll(app, force = false)
+            }
+        }
+    }
+
+    internal fun shouldStartPackScan(
+        lastSuccessfulPack: String,
+        currentPack: String,
+        lastAttemptPack: String,
+        lastAttemptAt: Long,
+        now: Long,
+        retryIntervalMs: Long = PACK_SCAN_RETRY_MS
+    ): Boolean {
+        if (currentPack.isBlank() || currentPack == lastSuccessfulPack) return false
+        if (currentPack != lastAttemptPack || lastAttemptAt <= 0L) return true
+        return now < lastAttemptAt || now - lastAttemptAt >= retryIntervalMs
+    }
+
+    /**
+     * Foreground reconciliation catches installs/updates made while the VPN
+     * service was stopped. It checks package timestamps only and hashes/scans
+     * APK contents solely when a package's installed version changed.
+     */
+    fun onAppOpened(context: Context) {
+        val app = context.applicationContext
+        if (!isAutoEnabled(app)) return
+        executor.execute {
+            runCatching { ThreatSignatureStore.init(app) }
+            val p = prefs(app)
+            val now = System.currentTimeMillis()
+            val pack = ThreatSignatureStore.activePackRevision()
+            val lastSuccessfulPack = p.getString(KEY_LAST_PACK, "").orEmpty()
+            val lastAttemptPack = p.getString(KEY_LAST_ATTEMPT_PACK, "").orEmpty()
+            val lastAttemptAt = p.getLong(KEY_LAST_ATTEMPT_AT, 0L)
+            if (shouldStartPackScan(lastSuccessfulPack, pack, lastAttemptPack, lastAttemptAt, now)) {
+                scanAll(app, force = false)
+                return@execute
+            }
+            if (fullScanRunning.get()) return@execute
+            val lastReconcile = p.getLong(KEY_LAST_RECONCILE_AT, 0L)
+            if (lastReconcile > 0L && now >= lastReconcile && now - lastReconcile < RECONCILE_INTERVAL_MS) return@execute
+            p.edit().putLong(KEY_LAST_RECONCILE_AT, now).apply()
+
+            val apps = runCatching {
+                app.packageManager.getInstalledApplications(0).filter {
+                    (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != app.packageName
+                }
+            }.getOrDefault(emptyList())
+            for (info in apps) {
+                if (fullScanRunning.get()) break
+                val stamp = seenStamp(app, info.packageName, pack)
+                if (p.getString(SEEN_PREFIX + info.packageName, null) == stamp) continue
+                val outcome = runCatching { scanOne(app, info.packageName) }
+                if (outcome.isFailure) continue // keep it unseen so a later reconcile retries it
+                recordResult(app, info.packageName, outcome.getOrNull())
+                p.edit().putString(SEEN_PREFIX + info.packageName, stamp).apply()
+            }
+        }
     }
 
     /**
@@ -292,8 +412,15 @@ object AppThreatScanner {
         if (!fullScanRunning.compareAndSet(false, true)) return false
         executor.execute {
             try {
+                // Initialization is intentionally performed on this background executor;
+                // loading/verifying a signed pack must never block the UI thread.
+                ThreatSignatureStore.init(app)
+                val pack = ThreatSignatureStore.activePackRevision()
+                prefs(app).edit()
+                    .putString(KEY_LAST_ATTEMPT_PACK, pack)
+                    .putLong(KEY_LAST_ATTEMPT_AT, System.currentTimeMillis())
+                    .apply()
                 val pm = app.packageManager
-                val pack = ThreatSignatureStore.activePackVersion()
                 val apps = runCatching {
                     pm.getInstalledApplications(0).filter {
                         (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != app.packageName
@@ -318,7 +445,11 @@ object AppThreatScanner {
                     recordResult(app, info.packageName, outcome.getOrNull())
                     p.edit().putString(SEEN_PREFIX + info.packageName, stamp).apply()
                 }
-                p.edit().putLong(KEY_LAST_FULL, System.currentTimeMillis()).putString(KEY_LAST_PACK, pack).apply()
+                val completion = p.edit().putLong(KEY_LAST_FULL, System.currentTimeMillis())
+                // Do not mark a pack revision fully scanned if an APK could not be read;
+                // the retry gate above will try the skipped apps again after 24 hours.
+                if (skipped == 0) completion.putString(KEY_LAST_PACK, pack)
+                completion.apply()
                 if (skipped > 0) {
                     runCatching {
                         SecurityEventStore.record(app, "APP_SCAN_SKIPPED", "$skipped app(s) could not be scanned", "unreadable or larger than ${MAX_APK_BYTES / (1024 * 1024)} MB", Severity.LOW)
@@ -412,7 +543,7 @@ object AppThreatScanner {
 
     private fun markSeen(context: Context, packageName: String) {
         prefs(context).edit()
-            .putString(SEEN_PREFIX + packageName, seenStamp(context, packageName, ThreatSignatureStore.activePackVersion()))
+            .putString(SEEN_PREFIX + packageName, seenStamp(context, packageName, ThreatSignatureStore.activePackRevision()))
             .apply()
     }
 

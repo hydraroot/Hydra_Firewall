@@ -24,6 +24,16 @@ class AppThreatScannerTest {
         assertFalse(AppThreatScanner.isNewFinding(f("a", "x"), f("a", "x")))
         assertTrue(AppThreatScanner.isNewFinding(f("a", "x"), f("a", "x", "y")))
     }
+
+    @Test fun fullScanOnlyRunsForANewPackOrDailyRetryAfterFailure() {
+        val day = 24L * 60L * 60L * 1000L
+        assertTrue(AppThreatScanner.shouldStartPackScan("", "pack-1", "", 0L, 10L))
+        assertFalse(AppThreatScanner.shouldStartPackScan("pack-1", "pack-1", "pack-1", 10L, 20L))
+        assertTrue(AppThreatScanner.shouldStartPackScan("pack-1", "pack-2", "pack-1", 10L, 20L))
+        assertFalse(AppThreatScanner.shouldStartPackScan("pack-1", "pack-2", "pack-2", 10L, 10L + day - 1L))
+        assertTrue(AppThreatScanner.shouldStartPackScan("pack-1", "pack-2", "pack-2", 10L, 10L + day))
+        assertFalse(AppThreatScanner.shouldStartPackScan("pack-1", "", "", 0L, day))
+    }
 }
 
 class AppThreatScannerReasonTest {
@@ -83,5 +93,14 @@ class AppThreatScannerSuppressTest {
     @Test fun knownMalwareHashIsNeverSuppressed() {
         assertFalse(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.SHA256), "store"))
         assertFalse(AppThreatScanner.suppressPatternOnly(f(ThreatSignatureMatch.Kind.SHA256), "system"))
+    }
+}
+class AppThreatScannerReportReuseTest {
+    @Test
+    fun onlyCompletedSignatureReportForSamePackageCanBeReused() {
+        assertTrue(AppThreatScanner.canReuseSignatureScanReport("pkg.app", "pkg.app", true, "abc123"))
+        assertFalse(AppThreatScanner.canReuseSignatureScanReport("pkg.app", "pkg.app", false, "abc123"))
+        assertFalse(AppThreatScanner.canReuseSignatureScanReport("other.app", "pkg.app", true, "abc123"))
+        assertFalse(AppThreatScanner.canReuseSignatureScanReport("pkg.app", "pkg.app", true, ""))
     }
 }

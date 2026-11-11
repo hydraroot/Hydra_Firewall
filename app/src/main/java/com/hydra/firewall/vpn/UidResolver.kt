@@ -30,6 +30,7 @@ class UidResolver(context: Context) {
         const val UID_CACHE_TTL_MS = 30_000L
         const val PROTOCOL_TCP = 6
         const val PROTOCOL_UDP = 17
+        private const val CACHE_PURGE_INTERVAL_MS = 5_000L
     }
 
     private val appContext = context.applicationContext
@@ -43,6 +44,7 @@ class UidResolver(context: Context) {
     private val packageNameCache = ConcurrentHashMap<Int, String>()
     private val affinityStore = ConnectionAffinityStore()
     private val ruleStore = RuleStore(appContext)
+    private val purgeGate = PurgeIntervalGate(CACHE_PURGE_INTERVAL_MS)
 
     data class Resolution(
         val uid: Int,
@@ -203,8 +205,12 @@ class UidResolver(context: Context) {
         return name
     }
 
-    /** Limpieza periódica de entradas vencidas, para no crecer indefinidamente. */
+    /** Limpieza compartida y limitada en frecuencia para no recorrer las cachés desde cada selector. */
     fun purgeExpired() {
+        // The same UidResolver is used by IPv4/IPv6 TCP/UDP loops. Only one caller
+        // performs a purge every five seconds; the others skip the repeated map walk.
+        if (!purgeGate.tryAcquire(SystemClock.elapsedRealtime())) return
+
         val now = System.currentTimeMillis()
         val iterator = uidCache.entries.iterator()
         while (iterator.hasNext()) {
