@@ -92,11 +92,11 @@ fun HomeHealthCard(
         else -> if (english) "Nothing needs your decision right now." else "Nada necesita tu decisión por ahora."
     }
     val track = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+        Column(Modifier.fillMaxWidth().padding(17.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                    Canvas(Modifier.size(64.dp)) {
+                Box(Modifier.size(68.dp), contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.size(68.dp)) {
                         val stroke = 8.dp.toPx()
                         val inset = stroke / 2f
                         val arcSize = Size(size.width - stroke, size.height - stroke)
@@ -120,9 +120,9 @@ fun HomeHealthCard(
             Spacer(Modifier.height(10.dp))
             Text(
                 if (english) "An app isn't working" else "Una app no funciona",
-                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary)
-                    .clickable { onOpenAssistant() }.padding(vertical = 11.dp),
+                color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary)
+                    .clickable { onOpenAssistant() }.padding(vertical = 13.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }

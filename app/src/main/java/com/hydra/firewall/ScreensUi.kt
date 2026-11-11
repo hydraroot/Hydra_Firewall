@@ -50,9 +50,9 @@ fun HydraSegmented(
     Row(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(3.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f))
+            .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         options.forEachIndexed { i, label ->
@@ -60,8 +60,8 @@ fun HydraSegmented(
             Box(
                 Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (on) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                     .clickable { onSelect(i) }
                     .padding(vertical = 8.dp, horizontal = 2.dp),
                 contentAlignment = Alignment.Center
@@ -70,7 +70,7 @@ fun HydraSegmented(
                     label,
                     fontSize = 11.sp,
                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     textAlign = TextAlign.Center
                 )
@@ -88,7 +88,7 @@ fun ConnStatusBadge(allowed: Boolean, english: Boolean, repeat: Int = 1) {
     Text(
         text,
         color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.16f)).padding(horizontal = 6.dp, vertical = 3.dp)
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 5.dp)
     )
 }
 
@@ -96,16 +96,16 @@ fun ConnStatusBadge(allowed: Boolean, english: Boolean, repeat: Int = 1) {
 @Composable
 fun AppInitial(name: String, modifier: Modifier = Modifier) {
     Box(
-        modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+        modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
-    ) { Text(name.take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+    ) { Text(name.take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
 }
 
 @Composable
 fun StatTile(modifier: Modifier, value: String, label: String, valueColor: Color = Color.Unspecified) {
-    HydraCard(modifier, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp)) {
-            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = valueColor, maxLines = 1)
+    HydraCard(modifier, shape = RoundedCornerShape(19.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp)) {
+            Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = valueColor, maxLines = 1)
             Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
         }
     }

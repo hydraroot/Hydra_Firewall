@@ -108,8 +108,8 @@ fun HomeAlertsCard(context: Context, english: Boolean) {
         }
     }
     if (alerts.isEmpty()) return
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(
                 (if (english) "ALERTS" else "AVISOS") + " · ${alerts.size}",
                 style = MaterialTheme.typography.labelSmall,
@@ -183,8 +183,8 @@ fun BlockedDestinationsSection(context: Context, english: Boolean) {
     }
     val shown = entries + held.values.filter { h -> entries.none { it.key == h.key } }
     if (shown.isEmpty()) return
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(
                 (if (english) "BLOCKED DESTINATIONS" else "DESTINOS BLOQUEADOS") + " · ${entries.size}",
                 style = MaterialTheme.typography.labelSmall,

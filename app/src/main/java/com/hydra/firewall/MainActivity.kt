@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -477,10 +478,14 @@ fun FirewallScreen(
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     tonalElevation = 0.dp,
-                    modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .shadow(8.dp, RoundedCornerShape(24.dp), clip = false)
+                        .clip(RoundedCornerShape(24.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(24.dp))
                 ) {
                     navGroups.forEach { g ->
                         val shown = g.tabs.filter { it in visibleTabs }
@@ -514,45 +519,61 @@ fun FirewallScreen(
                 modifier = modifier.fillMaxSize().padding(padding)
                     .background(MaterialTheme.colorScheme.background)
             ) {
+                val headerProtection = ProtectionStatus.read(context)
+                val headerStatusColor = when (headerProtection.level) {
+                    ProtectionStatus.Level.ACTIVE -> Color(0xFF34D399)
+                    ProtectionStatus.Level.PARTIAL -> Color(0xFFFBBF24)
+                    ProtectionStatus.Level.OFF -> MaterialTheme.colorScheme.error
+                }
                 Row(
                     Modifier.fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.surface,
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                        .padding(horizontal = 16.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Image(
-                                painter = androidx.compose.ui.res.painterResource(com.hydra.firewall.R.drawable.ic_header_logo),
-                                contentDescription = "Hydra Firewall",
-                                modifier = Modifier.size(30.dp).clip(CircleShape)
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(com.hydra.firewall.R.drawable.ic_header_logo),
+                        contentDescription = "Hydra Firewall",
+                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp))
+                    )
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Hydra Firewall", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(headerStatusColor.copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(Modifier.size(6.dp).clip(CircleShape).background(headerStatusColor))
+                            Text(
+                                when (headerProtection.level) {
+                                    ProtectionStatus.Level.ACTIVE -> if (language.isEnglish()) "PROTECTION ACTIVE" else "PROTECCIÓN ACTIVA"
+                                    ProtectionStatus.Level.PARTIAL -> if (language.isEnglish()) "PROTECTION PARTIAL" else "PROTECCIÓN PARCIAL"
+                                    ProtectionStatus.Level.OFF -> if (language.isEnglish()) "PROTECTION OFF" else "PROTECCIÓN DESACTIVADA"
+                                },
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = headerStatusColor,
+                                maxLines = 1
                             )
-                            Spacer(Modifier.width(8.dp))
-                            val headerProtection = ProtectionStatus.read(context)
-                            Column {
-                                Text("Hydra Firewall", style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    when (headerProtection.level) {
-                                        ProtectionStatus.Level.ACTIVE -> if (language.isEnglish()) "PROTECTION ON" else "PROTECCIÓN ACTIVADA"
-                                        ProtectionStatus.Level.PARTIAL -> if (language.isEnglish()) "PROTECTION PARTIAL" else "PROTECCIÓN PARCIAL"
-                                        ProtectionStatus.Level.OFF -> if (language.isEnglish()) "PROTECTION OFF" else "PROTECCIÓN DESACTIVADA"
-                                    },
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when (headerProtection.level) {
-                                        ProtectionStatus.Level.ACTIVE -> Color(0xFF2E8B57)
-                                        ProtectionStatus.Level.PARTIAL -> Color(0xFFD98E1F)
-                                        ProtectionStatus.Level.OFF -> MaterialTheme.colorScheme.error
-                                    }
-                                )
-                            }
                         }
                     }
-                    // Botón claro/oscuro: icono mitad negro / mitad blanco, a la derecha, sin ocupar alto extra.
+                    // Brightness shortcut: keeps the existing action and stored preference.
                     val toggleBorder = MaterialTheme.colorScheme.onSurface
                     Canvas(
                         Modifier
-                            .size(30.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
                             .clickable {
                                 val next = if (darkTheme) ThemeMode.LIGHT else ThemeMode.DARK
@@ -562,13 +583,11 @@ fun FirewallScreen(
                     ) {
                         val r = size.minDimension / 2f
                         drawCircle(Color.White, radius = r)
-                        drawArc(
-                            color = Color.Black, startAngle = 90f, sweepAngle = 180f, useCenter = true
-                        )
+                        drawArc(color = Color.Black, startAngle = 90f, sweepAngle = 180f, useCenter = true)
                         drawCircle(toggleBorder, radius = r - 1f, style = Stroke(width = 2f))
                     }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.32f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
                 run {
                     lastInGroup[currentGroup.id] = selectedTab
                     val shown = currentGroup.tabs.filter { it in visibleTabs }
@@ -1092,9 +1111,9 @@ fun FirewallScreen(
                                         }
                                         HydraCard(
                                             Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedHistoryDetail = g.detailRecord },
-                                            shape = RoundedCornerShape(16.dp)
+                                            shape = RoundedCornerShape(20.dp)
                                         ) {
-                                            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                            Column(Modifier.fillMaxWidth().padding(14.dp)) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     AppInitial(groupedApp)
                                                     Spacer(Modifier.width(10.dp))
@@ -1219,8 +1238,8 @@ fun FirewallScreen(
                                         val domain = DomainResolver.cached(host)
                                         val isBlocked = ipBlockStore.isBlocked(host)
                                         Column(
-                                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(10.dp)
+                                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(18.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).padding(12.dp)
                                         ) {
                                             Text("${item.time}  ${com.hydra.firewall.vpn.AppNames.label(item.uid, item.packageName)}", style = MaterialTheme.typography.titleSmall)
                                             Text("${item.protocol} • ${item.network.displayName} • ${if (item.allowed) tr(context,"allow") else tr(context,"block")}", style = MaterialTheme.typography.bodySmall)
@@ -1631,7 +1650,7 @@ fun FirewallScreen(
                         AboutScreen(context)
                     }
                     MainTab.SETTINGS -> {
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 12.dp)) {
                             SettingsBlockTitle(if (language.isEnglish()) "Protection" else "Protección")
                             SettingSwitchRow(tr(context,"ask_first"), tr(context,"ask_first_sub"), askFirst) { askFirst=it; ruleStore.askOnFirstConnection=it; notifyRulesChanged(context) }
                             Text(tr(context,"security"), style = MaterialTheme.typography.titleMedium)
@@ -3833,8 +3852,8 @@ private fun ThemeOptionCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier.height(54.dp),
-        shape = RoundedCornerShape(13.dp),
+        modifier = modifier.height(60.dp).shadow(if (selected) 3.dp else 1.dp, RoundedCornerShape(18.dp), clip = false),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
         ),
@@ -3845,12 +3864,12 @@ private fun ThemeOptionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp)
     ) {
         Row(
-            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+            Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Box(
-                Modifier.size(13.dp).clip(CircleShape).background(accent)
+                Modifier.size(15.dp).clip(CircleShape).background(accent)
                     .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f), CircleShape)
             )
             Text(
@@ -4756,8 +4775,8 @@ private fun NavGlyph(kind: Int, color: Color) {
 
 @Composable
 private fun SettingSwitchCard(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    HydraCard(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(20.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(title, fontWeight = FontWeight.SemiBold)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -4769,16 +4788,33 @@ private fun SettingSwitchCard(title: String, subtitle: String, checked: Boolean,
 
 @Composable
 private fun SettingsBlockTitle(text: String) {
-    Spacer(Modifier.height(16.dp))
-    Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-    HorizontalDivider(Modifier.padding(top = 4.dp, bottom = 6.dp))
+    Spacer(Modifier.height(19.dp))
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(width = 4.dp, height = 21.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable
 private fun HomeStatTile(modifier: Modifier, value: String, label: String) {
-    HydraCard(modifier, shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Text(value, fontWeight = FontWeight.Bold, fontSize = 20.sp, maxLines = 1)
+    HydraCard(modifier, shape = RoundedCornerShape(19.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 21.sp, maxLines = 1)
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
         }
     }

@@ -51,24 +51,51 @@ fun HomeStatusRow(
     roaming: Boolean,
     onToggleVpn: (Boolean) -> Unit
 ) {
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    val statusColor = if (isOn) LiveOk else LiveBad
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.size(9.dp).clip(CircleShape).background(if (isOn) LiveOk else LiveBad))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
+            Box(
+                Modifier.size(46.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(if (isOn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    if (isOn) (if (english) "Firewall active" else "Firewall activo") else (if (english) "Firewall stopped" else "Firewall detenido"),
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    if (isOn) "${network.displayName}${if (roaming) " • Roaming" else ""}" else (if (english) "No traffic is being filtered" else "No se está filtrando el tráfico"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    if (isOn) "✓" else "!",
+                    color = if (isOn) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    if (isOn) (if (english) "Firewall active" else "Firewall activo") else (if (english) "Firewall stopped" else "Firewall detenido"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(statusColor.copy(alpha = 0.11f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(statusColor))
+                    Text(
+                        if (isOn) "${network.displayName}${if (roaming) " • Roaming" else ""}"
+                        else if (english) "Traffic is not filtered" else "Tráfico sin filtrar",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(Modifier.width(6.dp))
             Switch(checked = isOn, onCheckedChange = onToggleVpn)
         }
     }
@@ -87,8 +114,8 @@ fun HomeLiveTrafficCard(
     val primary = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
     val last = history.lastOrNull() ?: (0f to 0f)
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+        Column(Modifier.fillMaxWidth().padding(17.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Column {
                     Text(if (english) "NOW" else "AHORA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -100,7 +127,7 @@ fun HomeLiveTrafficCard(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Canvas(Modifier.fillMaxWidth().height(72.dp)) {
+            Canvas(Modifier.fillMaxWidth().height(80.dp)) {
                 val maxVal = maxOf(history.maxOfOrNull { it.first } ?: 0f, history.maxOfOrNull { it.second } ?: 0f, 0.01f) * 1.1f
                 for (f in listOf(0f, 0.5f, 1f)) {
                     val y = size.height - f * size.height
@@ -144,8 +171,8 @@ fun HomeRecentDecisionsCard(
     onOpenConnections: () -> Unit
 ) {
     val rows = remember(history) { history.take(limit) }
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp)) {
             Row(Modifier.fillMaxWidth().clickable { onOpenConnections() }.padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (english) "LATEST DECISIONS" else "ÚLTIMAS DECISIONES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                 Text(if (english) "See all" else "Ver todo", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
@@ -159,9 +186,9 @@ fun HomeRecentDecisionsCard(
             }
             rows.forEachIndexed { i, r ->
                 val color = if (r.allowed) LiveOk else LiveBad
-                Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     val name = AppNames.label(r.uid, r.packageName)
-                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                         Text(name.take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     Spacer(Modifier.width(9.dp))

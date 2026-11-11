@@ -1,3 +1,14 @@
+## [3.6.8] - 2026-11-11
+
+### Changed
+- Refined the visual hierarchy of the main protection status, live traffic, recent decisions, settings section headings, segmented controls, theme cards and bottom navigation.
+- Improved card shapes, spacing, typography, status badges and subtle theme-aware surfaces across the existing six visual themes.
+- Kept existing screen actions, state, navigation destinations, VPN service, packet processing, firewall rules, DNS, SNI and threat filtering unchanged.
+
+### Notes
+- UI-only refinement. No networking or security behavior changes are intended in this release.
+- Networking, packet-processing and security behavior are intentionally unchanged in this UI-only release.
+
 # Changelog
 
 ## [3.6.7] - 2026-11-10
