@@ -31,7 +31,10 @@ internal object TcpSniSecurityInspector {
         val threatMatch = if (ruleEngine.isThreatProtectionEnabled(session.uid, session.packageName)) {
             ThreatSignatureStore.matchDomain(service, sni)
         } else null
-        val customDecision = CustomDomainRuleStore.decision(service, sni)
+        val scopedDomainAllow = threatMatch == null &&
+            ConnectionExceptionStore.isDomainAllowed(service, session.uid, sni, session.packageName)
+        val customDecision = if (scopedDomainAllow) CustomDomainRuleStore.Action.ALLOW
+            else CustomDomainRuleStore.decision(service, sni)
         val customRuleBlocks = when (customDecision) {
             CustomDomainRuleStore.Action.BLOCK -> true
             CustomDomainRuleStore.Action.ALLOW -> false

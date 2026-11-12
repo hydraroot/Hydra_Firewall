@@ -99,6 +99,9 @@ Custom domain rules are supported.
 > refresh on an unmetered physical network or a manual list update. The bundled ad/tracker list is active
 > independently from the first run; both are controlled by the same **Threats + ads** master switch.
 
+### Connection details and scoped exceptions
+Connection Details records the app/package when Android can attribute it, UID, source/destination, protocol, network, decision category, recorded explanation and matched domain/rule when present. For a blocked domain, a user can allow only that domain for the recorded UID for 15 minutes, or permanently for a regular app UID plus package name. The package identity prevents a different app from inheriting an exception if Android later recycles a UID. For IP-only events, the exception is limited to UID + destination IP + protocol + port; regular app exceptions also include the package name. System/shared UIDs such as root and `netd` are temporary-only and never receive a permanent UID-wide allow. A global domain allow is a separate, explicitly confirmed rule affecting all apps; it can override the normal public ad/tracker list but never a confirmed threat signature or Block All. UID-scoped exceptions are stored locally on the device and are not exported with portable profiles. Manage and remove them in Settings → Connection exceptions.
+
 ### Secure DNS
 Hydra can intercept IPv4 DNS (UDP/53) and forward it over encrypted **DNS‑over‑TLS** (default) with
 **DNS‑over‑HTTPS** as a fallback, using Cloudflare, Google or Quad9. This protects the DNS transport.

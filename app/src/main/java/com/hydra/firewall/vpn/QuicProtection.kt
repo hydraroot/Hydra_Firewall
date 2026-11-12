@@ -55,7 +55,9 @@ object QuicProtection {
         val threat = if (ruleEngine.isThreatProtectionEnabled(uid, packageName)) {
             ThreatSignatureStore.matchDomain(context, domain)
         } else null
-        val custom = CustomDomainRuleStore.decision(context, domain)
+        val scopedDomainAllow = threat == null && ConnectionExceptionStore.isDomainAllowed(context, uid, domain, packageName)
+        val custom = if (scopedDomainAllow) CustomDomainRuleStore.Action.ALLOW
+            else CustomDomainRuleStore.decision(context, domain)
         val publicBlocklisted = custom == null && DomainBlockStore.enabled && DomainBlockStore.isBlocked(domain)
         val bypassPublicBlocklist = ruleEngine.shouldBypassOptionalDomainFilter(uid, packageName)
         val block = when (custom) {

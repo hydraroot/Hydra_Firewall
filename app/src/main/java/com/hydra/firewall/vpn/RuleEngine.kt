@@ -153,6 +153,18 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         precheckEvaluation(uid)?.let { return it }
         if (destination != null) {
             val host = destination.hostAddress?.substringBefore('%').orEmpty()
+            if (host.isNotBlank() && ipBlockStore.isBlocked(host)) {
+                return Evaluation(Decision.BLOCK, "USER_IP_BLOCK", host)
+            }
+            val packageName = packageNameForUid(uid)
+            val threatMatch = if (host.isNotBlank() && isThreatProtectionEnabled(uid, packageName)) {
+                ThreatSignatureStore.matchIp(appContext, host)
+            } else null
+            if (threatMatch != null) {
+                return Evaluation(Decision.BLOCK, "THREAT_IP", listOfNotNull(
+                    threatMatch.match.name, threatMatch.match.family, threatMatch.match.source, threatMatch.normalized
+                ).filter { it.isNotBlank() }.joinToString(" • "))
+            }
             if (host.isNotBlank() && ipBlockStore.isAllowedForUid(uid, host)) {
                 DiagnosticLogger.logServiceEvent(
                     "APP_POLICY_DECISION uid=$uid decision=ALLOW reason=USER_IP_EXCEPTION destination=$host network=${network.displayName}"
@@ -167,7 +179,16 @@ class RuleEngine(private val store: RuleStore, context: Context) {
                 return Evaluation(Decision.ALLOW, "SYSTEM_DNS_DEFAULT", "${host}:${port ?: -1}")
             }
         }
-        return evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port)
+        val appEvaluation = evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port)
+        val endpointHost = destination?.hostAddress?.substringBefore('%').orEmpty()
+        val exactEndpointAllowed = endpointHost.isNotBlank() && protocol != null && port != null &&
+            ConnectionExceptionStore.isEndpointAllowed(appContext, uid, endpointHost, protocol, port, packageNameForUid(uid))
+        return if (exactEndpointAllowed && appEvaluation.reasonCode in setOf(
+                "NON_APPLICATION_UID", "EXPLICIT_APP_RULE", "DEFAULT_APP_RULE", "FIRST_CONNECTION_PROMPT"
+            )
+        ) {
+            Evaluation(Decision.ALLOW, "USER_CONNECTION_EXCEPTION", "$protocol $endpointHost:$port (UID $uid)")
+        } else appEvaluation
     }
 
     fun evaluate(
@@ -251,7 +272,16 @@ class RuleEngine(private val store: RuleStore, context: Context) {
                 return Evaluation(Decision.BLOCK, "LOCAL_NETWORK_POLICY", host)
             }
         }
-        return evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port, checkSchedule = false)
+        val appEvaluation = evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port, checkSchedule = false)
+        val endpointHost = destination?.hostAddress?.substringBefore('%').orEmpty()
+        val exactEndpointAllowed = endpointHost.isNotBlank() && protocol != null && port != null &&
+            ConnectionExceptionStore.isEndpointAllowed(appContext, uid, endpointHost, protocol, port, packageNameForUid(uid))
+        return if (exactEndpointAllowed && appEvaluation.reasonCode in setOf(
+                "NON_APPLICATION_UID", "EXPLICIT_APP_RULE", "DEFAULT_APP_RULE", "FIRST_CONNECTION_PROMPT"
+            )
+        ) {
+            Evaluation(Decision.ALLOW, "USER_CONNECTION_EXCEPTION", "$protocol $endpointHost:$port (UID $uid)")
+        } else appEvaluation
     }
 
     private fun precheckEvaluation(uid: Int): Evaluation? {

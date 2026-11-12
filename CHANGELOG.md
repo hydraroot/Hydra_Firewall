@@ -1,3 +1,20 @@
+## [3.7.0] - 2026-11-12
+
+### Connection details and safe exceptions
+- Redesigned connection details to show the attributed app/package (when known), UID, source, destination, protocol, network, event status, repeat count, decision category and the reason/detail recorded at decision time.
+- Added exact per-UID + package domain exceptions. A regular app UID can allow one domain permanently or temporarily for 15 minutes only when Android confirms that the UID belongs to that single package; shared app UIDs are rejected for permanent app exceptions. System/shared UIDs can only receive temporary domain exceptions; no permanent allow is stored for root/netd UIDs.
+- Added exact per-UID + package endpoint exceptions matching destination IP + protocol + port. System UIDs are limited to 5-minute leases; regular app UIDs/packages can save an exact endpoint permanently only when the UID/package mapping is unique.
+- Added undo actions directly in Connection Details and a Settings → Connection exceptions manager to review/remove local exceptions.
+- Added explicit confirmation before creating a global allow for a domain from a system/shared UID event. Global custom-domain block rules require a separate confirmation and are clearly labelled as applying to all apps.
+- Per-UID/package exceptions are stored locally and are not exported to another device. Confirmed IP/domain threat matches and global Block All remain authoritative.
+
+### Classification and help
+- Added a concise decision category label (confirmed threat, public ads/tracker-list match, known Firebase Performance logging/telemetry, custom-domain rule, IP block, user exception or firewall policy) while retaining the historical explanation and exact recorded match. A list match is not presented as proof that a domain is malicious; known Firebase Performance logging is identified with a caution note only. <https://firebase.google.com/docs/perf-mon/troubleshooting?platform=android>
+- Updated Spanish/English Help, README and changelog for the exception scope and safety behavior.
+
+### Validation
+- No emulator job is added. CI continues to run JVM unit tests and build the Debug APK for physical-phone testing; tag builds produce the signed Release APK with the existing GitHub secrets.
+
 ## [3.6.9] - 2026-11-11
 - Added a lock-free fast path after the signed threat pack has completed initialization, keeping packet-time domain/IP lookups out of the cold-start monitor while preserving synchronization during first load and retry.
 - Keyed app-scan completion to the signed pack revision (version plus generated timestamp), so regenerated packs with the same display version still trigger the appropriate rescan.

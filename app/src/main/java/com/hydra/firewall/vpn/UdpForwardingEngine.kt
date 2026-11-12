@@ -272,7 +272,12 @@ class UdpForwardingEngine(
             // after the app-level permission is known.
             val queryName = preflightQueryName
             val threatMatch = preflightThreatMatch
-            val customDecision = queryName?.let { CustomDomainRuleStore.decision(service, it) }
+            val scopedDomainAllow = queryName != null && threatMatch == null &&
+                ConnectionExceptionStore.isDomainAllowed(service, dnsResolution.uid, queryName, dnsResolution.packageName)
+            val customDecision = when {
+                scopedDomainAllow -> CustomDomainRuleStore.Action.ALLOW
+                else -> queryName?.let { CustomDomainRuleStore.decision(service, it) }
+            }
             val publicBlocklisted = customDecision == null && DomainBlockStore.enabled && DomainBlockStore.isBlocked(queryName ?: "")
             val bypassPublicBlocklist = ruleEngine.shouldBypassOptionalDomainFilter(
                 dnsResolution.uid, dnsResolution.packageName

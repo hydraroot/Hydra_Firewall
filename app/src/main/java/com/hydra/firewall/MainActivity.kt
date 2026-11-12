@@ -1306,6 +1306,34 @@ fun FirewallScreen(
                         selectedHistoryDetail?.let { record ->
                             val host = extractHost(record.destination)
                             val port = extractPort(record.destination)
+                            val domain = extractDecisionDomain(record)
+                            val isThreatRecord = record.reasonCode?.contains("THREAT") == true
+                            val domainActionable = domain != null && !isThreatRecord &&
+                                (record.reasonCode?.let { it in setOf("AD_TRACKER_BLOCKLIST", "CUSTOM_DOMAIN_BLOCK", "QUIC_BLOCKLIST_DOMAIN", "QUIC_CUSTOM_DOMAIN") } == true)
+                            val transport = when {
+                                record.protocol.contains("TCP", ignoreCase = true) -> "TCP"
+                                record.protocol.contains("UDP", ignoreCase = true) || record.protocol.startsWith("DNS", ignoreCase = true) -> "UDP"
+                                else -> ""
+                            }
+                            val existingGlobalDomainAction = domain?.let { CustomDomainRuleStore.decision(context, it) }
+                            val currentExceptions = remember(record.id) { ConnectionExceptionStore.snapshot(context) }
+                            val existingScopedDomainException = domain?.let { candidate ->
+                                currentExceptions.firstOrNull {
+                                    it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) &&
+                                        it.kind == ConnectionExceptionStore.Kind.DOMAIN && it.domain == candidate
+                                }
+                            }
+                            val existingScopedEndpointException = if (host.isNotBlank() && transport.isNotBlank() && port in 1..65535) {
+                                currentExceptions.firstOrNull {
+                                    it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) &&
+                                        it.kind == ConnectionExceptionStore.Kind.ENDPOINT && it.ip == host &&
+                                        it.protocol == transport && it.port == port
+                                }
+                            } else null
+                            var createdScopedException by remember(record.id) { mutableStateOf<ConnectionExceptionStore.Entry?>(null) }
+                            var createdGlobalDomainAction by remember(record.id) { mutableStateOf<CustomDomainRuleStore.Action?>(null) }
+                            var confirmGlobalDomainAllow by remember(record.id) { mutableStateOf(false) }
+                            var confirmGlobalDomainBlock by remember(record.id) { mutableStateOf(false) }
                             val matches = advancedRuleStore.findMatches(record.uid, record.protocol, port)
                             val isIpBlocked = host.isNotBlank() && ipBlockStore.isBlocked(host)
                             AlertDialog(
@@ -1317,8 +1345,10 @@ fun FirewallScreen(
                                 text = {
                                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                         Text("${com.hydra.firewall.vpn.AppNames.label(record.uid, record.packageName)}", style = MaterialTheme.typography.titleSmall)
+                                        Text("UID ${record.uid}${record.packageName?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: " · ${if (language.isEnglish()) "origin not attributed" else "origen no atribuido"}"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${record.protocol} • ${record.destination}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                                         Text("${record.time} • ${record.network.displayName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (record.source.isNotBlank()) Text((if (language.isEnglish()) "Source: " else "Origen: ") + record.source, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${if (record.allowed) (if (language.isEnglish()) "Allowed" else "Permitido") else (if (language.isEnglish()) "Blocked" else "Bloqueado")}", style = MaterialTheme.typography.bodySmall)
                                         if (record.repeatCount > 1) {
                                             Text(
@@ -1328,6 +1358,135 @@ fun FirewallScreen(
                                         }
                                         ConnectionDecisionBlock(record, language.isEnglish())
                                         val isIpException = host.isNotBlank() && ipBlockStore.isAllowedForUid(record.uid, host)
+
+                                        if (!record.allowed && record.uid >= 0 && !isThreatRecord && domainActionable && domain != null &&
+                                            (record.uid < Process.FIRST_APPLICATION_UID || !record.packageName.isNullOrBlank())) {
+                                            HydraCard(Modifier.fillMaxWidth()) {
+                                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                    Text(if (language.isEnglish()) "Domain actions" else "Acciones para este dominio", style = MaterialTheme.typography.titleSmall)
+                                                    Text(
+                                                        if (record.uid < Process.FIRST_APPLICATION_UID) {
+                                                            if (language.isEnglish()) "This is a shared Android service UID. A temporary exception affects only this domain when it is attributed to UID ${record.uid}; it does not allow all system traffic."
+                                                            else "Este UID pertenece a un servicio compartido de Android. La excepción temporal afecta solo a este dominio cuando se atribuye al UID ${record.uid}; no permite todo el tráfico del sistema."
+                                                        } else {
+                                                            if (language.isEnglish()) "The app-scoped exception affects only this UID and this exact domain. Confirmed threats remain blocked."
+                                                            else "La excepción por aplicación afecta únicamente a este UID y a este dominio exacto. Las amenazas confirmadas siguen bloqueadas."
+                                                        },
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    if (existingScopedDomainException == null && createdScopedException == null) Button(
+                                                        onClick = {
+                                                            if (ConnectionExceptionStore.allowDomain(context, record.uid, domain, packageName = record.packageName, minutes = 15)) {
+                                                                createdScopedException = ConnectionExceptionStore.snapshot(context).firstOrNull { it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) && it.kind == ConnectionExceptionStore.Kind.DOMAIN && it.domain == domain }
+                                                                ipVersion++
+                                                                notifyRulesChanged(context)
+                                                            } else {
+                                                                android.widget.Toast.makeText(context, if (language.isEnglish()) "Hydra could not verify a unique app UID/package. No exception was created." else "Hydra no pudo verificar una relación única entre UID y paquete. No se creó la excepción.", android.widget.Toast.LENGTH_LONG).show()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text(if (language.isEnglish()) "ALLOW THIS DOMAIN FOR 15 MIN" else "PERMITIR ESTE DOMINIO 15 MIN") }
+                                                    else Text(if (language.isEnglish()) "A scoped exception already exists; manage it in Settings." else "Ya existe una excepción específica; administrala en Ajustes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                                    if (existingScopedDomainException == null && createdScopedException == null && record.uid >= Process.FIRST_APPLICATION_UID && !record.packageName.isNullOrBlank()) {
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                if (ConnectionExceptionStore.allowDomain(context, record.uid, domain, packageName = record.packageName, minutes = null)) {
+                                                                    createdScopedException = ConnectionExceptionStore.snapshot(context).firstOrNull { it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) && it.kind == ConnectionExceptionStore.Kind.DOMAIN && it.domain == domain }
+                                                                    ipVersion++
+                                                                    notifyRulesChanged(context)
+                                                                } else {
+                                                                    android.widget.Toast.makeText(context, if (language.isEnglish()) "Permanent app exception requires a unique UID/package." else "La excepción permanente requiere un UID/paquete único.", android.widget.Toast.LENGTH_LONG).show()
+                                                                }
+                                                            },
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) { Text(if (language.isEnglish()) "ALWAYS ALLOW FOR THIS APP" else "PERMITIR SIEMPRE PARA ESTA APP") }
+                                                    } else if (record.uid < Process.FIRST_APPLICATION_UID && existingGlobalDomainAction == null) {
+                                                        TextButton(onClick = { confirmGlobalDomainAllow = true }, modifier = Modifier.fillMaxWidth()) {
+                                                            Text(if (language.isEnglish()) "Allow this domain for ALL apps…" else "Permitir este dominio en TODAS las apps…")
+                                                        }
+                                                    }
+                                                    if (existingGlobalDomainAction == null) {
+                                                        OutlinedButton(
+                                                            onClick = { confirmGlobalDomainBlock = true },
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) { Text(if (language.isEnglish()) "ALWAYS BLOCK THIS DOMAIN (ALL APPS)…" else "BLOQUEAR SIEMPRE ESTE DOMINIO (TODAS)…") }
+                                                    } else {
+                                                        Text(
+                                                            if (language.isEnglish()) "Existing global domain rule: ${existingGlobalDomainAction.name}" else "Regla global existente: ${existingGlobalDomainAction.name}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                    if (createdScopedException != null) {
+                                                        TextButton(onClick = {
+                                                            ConnectionExceptionStore.remove(context, createdScopedException!!)
+                                                            createdScopedException = null
+                                                            ipVersion++
+                                                            notifyRulesChanged(context)
+                                                        }, modifier = Modifier.fillMaxWidth()) { Text(if (language.isEnglish()) "UNDO LAST EXCEPTION" else "DESHACER ÚLTIMA EXCEPCIÓN") }
+                                                    }
+                                                    if (createdGlobalDomainAction != null) {
+                                                        TextButton(onClick = {
+                                                            CustomDomainRuleStore.remove(context, domain)
+                                                            createdGlobalDomainAction = null
+                                                            notifyRulesChanged(context)
+                                                        }, modifier = Modifier.fillMaxWidth()) { Text(if (language.isEnglish()) "UNDO DOMAIN RULE" else "DESHACER REGLA DE DOMINIO") }
+                                                    }
+                                                }
+                                            }
+                                        } else if (!record.allowed && record.uid >= 0 && !isThreatRecord &&
+                                            record.reasonCode in setOf("NON_APPLICATION_UID", "EXPLICIT_APP_RULE", "DEFAULT_APP_RULE", "FIRST_CONNECTION_PROMPT") &&
+                                            host.isNotBlank() && (record.uid < Process.FIRST_APPLICATION_UID || !record.packageName.isNullOrBlank()) &&
+                                            com.hydra.firewall.vpn.ConnectionExplainer.isIpLiteral(host) && port in 1..65535 && transport.isNotBlank()
+                                        ) {
+                                            HydraCard(Modifier.fillMaxWidth()) {
+                                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Text(if (language.isEnglish()) "Exact destination exception" else "Excepción para este destino exacto", style = MaterialTheme.typography.titleSmall)
+                                                    Text(
+                                                        if (record.uid < Process.FIRST_APPLICATION_UID) {
+                                                            if (language.isEnglish()) "System UIDs are shared by Android components. Hydra will allow only UID ${record.uid} → $host:$port ($transport) for five minutes." else "Los UID del sistema son compartidos por componentes Android. Hydra permitirá únicamente UID ${record.uid} → $host:$port ($transport) durante cinco minutos."
+                                                        } else {
+                                                            if (language.isEnglish()) "This exception is limited to this app UID, IP, protocol and port." else "Esta excepción se limita al UID de esta app, IP, protocolo y puerto."
+                                                        },
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    if (existingScopedEndpointException == null && createdScopedException == null) Button(
+                                                        onClick = {
+                                                            if (ConnectionExceptionStore.allowEndpoint(context, record.uid, host, transport, port, packageName = record.packageName, minutes = 5)) {
+                                                                createdScopedException = ConnectionExceptionStore.snapshot(context).firstOrNull { it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) && it.kind == ConnectionExceptionStore.Kind.ENDPOINT && it.ip == host && it.protocol == transport && it.port == port }
+                                                                ipVersion++
+                                                                notifyRulesChanged(context)
+                                                            } else {
+                                                                android.widget.Toast.makeText(context, if (language.isEnglish()) "Hydra could not verify a unique app UID/package. No exception was created." else "Hydra no pudo verificar una relación única entre UID y paquete. No se creó la excepción.", android.widget.Toast.LENGTH_LONG).show()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text(if (language.isEnglish()) "ALLOW THIS CONNECTION FOR 5 MIN" else "PERMITIR ESTA CONEXIÓN POR 5 MIN") }
+                                                    else Text(if (language.isEnglish()) "An exact exception already exists; manage it in Settings." else "Ya existe una excepción exacta; administrala en Ajustes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                                    if (existingScopedEndpointException == null && createdScopedException == null && record.uid >= Process.FIRST_APPLICATION_UID && !record.packageName.isNullOrBlank()) {
+                                                        OutlinedButton(onClick = {
+                                                            if (ConnectionExceptionStore.allowEndpoint(context, record.uid, host, transport, port, packageName = record.packageName, minutes = null)) {
+                                                                createdScopedException = ConnectionExceptionStore.snapshot(context).firstOrNull { it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) && it.kind == ConnectionExceptionStore.Kind.ENDPOINT && it.ip == host && it.protocol == transport && it.port == port }
+                                                                ipVersion++
+                                                                notifyRulesChanged(context)
+                                                            } else {
+                                                                android.widget.Toast.makeText(context, if (language.isEnglish()) "Permanent app exception requires a unique UID/package." else "La excepción permanente requiere un UID/paquete único.", android.widget.Toast.LENGTH_LONG).show()
+                                                            }
+                                                        }, modifier = Modifier.fillMaxWidth()) { Text(if (language.isEnglish()) "ALWAYS ALLOW THIS EXACT ENDPOINT FOR THIS APP" else "PERMITIR SIEMPRE ESTE DESTINO PARA ESTA APP") }
+                                                    }
+                                                    if (createdScopedException != null) {
+                                                        TextButton(onClick = {
+                                                            ConnectionExceptionStore.remove(context, createdScopedException!!)
+                                                            createdScopedException = null
+                                                            ipVersion++
+                                                            notifyRulesChanged(context)
+                                                        }, modifier = Modifier.fillMaxWidth()) { Text(if (language.isEnglish()) "UNDO LAST EXCEPTION" else "DESHACER ÚLTIMA EXCEPCIÓN") }
+                                                    }
+                                                }
+                                            }
+                                        }
                                         val appRuleCausedBlock = record.reasonCode == "EXPLICIT_APP_RULE" || record.reasonCode == "DEFAULT_APP_RULE"
                                         if (!record.allowed && appRuleCausedBlock) {
                                             val en = language.isEnglish()
@@ -1402,6 +1561,40 @@ fun FirewallScreen(
                                 },
                                 confirmButton = { TextButton({ selectedHistoryDetail = null }) { Text(tr(context,"close")) } }
                             )
+                            if (confirmGlobalDomainAllow && domain != null) {
+                                AlertDialog(
+                                    onDismissRequest = { confirmGlobalDomainAllow = false },
+                                    title = { Text(if (language.isEnglish()) "Allow this domain everywhere?" else "¿Permitir este dominio en todas partes?") },
+                                    text = { Text(if (language.isEnglish()) "This creates a global domain allow rule for every app. It only overrides the normal ads/tracker list; confirmed threat signatures remain blocked. For netd/root, this is broader than an app exception." else "Esto crea una regla global que permite el dominio para todas las aplicaciones. Solo anula la lista normal de anuncios/rastreadores; las amenazas confirmadas siguen bloqueadas. Para netd/root, es más amplia que una excepción por aplicación.") },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            if (CustomDomainRuleStore.set(context, domain, CustomDomainRuleStore.Action.ALLOW)) {
+                                                createdGlobalDomainAction = CustomDomainRuleStore.Action.ALLOW
+                                                notifyRulesChanged(context)
+                                            }
+                                            confirmGlobalDomainAllow = false
+                                        }) { Text(if (language.isEnglish()) "ALLOW GLOBALLY" else "PERMITIR GLOBALMENTE") }
+                                    },
+                                    dismissButton = { TextButton(onClick = { confirmGlobalDomainAllow = false }) { Text(tr(context, "cancel")) } }
+                                )
+                            }
+                            if (confirmGlobalDomainBlock && domain != null) {
+                                AlertDialog(
+                                    onDismissRequest = { confirmGlobalDomainBlock = false },
+                                    title = { Text(if (language.isEnglish()) "Block this domain for every app?" else "¿Bloquear este dominio para todas las apps?") },
+                                    text = { Text(if (language.isEnglish()) "This creates a global custom-domain block. Every app that resolves or exposes this domain to Hydra can be affected. Confirmed threat protection remains independent." else "Esto crea un bloqueo global personalizado de dominio. Puede afectar a todas las aplicaciones que consulten o expongan este dominio a Hydra. La protección de amenazas confirmadas sigue funcionando por separado.") },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            if (CustomDomainRuleStore.set(context, domain, CustomDomainRuleStore.Action.BLOCK)) {
+                                                createdGlobalDomainAction = CustomDomainRuleStore.Action.BLOCK
+                                                notifyRulesChanged(context)
+                                            }
+                                            confirmGlobalDomainBlock = false
+                                        }) { Text(if (language.isEnglish()) "BLOCK GLOBALLY" else "BLOQUEAR GLOBALMENTE") }
+                                    },
+                                    dismissButton = { TextButton(onClick = { confirmGlobalDomainBlock = false }) { Text(tr(context, "cancel")) } }
+                                )
+                            }
                         }
                     }
                     MainTab.ANALYZER -> {
@@ -1741,6 +1934,12 @@ fun FirewallScreen(
                                         }
                                     }
                                 }
+                            }
+                            SettingsBlockTitle(if (language.isEnglish()) "Connection exceptions" else "Excepciones de conexiones")
+                            ConnectionExceptionsPanel(context, language.isEnglish(), ipVersion + advancedVersion + ruleVersion) {
+                                ipVersion++
+                                advancedVersion++
+                                notifyRulesChanged(context)
                             }
                             SettingsBlockTitle(if (language.isEnglish()) "Data and backups" else "Copias y datos")
                             OutlinedButton(
@@ -2389,6 +2588,15 @@ private fun extractPort(address: String): Int {
     val value = address.trim()
     val port = value.substringAfterLast(':', "")
     return port.toIntOrNull() ?: -1
+}
+
+/** Extract only a normalized domain explicitly stored in the historical decision detail. */
+private fun extractDecisionDomain(record: ConnectionHistory.Record): String? {
+    val candidates = buildList {
+        record.reasonDetail?.split('•')?.forEach { add(it.trim()) }
+        add(extractHost(record.destination))
+    }
+    return candidates.firstNotNullOfOrNull { com.hydra.firewall.vpn.CustomDomainRuleStore.normalize(it) }
 }
 
 private fun serviceLabelForPort(port: Int): String = when (port) {

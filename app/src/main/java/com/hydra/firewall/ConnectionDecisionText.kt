@@ -34,22 +34,22 @@ object ConnectionDecisionText {
             } else {
                 "La IP de destino coincidió con una dirección o rango de tus reglas de bloqueo de IP."
             }
-            "THREAT_IP" -> if (english) {
+            "THREAT_IP", "QUIC_THREAT_IP" -> if (english) {
                 "The destination IP matched an indicator in the threat-intelligence database."
             } else {
                 "La IP de destino coincidió con un indicador de la base de inteligencia de amenazas."
             }
-            "THREAT_DOMAIN" -> if (english) {
+            "THREAT_DOMAIN", "QUIC_THREAT_DOMAIN" -> if (english) {
                 "The requested domain matched an indicator in the threat-intelligence database."
             } else {
                 "El dominio solicitado coincidió con un indicador de la base de inteligencia de amenazas."
             }
-            "AD_TRACKER_BLOCKLIST" -> if (english) {
+            "AD_TRACKER_BLOCKLIST", "QUIC_BLOCKLIST_DOMAIN" -> if (english) {
                 "The domain matched the enabled advertising and tracker blocklist."
             } else {
                 "El dominio coincidió con la lista activa de publicidad y rastreadores."
             }
-            "CUSTOM_DOMAIN_BLOCK" -> if (english) {
+            "CUSTOM_DOMAIN_BLOCK", "QUIC_CUSTOM_DOMAIN" -> if (english) {
                 "A custom domain rule explicitly blocks this domain."
             } else {
                 "Una regla personalizada de dominios bloquea explícitamente este dominio."
@@ -103,6 +103,16 @@ object ConnectionDecisionText {
                 "Hydra had no active network type to which this app permission could apply."
             } else {
                 "Hydra no tenía un tipo de red activo al que pudiera aplicarse el permiso de esta aplicación."
+            }
+            "USER_CONNECTION_EXCEPTION" -> if (english) {
+                "A user-created exception allowed only this UID to reach this exact IP, protocol and port. Confirmed threat matches and global Block All still take priority."
+            } else {
+                "Una excepción creada por el usuario permitió que este UID llegara únicamente a esta IP, protocolo y puerto. Las amenazas confirmadas y Bloquear todo siguen teniendo prioridad."
+            }
+            "USER_DOMAIN_EXCEPTION" -> if (english) {
+                "A user-created domain exception allowed this domain for this UID. Confirmed threat signatures still take priority."
+            } else {
+                "Una excepción creada por el usuario permitió este dominio para este UID. Las firmas de amenazas confirmadas siguen teniendo prioridad."
             }
             "USER_IP_EXCEPTION" -> if (english) {
                 "A per-app exception for this destination IP allowed the connection."
