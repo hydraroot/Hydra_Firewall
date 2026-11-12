@@ -2,8 +2,10 @@ package com.hydra.firewall.vpn
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.InetAddress
 
 class ConnectionExceptionStoreTest {
     @Test
@@ -112,4 +114,41 @@ class ConnectionExceptionStoreTest {
         assertFalse(temp.isExpired(99L))
         assertFalse(permanent.isExpired(Long.MAX_VALUE))
     }
+    @Test
+    fun oneShotEndpointExceptionsRoundTripAndRemainExpiring() {
+        val entry = ConnectionExceptionStore.Entry(
+            uid = 10234,
+            kind = ConnectionExceptionStore.Kind.ENDPOINT,
+            ip = "203.0.113.9",
+            protocol = "TCP",
+            port = 443,
+            packageName = "com.example.once",
+            expiresAt = 1_800_000_000_000L,
+            oneShot = true
+        )
+        assertEquals(entry, ConnectionExceptionStore.decode(ConnectionExceptionStore.encode(listOf(entry))).single())
+    }
+
+    @Test
+    fun decoderRejectsPermanentOrDomainOneShotEntries() {
+        val raw = """[
+            {"uid":10001,"kind":"ENDPOINT","ip":"203.0.113.9","protocol":"TCP","port":443,"package":"com.example.app","expires":0,"once":true},
+            {"uid":10001,"kind":"DOMAIN","domain":"example.com","package":"com.example.app","expires":1800000000000,"once":true}
+        ]"""
+        assertTrue(ConnectionExceptionStore.decode(raw).isEmpty())
+    }
+
+    @Test
+    fun oneShotFlowIdentityIncludesUidAndTheCompleteFiveTuple() {
+        val source = InetAddress.getByName("192.0.2.10")
+        val destination = InetAddress.getByName("203.0.113.9")
+        val first = SessionKey(6, source, 41000, destination, 443)
+        val secondSourcePort = SessionKey(6, source, 41001, destination, 443)
+        val secondUid = SessionKey(6, source, 41000, destination, 443)
+
+        assertNotEquals(first.connectionExceptionFlowId(10234), secondSourcePort.connectionExceptionFlowId(10234))
+        assertNotEquals(first.connectionExceptionFlowId(10234), secondUid.connectionExceptionFlowId(10235))
+        assertEquals(first.connectionExceptionFlowId(10234), secondUid.connectionExceptionFlowId(10234))
+    }
+
 }

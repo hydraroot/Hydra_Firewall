@@ -224,7 +224,7 @@ class Ipv6UdpForwardingEngine(
                 )
                             } else {
                 val policyEvaluation = ruleEngine.evaluateApplicationPolicyDetailed(
-                    dnsResolution.uid, currentNetwork, "UDP", 53, key.dstAddr
+                    dnsResolution.uid, currentNetwork, "UDP", 53, key.dstAddr, key.connectionExceptionFlowId(dnsResolution.uid)
                 )
                 when (policyEvaluation.decision) {
                     RuleEngine.Decision.BLOCK -> {
@@ -245,15 +245,11 @@ class Ipv6UdpForwardingEngine(
                             protocolLabel = "UDP",
                             initialWifiAllowed = rule.wifiAllowed,
                             initialMobileAllowed = rule.mobileAllowed
-                        ) { wifiAllowed, mobileAllowed ->
-                            RuleStore(service).apply {
-                                setWifiAllowed(dnsResolution.uid, wifiAllowed)
-                                setMobileAllowed(dnsResolution.uid, mobileAllowed)
-                            }
-                            DiagnosticLogger.logServiceEvent(
-                                "ACCESS_DECISION_APPLIED uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"} dns_pending=discarded_wait_for_fresh_query"
-                            )
-                        }
+                        ) { _, _ ->
+                        DiagnosticLogger.logServiceEvent(
+                            "ACCESS_DECISION_RECORDED uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"} dns_pending=discarded_wait_for_fresh_query"
+                        )
+                    }
                         DiagnosticLogger.logServiceEvent(
                             "DNS FIRST_CONNECTION PROMPT uid=${dnsResolution.uid} pkg=${dnsResolution.packageName ?: "unknown"} network=${currentNetwork.displayName} domain=${preflightQueryName ?: "unknown"}"
                         )
@@ -373,7 +369,7 @@ class Ipv6UdpForwardingEngine(
             val resolution = uidResolver.resolve(key, currentNetwork)
             val policyEvaluation = ruleEngine.evaluateDetailed(
                 resolution.uid, currentNetwork, key.dstAddr,
-                if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+                if (key.protocol == 6) "TCP" else "UDP", key.dstPort, key.connectionExceptionFlowId(resolution.uid)
             )
             when (policyEvaluation.decision) {
                 RuleEngine.Decision.BLOCK -> {
@@ -394,11 +390,7 @@ class Ipv6UdpForwardingEngine(
                         protocolLabel = "UDP",
                         initialWifiAllowed = rule.wifiAllowed,
                         initialMobileAllowed = rule.mobileAllowed
-                    ) { wifiAllowed, mobileAllowed ->
-                        RuleStore(service).apply {
-                            setWifiAllowed(resolution.uid, wifiAllowed)
-                            setMobileAllowed(resolution.uid, mobileAllowed)
-                        }
+                    ) { _, _ ->
                         // Do not replay a stale UDP datagram after a long
                         // user decision. The application will send the next
                         // datagram under the newly saved rule.
@@ -411,6 +403,7 @@ class Ipv6UdpForwardingEngine(
                 RuleEngine.Decision.ALLOW -> Unit
             }
             session = createSession(key, resolution.uid, resolution.packageName) ?: return
+            ConnectionExceptionStore.confirmOneShotFlow(key.connectionExceptionFlowId(session.uid))
             DiagnosticLogger.logUdpRuntime(key, session.uid, session.packageName, "FIRST_SEEN network=${currentNetwork.displayName}")
             DiagnosticLogger.logUdpFirstSeen(key, resolution, payload.size, policyEvaluation.reasonCode, policyEvaluation.reasonDetail)
             TrafficAnalyzerStore.recordConnection(resolution.uid, resolution.packageName, "UDP", key.dstAddr.hostAddress ?: "?", key.dstPort, "CONNECT")
@@ -423,7 +416,7 @@ class Ipv6UdpForwardingEngine(
         val policyNow = SystemClock.elapsedRealtime()
         if (session.needsPolicyRecheck(policyNow)) {
             val sessionPolicy = ruleEngine.evaluateDetailed(
-                session.uid, currentNetwork, session.key.dstAddr, "UDP", session.key.dstPort
+                session.uid, currentNetwork, session.key.dstAddr, "UDP", session.key.dstPort, session.key.connectionExceptionFlowId(session.uid)
             )
             session.markPolicyChecked(policyNow)
             session.invalidateQuicResult()
@@ -477,7 +470,7 @@ class Ipv6UdpForwardingEngine(
     private fun handleSecureDnsDatagram(key: SessionKey, payload: ByteArray, resolution: UidResolver.Resolution) {
         val policyEvaluation = ruleEngine.evaluateDetailed(
             resolution.uid, currentNetwork, key.dstAddr,
-            if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+            if (key.protocol == 6) "TCP" else "UDP", key.dstPort, key.connectionExceptionFlowId(resolution.uid)
         )
         when (policyEvaluation.decision) {
             RuleEngine.Decision.BLOCK -> {
@@ -498,15 +491,11 @@ class Ipv6UdpForwardingEngine(
                     protocolLabel = "UDP",
                     initialWifiAllowed = rule.wifiAllowed,
                     initialMobileAllowed = rule.mobileAllowed
-                ) { wifiAllowed, mobileAllowed ->
-                    RuleStore(service).apply {
-                        setWifiAllowed(resolution.uid, wifiAllowed)
-                        setMobileAllowed(resolution.uid, mobileAllowed)
+                ) { _, _ ->
+                        DiagnosticLogger.logServiceEvent(
+                            "ACCESS_DECISION_RECORDED uid=${resolution.uid} pkg=${resolution.packageName ?: "unknown"} udp_pending=discarded_wait_for_fresh_datagram"
+                        )
                     }
-                    DiagnosticLogger.logServiceEvent(
-                        "ACCESS_DECISION_APPLIED uid=${resolution.uid} pkg=${resolution.packageName ?: "unknown"} udp_pending=discarded_wait_for_fresh_datagram"
-                    )
-                }
                 return
             }
             RuleEngine.Decision.ALLOW -> Unit
@@ -757,7 +746,11 @@ class Ipv6UdpForwardingEngine(
     }
 
     private fun closeSession(session: UdpSession) {
-        if (session.closed) return
+        if (session.closed) {
+            ConnectionExceptionStore.releaseOneShotFlow(session.key.connectionExceptionFlowId(session.uid))
+            return
+        }
+        ConnectionExceptionStore.releaseOneShotFlow(session.key.connectionExceptionFlowId(session.uid))
         session.closed = true
         try { session.selectionKey?.cancel() } catch (_: Exception) { }
         try { session.channel.close() } catch (_: Exception) { }

@@ -22,7 +22,9 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     private val advancedRuleStore = AdvancedRuleStore(appContext)
     private val essentialAppsStore = EssentialAppsStore(appContext)
     private val customProtectionStore = CustomProtectionProfileStore(appContext)
-    private val promptSuppressionLogged = ConcurrentHashMap.newKeySet<Int>()
+    private val endpointExceptionOverrideReasons = setOf(
+        "NON_APPLICATION_UID", "EXPLICIT_APP_RULE", "DEFAULT_APP_RULE", "FIRST_CONNECTION_PROMPT"
+    )
     // PackageManager.getPackagesForUid() is a Binder call. Cache stable UID ownership
     // for the VPN service lifetime and invalidate on PACKAGE_ADDED/REPLACED/REMOVED.
     private val packagesByUid = ConcurrentHashMap<Int, List<String>>()
@@ -140,15 +142,17 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         network: NetworkKind,
         protocol: String? = null,
         port: Int? = null,
-        destination: InetAddress? = null
-    ): Decision = evaluateApplicationPolicyDetailed(uid, network, protocol, port, destination).decision
+        destination: InetAddress? = null,
+        flowId: String? = null
+    ): Decision = evaluateApplicationPolicyDetailed(uid, network, protocol, port, destination, flowId).decision
 
     fun evaluateApplicationPolicyDetailed(
         uid: Int,
         network: NetworkKind,
         protocol: String? = null,
         port: Int? = null,
-        destination: InetAddress? = null
+        destination: InetAddress? = null,
+        flowId: String? = null
     ): Evaluation {
         precheckEvaluation(uid)?.let { return it }
         if (destination != null) {
@@ -181,12 +185,10 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         }
         val appEvaluation = evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port)
         val endpointHost = destination?.hostAddress?.substringBefore('%').orEmpty()
-        val exactEndpointAllowed = endpointHost.isNotBlank() && protocol != null && port != null &&
-            ConnectionExceptionStore.isEndpointAllowed(appContext, uid, endpointHost, protocol, port, packageNameForUid(uid))
-        return if (exactEndpointAllowed && appEvaluation.reasonCode in setOf(
-                "NON_APPLICATION_UID", "EXPLICIT_APP_RULE", "DEFAULT_APP_RULE", "FIRST_CONNECTION_PROMPT"
-            )
-        ) {
+        val exactEndpointAllowed = appEvaluation.reasonCode in endpointExceptionOverrideReasons &&
+            endpointHost.isNotBlank() && protocol != null && port != null &&
+            ConnectionExceptionStore.isEndpointAllowed(appContext, uid, endpointHost, protocol, port, packageNameForUid(uid), flowId)
+        return if (exactEndpointAllowed) {
             Evaluation(Decision.ALLOW, "USER_CONNECTION_EXCEPTION", "$protocol $endpointHost:$port (UID $uid)")
         } else appEvaluation
     }
@@ -204,7 +206,8 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         network: NetworkKind,
         destination: InetAddress? = null,
         protocol: String? = null,
-        port: Int? = null
+        port: Int? = null,
+        flowId: String? = null
     ): Evaluation {
         // Security prechecks run before all optional app rules.
         precheckEvaluation(uid)?.let { return it }
@@ -217,14 +220,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
             val detail = "${dayNames.joinToString(",")}; ${clock(schedule.startMinutes)}-${clock(schedule.endMinutes)}"
             DiagnosticLogger.logServiceEvent("APP_POLICY_DECISION uid=$uid decision=BLOCK reason=SCHEDULE detail=$detail")
             return Evaluation(Decision.BLOCK, "SCHEDULE", detail)
-        }
-
-        if (shouldPromptFirstConnection(uid)) {
-            val pkg = packageNameForUid(uid)
-            DiagnosticLogger.logServiceEvent(
-                "APP_POLICY_DECISION uid=$uid decision=PROMPT reason=FIRST_CONNECTION_EARLY network=${network.displayName} pkg=${pkg ?: "unknown"}"
-            )
-            return Evaluation(Decision.PROMPT, "FIRST_CONNECTION_PROMPT", network.displayName)
         }
 
         if (destination != null) {
@@ -274,12 +269,10 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         }
         val appEvaluation = evaluateApplicationPolicyAfterPrecheckDetailed(uid, network, protocol, port, checkSchedule = false)
         val endpointHost = destination?.hostAddress?.substringBefore('%').orEmpty()
-        val exactEndpointAllowed = endpointHost.isNotBlank() && protocol != null && port != null &&
-            ConnectionExceptionStore.isEndpointAllowed(appContext, uid, endpointHost, protocol, port, packageNameForUid(uid))
-        return if (exactEndpointAllowed && appEvaluation.reasonCode in setOf(
-                "NON_APPLICATION_UID", "EXPLICIT_APP_RULE", "DEFAULT_APP_RULE", "FIRST_CONNECTION_PROMPT"
-            )
-        ) {
+        val exactEndpointAllowed = appEvaluation.reasonCode in endpointExceptionOverrideReasons &&
+            endpointHost.isNotBlank() && protocol != null && port != null &&
+            ConnectionExceptionStore.isEndpointAllowed(appContext, uid, endpointHost, protocol, port, packageNameForUid(uid), flowId)
+        return if (exactEndpointAllowed) {
             Evaluation(Decision.ALLOW, "USER_CONNECTION_EXCEPTION", "$protocol $endpointHost:$port (UID $uid)")
         } else appEvaluation
     }
@@ -392,42 +385,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     fun isAllowed(uid: Int, network: NetworkKind, destination: InetAddress? = null, protocol: String? = null, port: Int? = null): Boolean =
         evaluate(uid, network, destination, protocol, port) == Decision.ALLOW
 
-    /**
-     * True when the UID has an effective app-level allow for this network.
-     * This is intentionally narrower than RuleEngine.evaluate(): global
-     * lockdown, schedules, explicit advanced blocks and confirmed security
-     * indicators still remain authoritative.
-     */
-    private fun shouldPromptFirstConnection(uid: Int): Boolean {
-        if (uid < Process.FIRST_APPLICATION_UID || uid == Process.INVALID_UID) return false
-        if (!store.askOnFirstConnection) {
-            logPromptSuppressionOnce(uid, "ASK_FIRST_DISABLED")
-            return false
-        }
-        if (store.hasExplicitRule(uid)) {
-            logPromptSuppressionOnce(uid, "EXPLICIT_RULE")
-            return false
-        }
-        if (isUserEssential(uid)) {
-            logPromptSuppressionOnce(uid, "ESSENTIAL")
-            return false
-        }
-        val pkg = packageNameForUid(uid)
-        if (pkg.isNullOrBlank()) {
-            logPromptSuppressionOnce(uid, "PACKAGE_NOT_FOUND")
-            return false
-        }
-        return true
-    }
-
-    private fun logPromptSuppressionOnce(uid: Int, reason: String) {
-        if (promptSuppressionLogged.add(uid)) {
-            DiagnosticLogger.logServiceEvent(
-                "PROMPT_SUPPRESSED uid=$uid reason=$reason pkg=${packageNameForUid(uid) ?: "unknown"}"
-            )
-        }
-    }
-
     fun isFullConnectivityAllowed(uid: Int, network: NetworkKind): Boolean {
         if (uid == Process.INVALID_UID) return false
         if (store.globalBlockAll) return false
@@ -527,6 +484,7 @@ class RuleEngine(private val store: RuleStore, context: Context) {
     fun invalidatePackageCache() {
         packagesByUid.clear()
     }
+
 
 
     companion object {

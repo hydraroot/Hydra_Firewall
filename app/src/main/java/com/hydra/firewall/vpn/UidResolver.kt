@@ -241,6 +241,13 @@ data class SessionKey(
     val dstPort: Int
 )
 
+/** Stable identity for keeping a consumed one-shot grant attached to one live flow. */
+internal fun SessionKey.connectionExceptionFlowId(uid: Int): String = listOf(
+    uid.toString(), protocol.toString(),
+    srcAddr.hostAddress?.substringBefore('%').orEmpty(), srcPort.toString(),
+    dstAddr.hostAddress?.substringBefore('%').orEmpty(), dstPort.toString()
+).joinToString("|")
+
 /**
  * Estimates the network-header plus transport-header bytes for a blocked flow.
  * Shared by both IPv4 and IPv6 forwarding engines and the diagnostic logger.

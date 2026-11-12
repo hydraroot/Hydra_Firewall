@@ -1452,6 +1452,18 @@ fun FirewallScreen(
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
+                                                    if (existingScopedEndpointException == null && createdScopedException == null) OutlinedButton(
+                                                        onClick = {
+                                                            if (ConnectionExceptionStore.allowEndpointOnce(context, record.uid, host, transport, port, packageName = record.packageName)) {
+                                                                createdScopedException = ConnectionExceptionStore.snapshot(context).firstOrNull { it.uid == record.uid && it.packageName == (if (record.uid >= Process.FIRST_APPLICATION_UID) record.packageName else null) && it.kind == ConnectionExceptionStore.Kind.ENDPOINT && it.ip == host && it.protocol == transport && it.port == port && it.oneShot }
+                                                                ipVersion++
+                                                                notifyRulesChanged(context)
+                                                            } else {
+                                                                android.widget.Toast.makeText(context, if (language.isEnglish()) "Hydra could not verify a unique app UID/package. No one-time exception was created." else "Hydra no pudo verificar una relación única entre UID y paquete. No se creó el permiso de un solo uso.", android.widget.Toast.LENGTH_LONG).show()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text(if (language.isEnglish()) "ALLOW NEXT CONNECTION ONCE (10 MIN TO USE)" else "PERMITIR PRÓXIMA CONEXIÓN UNA VEZ (10 MIN PARA USAR)") }
                                                     if (existingScopedEndpointException == null && createdScopedException == null) Button(
                                                         onClick = {
                                                             if (ConnectionExceptionStore.allowEndpoint(context, record.uid, host, transport, port, packageName = record.packageName, minutes = 5)) {

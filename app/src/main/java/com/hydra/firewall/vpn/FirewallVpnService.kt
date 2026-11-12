@@ -137,6 +137,8 @@ class FirewallVpnService : VpnService() {
         uidResolver = UidResolver(this)
         ruleStore = RuleStore(this)
         ruleEngine = RuleEngine(ruleStore, this)
+        ConnectionExceptionStore.invalidatePackageIdentityCache()
+        ConnectionExceptionStore.clearActiveOneShotFlows()
         DiagnosticLogger.init(this)
         ConnectionHistory.init(this)
         TrafficAnalyzerStore.init(this)
@@ -166,6 +168,7 @@ class FirewallVpnService : VpnService() {
         }
         lifecycleWatcher = AppLifecycleWatcher(this, quarantineManager) {
             ruleEngine.invalidatePackageCache()
+            ConnectionExceptionStore.invalidatePackageIdentityCache()
             if (running.get()) refreshPolicyEngines()
         }.also { it.register() }
     }

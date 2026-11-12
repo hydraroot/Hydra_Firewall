@@ -290,6 +290,10 @@ private fun AppAccessRequestScreen(
                             }
                         )
                     }
+                    OutlinedButton(
+                        onClick = { onDecision(wifi, mobile, DecisionRequestManager.Persistence.ONCE) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (english) "ALLOW NEXT CONNECTION ONCE" else "PERMITIR LA PRÓXIMA CONEXIÓN UNA VEZ") }
                     TextButton(onClick = { showMore = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (english) "More options ▼" else "Más opciones ▼")
                     }

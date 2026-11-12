@@ -1,11 +1,25 @@
+## [3.7.1] - 2026-11-12
+
+### Corrective fixes for connection exceptions
+- Corrected first-connection prompt ordering so a narrowly scoped endpoint exception can be evaluated after mandatory security prechecks and before the fallback prompt; threat/IP/global-block and local-network protections remain authoritative.
+- Isolated one-time decisions from permanent and temporary app-policy persistence. An ALLOW ONCE grant is consumed by one new TCP/UDP flow, bound to that concrete flow, and released when that flow ends; an unused grant expires after its claim window.
+- Kept exception matching on a bounded in-memory fast path and avoid PackageManager lookups unless an exact app-scoped candidate exists. UID/package ownership remains cached and is invalidated on package lifecycle changes.
+- Preserved the restrictions on system/shared UIDs and shared-package identities; no broad permanent system exception is introduced.
+
+### Validation
+- Auxiliary Python tests and the signed threat-pack verification pass. Android/Kotlin compilation and JVM unit tests must still be confirmed by GitHub Actions; this environment cannot download Gradle 8.11.1 from services.gradle.org.
+
 ## [3.7.0] - 2026-11-12
 
 ### Connection details and safe exceptions
 - Redesigned connection details to show the attributed app/package (when known), UID, source, destination, protocol, network, event status, repeat count, decision category and the reason/detail recorded at decision time.
 - Added exact per-UID + package domain exceptions. A regular app UID can allow one domain permanently or temporarily for 15 minutes only when Android confirms that the UID belongs to that single package; shared app UIDs are rejected for permanent app exceptions. System/shared UIDs can only receive temporary domain exceptions; no permanent allow is stored for root/netd UIDs.
-- Added exact per-UID + package endpoint exceptions matching destination IP + protocol + port. System UIDs are limited to 5-minute leases; regular app UIDs/packages can save an exact endpoint permanently only when the UID/package mapping is unique.
-- Added undo actions directly in Connection Details and a Settings → Connection exceptions manager to review/remove local exceptions.
+- Added exact per-UID + package endpoint exceptions matching destination IP + protocol + port. System UIDs are limited to expiring/one-use endpoint exceptions; regular app UIDs/packages can save an exact endpoint permanently only when the UID/package mapping is unique. A one-use grant is consumed by one new 5-tuple and remains active only for that live TCP/UDP flow.
+- Added an explicit ALLOW NEXT CONNECTION ONCE action (10-minute claim window), plus temporary and permanent exact-endpoint choices. The first successful session consumes the one-use grant; a different source port/new flow cannot reuse it. Added undo actions directly in Connection Details and a Settings → Connection exceptions manager to review/remove local exceptions.
 - Added explicit confirmation before creating a global allow for a domain from a system/shared UID event. Global custom-domain block rules require a separate confirmation and are clearly labelled as applying to all apps.
+- Fixed first-connection prompt ordering so exact endpoint exceptions can be evaluated after mandatory threat/IP/local-network checks instead of being pre-empted by an early prompt return.
+- Fixed decision persistence: ALLOW is saved permanently by the decision manager, temporary choices remain temporary, and ALLOW ONCE creates a single-flow grant instead of being overwritten by an engine callback as a permanent app rule.
+- Optimized exception lookups: packet-time matching no longer sorts the rule list or calls PackageManager when no exact exception candidate exists; unique UID/package verification is cached and invalidated on package lifecycle events and VPN startup.
 - Per-UID/package exceptions are stored locally and are not exported to another device. Confirmed IP/domain threat matches and global Block All remain authoritative.
 
 ### Classification and help

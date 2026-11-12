@@ -176,7 +176,7 @@ class Ipv6TcpForwardingEngine(
             for (session in sessions.values.toList()) {
                 val evaluation = ruleEngine.evaluateDetailed(
                     session.uid, currentNetwork, session.key.dstAddr,
-                    "TCP", session.key.dstPort
+                    "TCP", session.key.dstPort, session.key.connectionExceptionFlowId(session.uid)
                 )
                 session.markPolicyChecked()
                 if (evaluation.decision != RuleEngine.Decision.ALLOW) {
@@ -216,6 +216,7 @@ class Ipv6TcpForwardingEngine(
         if (session == null) {
             if (!tcp.isSyn || tcp.isAck || tcp.isRst) return
             session = createSession(key, tcp, packet.size) ?: return
+            ConnectionExceptionStore.confirmOneShotFlow(key.connectionExceptionFlowId(session.uid))
         }
 
         // Session creation already made the initial decision. Re-evaluate in a short
@@ -224,7 +225,7 @@ class Ipv6TcpForwardingEngine(
         val policyNow = SystemClock.elapsedRealtime()
         if (session.needsPolicyRecheck(policyNow)) {
             val policyEvaluation = ruleEngine.evaluateDetailed(
-                session.uid, currentNetwork, session.key.dstAddr, "TCP", session.key.dstPort
+                session.uid, currentNetwork, session.key.dstAddr, "TCP", session.key.dstPort, session.key.connectionExceptionFlowId(session.uid)
             )
             session.markPolicyChecked(policyNow)
             if (policyEvaluation.decision != RuleEngine.Decision.ALLOW) {
@@ -312,7 +313,7 @@ class Ipv6TcpForwardingEngine(
             }
             val policyEvaluation = ruleEngine.evaluateDetailed(
                 resolution.uid, currentNetwork, key.dstAddr,
-                if (key.protocol == 6) "TCP" else "UDP", key.dstPort
+                if (key.protocol == 6) "TCP" else "UDP", key.dstPort, key.connectionExceptionFlowId(resolution.uid)
             )
             when (policyEvaluation.decision) {
                 RuleEngine.Decision.BLOCK -> {
@@ -334,11 +335,7 @@ class Ipv6TcpForwardingEngine(
                         protocolLabel = "TCP",
                         initialWifiAllowed = rule.wifiAllowed,
                         initialMobileAllowed = rule.mobileAllowed
-                    ) { wifiAllowed, mobileAllowed ->
-                        RuleStore(service).apply {
-                            setWifiAllowed(resolution.uid, wifiAllowed)
-                            setMobileAllowed(resolution.uid, mobileAllowed)
-                        }
+                    ) { _, _ ->
                         // Do not replay a stale SYN after a delayed user decision.
                         DiagnosticLogger.logServiceEvent(
                             "ACCESS_DECISION_APPLIED uid=${resolution.uid} pkg=${resolution.packageName ?: "unknown"} tcp_pending=discarded_wait_for_fresh_syn"
@@ -880,11 +877,13 @@ class Ipv6TcpForwardingEngine(
 
     private fun closeSession(session: TcpSession, sendReset: Boolean) {
         if (session.state == TcpSession.State.CLOSED) {
+            ConnectionExceptionStore.releaseOneShotFlow(session.key.connectionExceptionFlowId(session.uid))
             session.budgetLease?.close()
             session.budgetLease = null
             return
         }
         if (sendReset) sendStatelessResetForSession(session)
+        ConnectionExceptionStore.releaseOneShotFlow(session.key.connectionExceptionFlowId(session.uid))
         session.state = TcpSession.State.CLOSED
         try { session.selectionKey?.cancel() } catch (_: Exception) { }
         try { session.channel.close() } catch (_: Exception) { }

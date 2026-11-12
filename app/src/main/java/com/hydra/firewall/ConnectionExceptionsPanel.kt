@@ -70,7 +70,9 @@ fun ConnectionExceptionsPanel(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                if (entry.expiresAt == 0L) {
+                                if (entry.oneShot) {
+                                    (if (english) "One-time pending · expires " else "Un solo uso pendiente · vence ") + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.expiresAt))
+                                } else if (entry.expiresAt == 0L) {
                                     if (english) "Permanent · this package + UID only" else "Permanente · solo este paquete + UID"
                                 } else {
                                     (if (english) "Expires " else "Vence ") + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.expiresAt))

@@ -434,6 +434,10 @@ object DecisionRequestManager {
                     newMobile = mobileAllowed
                 )
             } else if (persistence == Persistence.ALWAYS) {
+                // The manager owns persistence. Engine callbacks must not turn temporary
+                // or one-shot decisions into permanent per-app rules.
+                store.setWifiAllowed(request.uid, wifiAllowed)
+                store.setMobileAllowed(request.uid, mobileAllowed)
                 DecisionHistory.record(
                     context = ctx,
                     token = request.token,
@@ -444,13 +448,31 @@ object DecisionRequestManager {
                     newWifi = wifiAllowed,
                     newMobile = mobileAllowed
                 )
+            } else if (persistence == Persistence.ONCE) {
+                val protocol = when (request.key.protocol) {
+                    UidResolver.PROTOCOL_TCP -> "TCP"
+                    UidResolver.PROTOCOL_UDP -> "UDP"
+                    else -> null
+                }
+                val networkAllowed = when (request.network) {
+                    NetworkKind.WIFI -> wifiAllowed
+                    NetworkKind.MOBILE -> mobileAllowed
+                    NetworkKind.OTHER -> wifiAllowed || mobileAllowed
+                    NetworkKind.NONE -> false
+                }
+                val created = networkAllowed && protocol != null && ConnectionExceptionStore.allowEndpointOnce(
+                    ctx, request.uid, request.key.dstAddr.hostAddress.orEmpty(), protocol, request.key.dstPort, request.packageName
+                )
+                DiagnosticLogger.logServiceEvent(
+                    "ACCESS_ONCE_GRANT uid=${request.uid} created=$created destination=${request.key.dstAddr.hostAddress}:${request.key.dstPort} protocol=${protocol ?: "unknown"}"
+                )
             } else {
                 val duration = when (persistence) {
                     Persistence.TEMP_10_MIN -> 10L * 60_000L
                     Persistence.TEMP_60_MIN -> 60L * 60_000L
                     Persistence.ONCE, Persistence.ALWAYS, Persistence.ESSENTIAL -> 0L
                 }
-                if (persistence != Persistence.ONCE) store.setTemporaryRule(request.uid, wifiAllowed, mobileAllowed, duration)
+                if (duration > 0L) store.setTemporaryRule(request.uid, wifiAllowed, mobileAllowed, duration)
             }
             DiagnosticLogger.logServiceEvent("ACCESS_DECISION_APPLIED persistence=$effectiveLabel uid=${request.uid}")
         }

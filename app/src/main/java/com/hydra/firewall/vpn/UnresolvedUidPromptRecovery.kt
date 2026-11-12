@@ -72,7 +72,10 @@ object UnresolvedUidPromptRecovery {
                 }
 
                 val engine = RuleEngine(RuleStore(appContext), appContext)
-                when (engine.evaluate(resolvedUid, network, key.dstAddr, protocolFor(key), key.dstPort)) {
+                when (engine.evaluateDetailed(
+                    resolvedUid, network, key.dstAddr, protocolFor(key), key.dstPort,
+                    key.connectionExceptionFlowId(resolvedUid)
+                ).decision) {
                     RuleEngine.Decision.PROMPT -> {
                         val rule = engine.getRule(resolvedUid)
                         val queued = DecisionRequestManager.request(
@@ -84,15 +87,11 @@ object UnresolvedUidPromptRecovery {
                             protocolLabel = protocolForLabel(key),
                             initialWifiAllowed = rule.wifiAllowed,
                             initialMobileAllowed = rule.mobileAllowed
-                        ) { wifiAllowed, mobileAllowed ->
-                            RuleStore(appContext).apply {
-                                setWifiAllowed(resolvedUid, wifiAllowed)
-                                setMobileAllowed(resolvedUid, mobileAllowed)
-                            }
-                            DiagnosticLogger.logServiceEvent(
-                                "ACCESS_DECISION_APPLIED uid=$resolvedUid pkg=${packageName ?: "unknown"} recovery_pending=discarded_wait_for_fresh_connection"
-                            )
-                        }
+                        ) { _, _ ->
+                        DiagnosticLogger.logServiceEvent(
+                            "ACCESS_DECISION_RECORDED uid=$resolvedUid pkg=${packageName ?: "unknown"} recovery_pending=discarded_wait_for_fresh_connection"
+                        )
+                    }
                         DiagnosticLogger.logServiceEvent(
                             "UID_RECOVERY_PROMPT uid=$resolvedUid pkg=${packageName ?: "unknown"} queued=$queued network=${network.displayName}"
                         )
