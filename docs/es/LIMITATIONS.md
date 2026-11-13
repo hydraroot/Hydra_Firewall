@@ -12,6 +12,7 @@
 - **Tráfico cifrado.** No descifra HTTPS: bloquea por nombre de dominio (SNI) o IP. Apps con su propio DoH/ECH o con IPs directas pueden esquivar el filtro por dominio. QUIC/HTTP3 se cubre solo de forma indirecta.
 - **Apps en modo Esencial / Sin firewall** quedan fuera del filtrado de la VPN en la medida que se configuren así.
 - **"Bloquear todo" no es un corte total.** Solo bloquea el tráfico que entra al túnel: Hydra misma y las apps excluidas / "Sin firewall" quedan fuera. Para un corte duro usá VPN siempre activa + "Bloquear conexiones sin VPN" de Android.
+- **Las excepciones de conexión son acotadas y locales.** Se asocian a un UID (y paquete) más un dominio o una IP/protocolo/puerto exactos, no se exportan con la configuración y nunca anulan amenazas confirmadas ni Bloquear todo. Un permiso de una sola vez vive solo en memoria: se pierde si la VPN se reinicia y lo puede usar una única conexión.
 - **Otra VPN.** Android permite una VPN activa a la vez.
 - **Malware con privilegios de sistema/root** puede ignorar la VPN.
 

@@ -16,7 +16,7 @@
 </p>
 
 
-> **Status: beta / pre-release validation** (version `3.7.1`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
+> **Status: beta / pre-release validation** (version `3.7.2`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -100,7 +100,7 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 - **Signed threat-intelligence pack** (malicious IPs/domains from sources such as Feodo Tracker and URLhaus, plus YARA‑Lite rules). It is installed only if its signature verifies.
 
 ### Understand your apps
-- **Connection history and live analyzer**: app, destination, protocol, port, decision and time. Connection Details shows the policy branch and match data recorded at decision time; older entries may not contain an exact cause. It also offers narrow UID/package-scoped domain or exact-endpoint exceptions. Permanent app exceptions require Android to confirm a unique UID-to-package mapping; shared app UIDs are not eligible. Root/netd permissions are temporary only, global allows require confirmation, and confirmed threats/Block All cannot be overridden. Manage local exceptions in Settings.
+- **Connection history and live analyzer**: app, destination, protocol, port, decision and time. Connection Details shows the policy branch and match data recorded at decision time; older entries may not contain an exact cause. It also offers narrow UID/package-scoped domain or exact-endpoint exceptions, including a one-time grant for the next connection. Permanent app exceptions require Android to confirm a unique UID-to-package mapping; shared app UIDs are not eligible. Root/netd permissions are temporary only, global allows require confirmation, and confirmed threats/Block All cannot be overridden. Manage local exceptions in Settings.
 - **Usage insights**: per-app traffic ranking (session / today / 7 days) with flags such as "uploads more than it downloads".
 - **APK scanner and APP RISK score** (0–100): permissions, exported components, accessibility/overlay/device-admin capabilities, native libraries, signing certificates.
 - **Behavior engine**: correlates connections, DNS and blocks into a per-app behavior score, using only metadata Hydra already sees.
@@ -250,7 +250,7 @@ Windows: `BUILD-AND-INSTALL.ps1`. GitHub Actions (`.github/workflows/`) runs And
 | [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`TRADEMARK.md`](TRADEMARK.md) | Use of the Hydra Firewall / Hydraroot names and logo |
-| [`CHANGELOG.md`](CHANGELOG.md) | Version history (Spanish) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Version history |
 | [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | Third-party data, libraries and licenses |
 | [`docs/es/`](docs/es/) | Spanish versions of the guides above |
 

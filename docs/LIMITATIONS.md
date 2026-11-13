@@ -12,6 +12,7 @@
 - **Encrypted traffic.** It does not decrypt HTTPS: it blocks by domain name (SNI) or IP. Apps with their own DoH/ECH or direct IPs can bypass domain filtering. QUIC/HTTP3 is covered only indirectly.
 - **Apps in Essential / No firewall mode** are outside the VPN filtering to the extent they are configured that way.
 - **"Block all" is not a full kill switch.** It only blocks traffic that enters the tunnel: Hydra itself and excluded / "No firewall" apps stay outside. For a hard cutoff use Android's Always-on VPN + "Block connections without VPN".
+- **Connection exceptions are narrow and local.** They are tied to one UID (and package) plus a domain or exact IP/protocol/port, are not exported with the configuration, and never override confirmed threats or Block All. A one-time grant lives in memory only: it is lost if the VPN restarts and can be used by one connection only.
 - **Another VPN.** Android allows one active VPN at a time.
 - **Malware with system/root privileges** can ignore the VPN.
 

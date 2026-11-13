@@ -16,7 +16,7 @@
 </p>
 
 
-> **Estado: beta / validación previa a publicación** (versión `3.7.1`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+> **Estado: beta / validación previa a publicación** (versión `3.7.2`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -99,7 +99,7 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 - **Pack de inteligencia de amenazas firmado** (IP/dominios maliciosos de fuentes como Feodo Tracker y URLhaus, más reglas YARA‑Lite). Se instala solo si su firma se verifica.
 
 ### Entender tus apps
-- **Historial de conexiones y analizador en vivo**: app, destino, protocolo, puerto, decisión y hora. En Detalles se muestra la causa de política guardada al evaluar el evento; los registros anteriores pueden no conservarla. También permite excepciones acotadas por UID/paquete para un dominio o destino exacto. Los permisos permanentes de apps exigen que Android confirme una relación única UID-paquete; las apps con UID compartido no son elegibles. root/netd solo reciben permisos temporales, los permisos globales requieren confirmación y las amenazas confirmadas/Bloquear todo no se anulan. Las excepciones locales se administran desde Ajustes.
+- **Historial de conexiones y analizador en vivo**: app, destino, protocolo, puerto, decisión y hora. En Detalles se muestra la causa de política guardada al evaluar el evento; los registros anteriores pueden no conservarla. También permite excepciones acotadas por UID/paquete para un dominio o destino exacto, incluido un permiso de una sola vez para la próxima conexión. Los permisos permanentes de apps exigen que Android confirme una relación única UID-paquete; las apps con UID compartido no son elegibles. root/netd solo reciben permisos temporales, los permisos globales requieren confirmación y las amenazas confirmadas/Bloquear todo no se anulan. Las excepciones locales se administran desde Ajustes.
 - **Consumo por app**: ranking de tráfico (sesión / hoy / 7 días) con banderas como "sube más de lo que baja".
 - **Escáner de APK y puntaje APP RISK** (0–100): permisos, componentes exportados, accesibilidad/superposición/administrador de dispositivo, librerías nativas, certificados de firma.
 - **Motor de comportamiento**: correlaciona conexiones, DNS y bloqueos en un puntaje de comportamiento por app, usando solo metadatos que Hydra ya ve.

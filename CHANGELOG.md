@@ -1,3 +1,16 @@
+# Changelog
+
+## [3.7.2] - 2026-11-13
+
+### Documentation and help
+- Updated the English/Spanish in-app Help (first-connection prompt and Connection details and exceptions), README, FEATURES, HOW-IT-WORKS and LIMITATIONS to describe the one-time grant (10-minute claim window, one new flow, released when it ends or the VPN restarts), the 5-minute endpoint / 15-minute domain temporary exceptions, and the decision order (mandatory security checks → exact exception → first-connection prompt). Refreshed the permissions review to 3.7.2 (no permission changes) and moved the `# Changelog` heading back to the top of the file.
+
+### Corrections
+- English Help: system/shared UIDs can receive short-lived, narrowly scoped exceptions (domain, endpoint or one-time), not only domain-scoped ones. README: the changelog is no longer described as Spanish-only.
+
+### Validation
+- Documentation/Help text only; no permission or logic changes. Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions.
+
 ## [3.7.1] - 2026-11-12
 
 ### Corrective fixes for connection exceptions
@@ -57,8 +70,6 @@
 ### Notes
 - UI-only refinement. No networking or security behavior changes are intended in this release.
 - Networking, packet-processing and security behavior are intentionally unchanged in this UI-only release.
-
-# Changelog
 
 ## [3.6.7] - 2026-11-10
 
