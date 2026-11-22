@@ -27,6 +27,8 @@ import time
 from ipaddress import ip_address
 from pathlib import Path
 from urllib.parse import urlsplit
+from http.client import IncompleteRead
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -182,13 +184,40 @@ def ingest_urlhaus_text(text: str, domains, ips, urls, hashes):
                           severity=90, confidence=85, detail="URLhaus • host distribuyendo malware")
 
 
+def _read_with_retry(req: Request, timeout: int, attempts: int = 3) -> str:
+    """Lectura con reintentos: abuse.ch a veces corta la descarga (IncompleteRead)."""
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            with urlopen(req, timeout=timeout) as r:
+                return r.read().decode("utf-8", errors="replace")
+        except HTTPError as exc:
+            if exc.code < 500 and exc.code != 429:  # 401/403/404/410: reintentar no sirve
+                raise
+            last = exc
+        except (IncompleteRead, URLError, TimeoutError, ConnectionError) as exc:
+            last = exc
+        if i + 1 < attempts:
+            time.sleep(3 * (i + 1))
+    assert last is not None
+    raise last
+
+
+def ingest_urlhaus_recent(data, domains, ips, urls, hashes):
+    """URLhaus API v1 /urls/recent/: {"query_status": "ok", "urls": [...]}. Solo URLs online."""
+    if not isinstance(data, dict) or data.get("query_status") not in (None, "ok"):
+        raise RuntimeError(f"respuesta URLhaus inesperada: {str(data)[:120]}")
+    lines = [str(r.get("url", "")) for r in data.get("urls") or []
+             if str(r.get("url_status", "online")).lower() == "online"]
+    ingest_urlhaus_text("\n".join(lines), domains, ips, urls, hashes)
+
+
 def fetch_post_json(url: str, payload: dict, auth_key: str | None = None):
     req = Request(url, data=json.dumps(payload).encode(), method="POST",
-                  headers={"User-Agent": "Hydra-Threat-Pack-Builder/1.1", "Content-Type": "application/json"})
+                  headers={"User-Agent": "Hydra-Threat-Pack-Builder/1.2", "Content-Type": "application/json"})
     if auth_key:
         req.add_header("Auth-Key", auth_key)
-    with urlopen(req, timeout=60) as r:
-        return json.loads(r.read().decode("utf-8", errors="replace"))
+    return json.loads(_read_with_retry(req, 90))
 
 
 def sanitize(domains: dict, ips: dict) -> None:
@@ -221,11 +250,10 @@ def collect_yara(paths: list[Path]):
 
 
 def fetch_url(url: str, auth_key: str | None = None) -> str:
-    req = Request(url, headers={"User-Agent": "Hydra-Threat-Pack-Builder/1.0"})
+    req = Request(url, headers={"User-Agent": "Hydra-Threat-Pack-Builder/1.2"})
     if auth_key:
         req.add_header("Auth-Key", auth_key)
-    with urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", errors="replace")
+    return _read_with_retry(req, 60)
 
 
 def parse_args():
@@ -237,7 +265,7 @@ def parse_args():
     p.add_argument("--yara", action="append", default=[], help="YARA file or directory")
     p.add_argument("--threatfox-api", action="store_true", help="ThreatFox (requiere THREATFOX_AUTH_KEY)")
     p.add_argument("--threatfox-days", type=int, default=7)
-    p.add_argument("--urlhaus-api", action="store_true", help="URLhaus text_online (URLHAUS_AUTH_KEY opcional)")
+    p.add_argument("--urlhaus-api", action="store_true", help="URLhaus API v1 urls/recent (requiere URLHAUS_AUTH_KEY o ABUSECH_AUTH_KEY)")
     p.add_argument("--feodo", action="store_true", help="Feodo Tracker ipblocklist (sin clave)")
     p.add_argument("--feodo-file", action="append", default=[], help="ipblocklist.json descargado a mano")
     p.add_argument("--urlhaus-text-file", action="append", default=[], help="text_online descargado a mano")
@@ -297,17 +325,34 @@ def main() -> None:
             json.loads(fetch_url("https://feodotracker.abuse.ch/downloads/ipblocklist.json", os.environ.get("ABUSECH_AUTH_KEY"))),
             domains, ips, urls, hashes))
     if args.urlhaus_api:
-        run_feed("URLhaus", lambda: ingest_urlhaus_text(
-            fetch_url("https://urlhaus.abuse.ch/downloads/text_online/", os.environ.get("URLHAUS_AUTH_KEY") or os.environ.get("ABUSECH_AUTH_KEY")),
-            domains, ips, urls, hashes))
+        # text_online (urlhaus.abuse.ch/downloads) devuelve 410: abuse.ch exige Auth-Key y la API nueva.
+        uh_key = os.environ.get("URLHAUS_AUTH_KEY") or os.environ.get("ABUSECH_AUTH_KEY")
+        if not uh_key:
+            print("[WARN] URLhaus omitido: falta URLHAUS_AUTH_KEY o ABUSECH_AUTH_KEY", file=sys.stderr)
+        else:
+            run_feed("URLhaus", lambda: ingest_urlhaus_recent(
+                json.loads(fetch_url("https://urlhaus-api.abuse.ch/v1/urls/recent/", uh_key)),
+                domains, ips, urls, hashes))
     if args.threatfox_api:
         key = os.environ.get("THREATFOX_AUTH_KEY") or os.environ.get("ABUSECH_AUTH_KEY")
         if not key:
             print("[WARN] ThreatFox omitido: falta THREATFOX_AUTH_KEY", file=sys.stderr)
         else:
-            run_feed("ThreatFox", lambda: ingest_threatfox(
-                fetch_post_json("https://threatfox-api.abuse.ch/api/v1/", {"query": "get_iocs", "days": max(1, min(7, args.threatfox_days))}, key),
-                domains, ips, urls, hashes))
+            def threatfox_feed():
+                last: Exception | None = None
+                for days in dict.fromkeys([max(1, min(7, args.threatfox_days)), 3, 1]):
+                    try:
+                        data = fetch_post_json("https://threatfox-api.abuse.ch/api/v1/",
+                                               {"query": "get_iocs", "days": days}, key)
+                        return ingest_threatfox(data, domains, ips, urls, hashes)
+                    except HTTPError:
+                        raise
+                    except Exception as exc:  # respuesta cortada: probar con menos dias
+                        last = exc
+                        print(f"[WARN] ThreatFox days={days}: {exc}", file=sys.stderr)
+                assert last is not None
+                raise last
+            run_feed("ThreatFox", threatfox_feed)
 
     sanitize(domains, ips)
     domains = cap(domains, MAX_DOMAINS)
