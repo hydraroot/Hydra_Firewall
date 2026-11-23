@@ -67,6 +67,20 @@ class TcpSessionWindowTest {
     }
 
     @Test
+    fun bufferedOutOfOrderBytesShrinkTheAdvertisedWindow() {
+        val (s, ch) = session(shift = 7)
+        try {
+            s.reassembly.offer(sequence = 2000L, payload = ByteArray(5000), expectedSeq = 1000L)
+            val buffered = s.reassembly.bufferedBytes()
+            assertTrue(buffered > 0)
+            assertEquals(
+                (TcpSession.RECEIVE_BUFFER_LIMIT - buffered) ushr 7,
+                s.advertisedReceiveWindow()
+            )
+        } finally { ch.close() }
+    }
+
+    @Test
     fun windowUpdateIsNeededOnlyAfterMeaningfulDrain() {
         val (s, ch) = session(shift = 7)
         try {

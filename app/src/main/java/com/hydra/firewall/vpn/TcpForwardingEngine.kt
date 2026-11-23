@@ -36,7 +36,6 @@ class TcpForwardingEngine(
         private const val LOCAL_MSS = 1460
         private const val SELECT_TIMEOUT_MS = 100L
         private const val CONNECT_TIMEOUT_MS = 10_000L
-        private const val IDLE_TIMEOUT_MS = 5 * 60_000L
         private const val READ_CHUNK = 16 * 1024
         private const val MAX_QUEUED_PACKETS = 2048
         private const val MAX_QUEUED_BYTES = 4 * 1024 * 1024
@@ -789,7 +788,11 @@ class TcpForwardingEngine(
                     sendStatelessResetForSession(session)
                     closeSession(session, sendReset = false)
                 }
-                now - session.lastActivityMs > IDLE_TIMEOUT_MS -> {
+                now - session.lastActivityMs > TcpTimerPolicy.idleTimeoutMs(
+                    session.state,
+                    session.clientFinSeen || session.serverFinSent,
+                    TcpSessionBudget.activeCount()
+                ) -> {
                     DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "IDLE_TIMEOUT")
                     sendResetAndClose(session)
                 }
@@ -805,7 +808,7 @@ class TcpForwardingEngine(
             }
 
             val first = session.toClient.firstOrNull()
-            if (first != null && now - first.lastSentMs >= TcpSession.RETRANSMIT_MS) {
+            if (first != null && now - first.lastSentMs >= TcpTimerPolicy.retransmitDelayMs(first.retransmissions)) {
                 if (first.retransmissions >= TcpSession.MAX_RETRANSMISSIONS) {
                     sendResetAndClose(session)
                 } else {

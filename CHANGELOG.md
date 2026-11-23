@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.7.4] - 2026-11-23
+
+### Stability
+- TCP idle timeout: established, fully open sessions (no FIN seen) now stay open up to 30 minutes without traffic instead of 5, so push/chat connections are not reset and re-created. Connecting, closing and half-closed sessions keep 5 minutes. When 410 or more of the 512 sessions are active, the 5-minute timeout applies to all sessions so idle connections cannot exhaust the cap. UDP is unchanged (60 s).
+- TCP retransmissions toward the app now back off exponentially (1, 2, 4, 8, 16, 32 s) instead of a fixed 1 s; the 6-attempt limit is unchanged, so a connection is reset after about 63 s without ACK instead of about 6 s. This avoids resetting downloads while an app is briefly frozen in the background. SYN-ACK retries are unchanged.
+- Applies to both the IPv4 and IPv6 TCP engines through the shared `TcpTimerPolicy`.
+
+### UI
+- Neon Tech (dark): card/outline color `#286071` -> `#396C7C` (contrast against the surface 2.59 -> 3.12). Other themes are unchanged.
+
+### Tests
+- New `TcpTimerPolicyTest` (backoff sequence, idle policy, busy threshold); `TcpSessionWindowTest` now also checks that out-of-order buffered bytes shrink the advertised window.
+
+### Validation
+- No permission or rule changes. Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions.
+
 ## [3.7.3] - 2026-11-22
 
 ### Fixed: uploads stalling while the firewall is on (e.g. WhatsApp backup to Google Drive)

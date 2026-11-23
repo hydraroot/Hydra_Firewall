@@ -48,7 +48,7 @@ private fun paletteFor(theme: AppVisualTheme, dark: Boolean): HydraPalette {
             Color(0xFF32D6C8), Color(0xFF002B29), Color(0xFF06443F), Color(0xFFB0F2E9),
             Color(0xFF63CFFF), Color(0xFF002B3D), Color(0xFF050D16), Color(0xFFE5F8FC),
             Color(0xFF0A1722), Color(0xFFE5F8FC), Color(0xFF102432), Color(0xFFA6C5CF),
-            Color(0xFF286071), Color(0xFF1A3C4A), Color(0xFFFF647C), Color(0xFF39000B)
+            Color(0xFF396C7C), Color(0xFF1A3C4A), Color(0xFFFF647C), Color(0xFF39000B)
         ) else HydraPalette(
             Color(0xFF006D7D), Color.White, Color(0xFFB6F2FA), Color(0xFF001F25),
             Color(0xFF007F75), Color.White, Color(0xFFB4F0E8), Color(0xFF00201D),
