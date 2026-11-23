@@ -86,7 +86,7 @@ object TcpPacketBuilder {
                 (if (psh) FLAG_PSH else 0) or
                 (if (ackFlag) FLAG_ACK else 0)
             ).toByte()
-        putU16(packet, tcp + 14, session.advertisedReceiveWindow())
+        putU16(packet, tcp + 14, session.advertisedReceiveWindow(syn))
         putU16(packet, tcp + 16, 0)
         putU16(packet, tcp + 18, 0)
         if (options.isNotEmpty()) System.arraycopy(options, 0, packet, tcp + TCP_HEADER, options.size)

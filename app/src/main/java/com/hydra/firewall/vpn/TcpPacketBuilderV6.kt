@@ -43,7 +43,7 @@ object TcpPacketBuilderV6 {
         putU32(p, t+4, seq); putU32(p, t+8, ack)
         p[t+12] = ((tcpLen/4) shl 4).toByte()
         p[t+13] = ((if(fin) FLAG_FIN else 0) or (if(syn) FLAG_SYN else 0) or (if(rst) FLAG_RST else 0) or (if(psh) FLAG_PSH else 0) or (if(ackFlag) FLAG_ACK else 0)).toByte()
-        putU16(p, t+14, session.advertisedReceiveWindow()); putU16(p,t+16,0); putU16(p,t+18,0)
+        putU16(p, t+14, session.advertisedReceiveWindow(syn)); putU16(p,t+16,0); putU16(p,t+18,0)
         if(options.isNotEmpty()) System.arraycopy(options,0,p,t+TCP_HEADER,options.size)
         if(payload.isNotEmpty()) System.arraycopy(payload,0,p,t+tcpLen,payload.size)
         val pseudo = ByteArray(40)

@@ -26,7 +26,8 @@ class TcpSession(
     }
 
     companion object {
-        const val RECEIVE_BUFFER_LIMIT = 64 * 1024
+        /** Upload buffer per session (app -> real socket). 128 KB keeps worst case (512 sessions) near 64 MB. */
+        const val RECEIVE_BUFFER_LIMIT = 128 * 1024
         const val RETRANSMIT_MS = 1000L
         const val MAX_RETRANSMISSIONS = 6
         /** Re-check dynamic policy once per second; explicit refresh events remain immediate. */
@@ -40,6 +41,13 @@ class TcpSession(
     var localNextSeq: Long = localInitialSeq
     var localAckedSeq: Long = localInitialSeq
     var clientWindow: Long = 65535L
+
+    /**
+     * Window-scale shift that Hydra offered in its SYN-ACK AND the app also offered in its SYN
+     * (RFC 7323: scaling only applies when both sides send the option). 0 = window field is unscaled.
+     */
+    var advertisedWindowShift: Int = 0
+    private var lastAdvertisedBytes: Int = 0
 
     var synAckSent = false
     var synAckRetries = 0
@@ -88,9 +96,27 @@ class TcpSession(
         return if (clientWindow > outstandingToClient()) clientWindow - outstandingToClient() else 0L
     }
 
-    fun advertisedReceiveWindow(): Int {
-        val available = RECEIVE_BUFFER_LIMIT - toSocketBytes
-        return available.coerceIn(0, 65535)
+    /** Free space for new app data; same accounting used to accept/drop payload in the engines. */
+    private fun freeReceiveSpace(): Int =
+        (RECEIVE_BUFFER_LIMIT - toSocketBytes - reassembly.bufferedBytes()).coerceAtLeast(0)
+
+    /**
+     * Value for the 16-bit TCP window field. The window in SYN/SYN-ACK is never scaled; afterwards it is
+     * divided by 2^advertisedWindowShift (rounding down, so Hydra never promises more than it can buffer).
+     * Remembers what was advertised so [needsWindowUpdate] can tell when the app should be re-informed.
+     */
+    fun advertisedReceiveWindow(syn: Boolean = false): Int {
+        val shift = if (syn) 0 else advertisedWindowShift
+        val raw = (freeReceiveSpace() ushr shift).coerceIn(0, 65535)
+        lastAdvertisedBytes = raw shl shift
+        return raw
+    }
+
+    /** True when the buffer drained enough that an ACK carrying a larger window is worth sending. */
+    fun needsWindowUpdate(): Boolean {
+        val current = (freeReceiveSpace() ushr advertisedWindowShift).coerceIn(0, 65535) shl advertisedWindowShift
+        val threshold = minOf(RECEIVE_BUFFER_LIMIT / 2, 2 * localMss)
+        return current - lastAdvertisedBytes >= threshold
     }
 
     fun needsSocketWrite(): Boolean = toSocket.isNotEmpty()

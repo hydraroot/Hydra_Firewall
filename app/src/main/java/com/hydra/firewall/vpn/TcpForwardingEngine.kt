@@ -384,6 +384,8 @@ class TcpForwardingEngine(
                 localInitialSeq = localInitialSeq
             ).apply {
                 this.budgetLease = budgetLease
+                // Our SYN-ACK offers HYDRA_WINDOW_SCALE_SHIFT; it only applies if the app offered scaling too.
+                advertisedWindowShift = if (tcp.windowScale != null) TcpPacketBuilder.HYDRA_WINDOW_SCALE_SHIFT else 0
                 markPolicyChecked()
             }
             session.clientWindow = (tcp.window.toLong() shl session.peerWindowScale)
@@ -753,6 +755,9 @@ class TcpForwardingEngine(
                 sendResetAndClose(session)
                 return
             }
+        }
+        if (session.state == TcpSession.State.ESTABLISHED && session.needsWindowUpdate()) {
+            try { sendAck(session) } catch (_: IOException) { }
         }
         updateInterestOps(session)
     }

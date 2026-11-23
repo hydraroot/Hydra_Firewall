@@ -755,6 +755,9 @@ class Ipv6TcpForwardingEngine(
                 return
             }
         }
+        if (session.state == TcpSession.State.ESTABLISHED && session.needsWindowUpdate()) {
+            try { sendAck(session) } catch (_: IOException) { }
+        }
         updateInterestOps(session)
     }
 

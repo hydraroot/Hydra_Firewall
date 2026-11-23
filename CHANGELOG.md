@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.7.3] - 2026-11-22
+
+### Fixed: uploads stalling while the firewall is on (e.g. WhatsApp backup to Google Drive)
+- IPv4 TCP proxy: Hydra offers Window Scale (x128) in its SYN-ACK but wrote the receive window unscaled, so the app believed Hydra could buffer ~8 MB while the real buffer is far smaller. Excess data was dropped and the app fell back to slow retransmission backoff, freezing large uploads partway. The advertised window is now scaled correctly, never promises more than the buffer can hold, and is unscaled in SYN/SYN-ACK and when the app did not offer scaling.
+- IPv4 and IPv6 TCP proxy: when the upload buffer drains, Hydra now sends a window-update ACK (only after a meaningful amount of space is freed) instead of waiting for the app to probe a zero window.
+- Per-session upload buffer raised from 64 KB to 128 KB (worst case with the 512-session cap: about 64 MB).
+- New unit test `TcpSessionWindowTest` covers window scaling, SYN handling and window updates.
+
+### Validation
+- No permission, rule or policy changes. Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions; the upload fix should be verified on a device with a large WhatsApp backup.
+
 ## [3.7.2] - 2026-11-13
 
 ### Documentation and help
