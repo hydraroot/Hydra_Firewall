@@ -11,7 +11,7 @@ import java.util.Locale
 
 /**
  * Plain-text report the user can paste into a bug report. It never contains destinations, domains, IP addresses,
- * installed-app package names or connection history: only versions, switches and the titles of the latest
+ * installed-app package names or connection history: only versions, switches, aggregate TCP counters and the titles of the latest
  * security events, with anything that looks like a package name or host name replaced by `<redacted>`.
  */
 object DiagnosticsReport {
@@ -37,6 +37,8 @@ object DiagnosticsReport {
         sb.appendLine("Firewall running: ${FirewallVpnService.isRunning} · wants running: ${service.getBoolean("desired_running", false)}")
         sb.appendLine("Paused: ${PauseManager.isPaused(app)}")
         if (list != null) sb.appendLine("Blocklist: ${list.date.ifBlank { "-" }} · ${list.domainCount} domains")
+        sb.appendLine()
+        TcpStats.reportLines().forEach { sb.appendLine(it) }
         sb.appendLine()
         sb.appendLine("Latest security events (title only):")
         val events = runCatching { SecurityEventStore.snapshot(app).take(20) }.getOrDefault(emptyList())

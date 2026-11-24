@@ -239,6 +239,7 @@ class TcpForwardingEngine(
         session.lastActivityMs = System.currentTimeMillis()
 
         if (tcp.isRst) {
+            TcpStats.inc(TcpStats.Counter.RST_FROM_APP)
             DiagnosticLogger.logTcpRuntime(key, session.uid, session.packageName, "RST_FROM_APP")
             closeSession(session, sendReset = false)
             return
@@ -264,6 +265,8 @@ class TcpForwardingEngine(
             if (tcp.isAck && TcpSequence.compare(tcp.acknowledgmentNumber, session.localNextSeq) == 0) {
                 session.localAckedSeq = session.localNextSeq
                 session.state = TcpSession.State.ESTABLISHED
+                TcpStats.inc(TcpStats.Counter.ESTABLISHED)
+                TcpStats.noteActive(TcpSessionBudget.activeCount())
                 DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "ESTABLISHED")
             } else {
                 return
@@ -387,7 +390,7 @@ class TcpForwardingEngine(
                 advertisedWindowShift = if (tcp.windowScale != null) TcpPacketBuilder.HYDRA_WINDOW_SCALE_SHIFT else 0
                 markPolicyChecked()
             }
-            session.clientWindow = (tcp.window.toLong() shl session.peerWindowScale)
+            session.clientWindow = tcp.window.toLong() // the window in a SYN is never scaled (RFC 7323)
                 .coerceAtMost(64L * 1024 * 1024)
 
             val connectedImmediately = try {
@@ -420,6 +423,7 @@ class TcpForwardingEngine(
                 session.budgetLease = null
                 channel.close()
                 openedChannel = null
+                TcpStats.inc(TcpStats.Counter.CONNECT_FAILED)
                 DiagnosticLogger.logTcpRuntime(key, resolution.uid, resolution.packageName, "CONNECT_FAILED")
                 sendStatelessResetForSyn(key, tcp)
                 return null
@@ -619,6 +623,7 @@ class TcpForwardingEngine(
             key.interestOps(SelectionKey.OP_READ)
             onRemoteConnectedAfterPending(session)
         } catch (e: IOException) {
+            TcpStats.inc(TcpStats.Counter.CONNECT_FAILED)
             DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "CONNECT_FAILED: ${e.message}")
             sendStatelessResetForSession(session)
             closeSession(session, sendReset = false)
@@ -642,6 +647,7 @@ class TcpForwardingEngine(
         val bytes = try {
             session.channel.read(buffer)
         } catch (e: IOException) {
+            TcpStats.inc(TcpStats.Counter.REMOTE_READ_ERROR)
             DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "REMOTE_READ_ERROR: ${e.message}")
             sendResetAndClose(session)
             return
@@ -733,6 +739,7 @@ class TcpForwardingEngine(
             val written = try {
                 session.channel.write(buffer)
             } catch (e: IOException) {
+                TcpStats.inc(TcpStats.Counter.REMOTE_WRITE_ERROR)
                 DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "REMOTE_WRITE_ERROR: ${e.message}")
                 sendResetAndClose(session)
                 return
@@ -756,7 +763,10 @@ class TcpForwardingEngine(
             }
         }
         if (session.state == TcpSession.State.ESTABLISHED && session.needsWindowUpdate()) {
-            try { sendAck(session) } catch (_: IOException) { }
+            try {
+                sendAck(session)
+                TcpStats.inc(TcpStats.Counter.WINDOW_UPDATES)
+            } catch (_: IOException) { }
         }
         updateInterestOps(session)
     }
@@ -784,6 +794,7 @@ class TcpForwardingEngine(
         for (session in sessions.values.toList()) {
             when {
                 session.state == TcpSession.State.CONNECTING && now - session.createdMs > CONNECT_TIMEOUT_MS -> {
+                    TcpStats.inc(TcpStats.Counter.CONNECT_TIMEOUT)
                     DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "CONNECT_TIMEOUT")
                     sendStatelessResetForSession(session)
                     closeSession(session, sendReset = false)
@@ -793,6 +804,7 @@ class TcpForwardingEngine(
                     session.clientFinSeen || session.serverFinSent,
                     TcpSessionBudget.activeCount()
                 ) -> {
+                    TcpStats.inc(TcpStats.Counter.IDLE_TIMEOUT)
                     DiagnosticLogger.logTcpRuntime(session.key, session.uid, session.packageName, "IDLE_TIMEOUT")
                     sendResetAndClose(session)
                 }
@@ -810,6 +822,7 @@ class TcpForwardingEngine(
             val first = session.toClient.firstOrNull()
             if (first != null && now - first.lastSentMs >= TcpTimerPolicy.retransmitDelayMs(first.retransmissions)) {
                 if (first.retransmissions >= TcpSession.MAX_RETRANSMISSIONS) {
+                    TcpStats.inc(TcpStats.Counter.RETRANSMIT_LIMIT)
                     sendResetAndClose(session)
                 } else {
                     resendSegment(session, first)

@@ -51,9 +51,9 @@ object TcpPacketBuilder {
         payload: ByteArray = ByteArray(0)
     ): ByteArray {
         val src = session.key.dstAddr as? Inet4Address
-            ?: throw IllegalArgumentException("Solo soporta TCP/IPv4 en esta alpha")
+            ?: throw IllegalArgumentException("El builder IPv4 solo admite sesiones TCP/IPv4")
         val dst = session.key.srcAddr as? Inet4Address
-            ?: throw IllegalArgumentException("Solo soporta TCP/IPv4 en esta alpha")
+            ?: throw IllegalArgumentException("El builder IPv4 solo admite sesiones TCP/IPv4")
 
         val options = if (syn) buildSynOptions(session.localMss) else ByteArray(0)
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.7.5] - 2026-11-24
+
+### Diagnostics
+- The diagnostic report now includes aggregate TCP counters since the process started (established sessions, idle timeouts, retransmit-limit resets, remote read/write errors, resets from the app, connect failures/timeouts, window updates sent) and the peak number of simultaneous TCP sessions. Counters never contain hosts, IP addresses, ports or package names. This makes it possible to verify the 3.7.3/3.7.4 TCP changes from the release build, which does not write a log file.
+
+### TCP proxy
+- The window in a SYN from the app is no longer scaled (RFC 7323); scaling applies from the first ACK on. Cosmetic fix, no behavior change after the handshake.
+- Clearer error message in the IPv4 TCP packet builder (it still said "alpha").
+
+### Maintenance
+- `MainActivity.kt` (5043 lines) is split by topic into `MainUiHelpers.kt`, `MainUiComponents.kt`, `TrafficUi.kt`, `RulesPanels.kt`, `ProtectionUi.kt`, `SettingsUi.kt` and `AboutUi.kt`. `MainActivity.kt` keeps the activity, the top-level state classes and `FirewallScreen` (2577 lines). Code was moved verbatim; the only edit is `private` -> `internal` on top-level declarations that are now shared between files. No behavior, layout or permission changes.
+
+### Tests
+- New `TcpStatsTest`; `TcpTimerPolicyTest` also covers the busy-threshold boundary and CLOSING/CLOSED sessions.
+
+### Validation
+- Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions (the file split could not be compiled locally; a script verified that every original line is preserved, all declarations are unique in the package, and braces/parentheses balance in every new file).
+
 ## [3.7.4] - 2026-11-23
 
 ### Stability

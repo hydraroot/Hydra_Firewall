@@ -52,6 +52,29 @@ class TcpTimerPolicyTest {
     }
 
     @Test
+    fun longIdleTimeoutAppliesJustBelowTheBusyThreshold() {
+        assertEquals(
+            TcpTimerPolicy.IDLE_ESTABLISHED_MS,
+            TcpTimerPolicy.idleTimeoutMs(
+                TcpSession.State.ESTABLISHED, halfClosed = false,
+                activeSessions = TcpTimerPolicy.BUSY_SESSION_THRESHOLD - 1
+            )
+        )
+    }
+
+    @Test
+    fun closingAndClosedSessionsKeepShortIdleTimeout() {
+        assertEquals(
+            TcpTimerPolicy.IDLE_DEFAULT_MS,
+            TcpTimerPolicy.idleTimeoutMs(TcpSession.State.CLOSING, halfClosed = false, activeSessions = 1)
+        )
+        assertEquals(
+            TcpTimerPolicy.IDLE_DEFAULT_MS,
+            TcpTimerPolicy.idleTimeoutMs(TcpSession.State.CLOSED, halfClosed = false, activeSessions = 1)
+        )
+    }
+
+    @Test
     fun busyThresholdStaysBelowSessionCap() {
         assertTrue(TcpTimerPolicy.BUSY_SESSION_THRESHOLD < TcpSessionBudget.MAX_ACTIVE_SESSIONS)
     }
