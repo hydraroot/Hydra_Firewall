@@ -748,14 +748,6 @@ private fun StatusRow(english: Boolean, ok: Boolean, esLabel: String, enLabel: S
 
 /** A permanent architectural caveat, not a live on/off toggle: always shown in amber
  *  so it doesn't read as either "broken" (red) or "protected" (green). */
-@Composable
-private fun CaveatRow(english: Boolean, esLabel: String, enLabel: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.padding(top = 3.dp).size(9.dp).clip(RoundedCornerShape(50)).background(Color(0xFFD98E1F)))
-        Spacer(Modifier.width(8.dp))
-        Text(if (english) enLabel else esLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
 
 // ---------------------------------------------------------------------------
 // 2) New-install quarantine

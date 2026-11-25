@@ -8,7 +8,6 @@ import com.hydra.firewall.security.LegacyTlsTrust
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.ByteArrayOutputStream
-import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URL
@@ -16,7 +15,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
 
 /**
  * Encrypted DNS resolver used inside Hydra's local VPN.

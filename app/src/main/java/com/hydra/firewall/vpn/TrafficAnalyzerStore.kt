@@ -81,8 +81,6 @@ object TrafficAnalyzerStore {
         }
     }
 
-    fun youtubeEvents(): List<Event> = snapshot().filter { isYoutube(it.packageName, it.domain, it.destination) }
-
     fun isYoutube(packageName: String?, domain: String?, destination: String?): Boolean {
         val pkg = packageName?.lowercase(Locale.US).orEmpty()
         if (pkg == "com.google.android.youtube" || pkg.contains("youtube")) return true

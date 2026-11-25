@@ -19,6 +19,7 @@
 ## Rendimiento y compatibilidad
 - El reenvío TCP/UDP se hace en espacio de usuario: más consumo de batería y algo de latencia que un firewall nativo.
 - TCP usa un presupuesto compartido de 512 sesiones entre IPv4/IPv6; UDP permite 256 sesiones por familia y comparte una cola global de 16 MiB / 4.096 datagramas. IPv6 sin paridad total (ESP y cabeceras no soportadas se rechazan).
+- Timeouts TCP: las sesiones establecidas y totalmente abiertas pueden quedar inactivas hasta 30 minutos; las que están conectando, cerrándose o a medio cerrar vencen a los 5 minutos, y también todas las sesiones mientras haya 410 o más de las 512 activas. Las sesiones UDP vencen a los 60 segundos. Los reintentos hacia una app se espacian de 1 s a 32 s (6 intentos, unos 63 s) antes de resetear la conexión.
 - Android 7–9 identifica la app dueña de cada conexión leyendo `/proc/net`; puede fallar de forma transitoria (en ese caso la conexión se descarta, "fail closed").
 - Si no se identifica la app dueña de una conexión, se descarta: Hydra no infiere la identidad por la IP de destino.
 - Las apps nuevas arrancan bloqueadas: al principio vas a ver apps sin internet hasta aprobarlas.

@@ -198,6 +198,7 @@ notification and a card in Security.
 - **Statistics**: traffic totals over time, with allowed and blocked traffic counted separately.
 - **Usage insights**: per-app ranking for the session, today and the last 7 days, with flags such as "uploads more than it downloads". Stored only on the phone.
 - **Diagnostic log** you can read through ADB on debug builds only; release builds do not write one.
+- **Diagnostic report** you can copy on any build: versions, switches, titles of the latest security events and aggregate TCP counters since the app process started (established sessions, idle timeouts, retransmit-limit resets, remote errors, resets from apps, window updates, peak simultaneous sessions). It never includes hosts, IP addresses, ports or package names.
 
 ## 8. Configuration, profiles and backup
 

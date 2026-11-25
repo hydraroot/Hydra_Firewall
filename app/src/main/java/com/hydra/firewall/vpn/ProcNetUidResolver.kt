@@ -5,7 +5,6 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.net.Inet4Address
-import java.net.Inet6Address
 import java.net.InetAddress
 
 /**
@@ -109,23 +108,6 @@ object ProcNetUidResolver {
      * check can verify the UID column fix (FIX117) without root or a device
      * with an actual matching socket.
      */
-    internal fun debugReadUidFromFile(
-        file: File,
-        srcAddrHexUnused: String,
-        srcPortHexUnused: String,
-        dstAddrHexUnused: String,
-        dstPortHexUnused: String
-    ): Int? {
-        // The caller passes the same kernel-hex fields written into the fixture
-        // row so the intent at the call site is self-documenting; decode them
-        // with the same routine the real parser uses instead of hand-rolling
-        // IPv4 dotted parsing here.
-        val srcAddr = decodeKernelHexAddress(srcAddrHexUnused) ?: return null
-        val dstAddr = decodeKernelHexAddress(dstAddrHexUnused) ?: return null
-        val srcPort = srcPortHexUnused.toIntOrNull(16) ?: return null
-        val dstPort = dstPortHexUnused.toIntOrNull(16) ?: return null
-        return resolveSub(UidResolver.PROTOCOL_TCP, srcAddr, srcPort, dstAddr, dstPort, file.path)
-    }
 
     private fun pathFor(protocol: Int, isIpv6: Boolean): String? = when {
         protocol == UidResolver.PROTOCOL_TCP && !isIpv6 -> PATH_TCP

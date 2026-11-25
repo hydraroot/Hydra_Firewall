@@ -79,9 +79,6 @@ class RuleStore(context: Context) {
         (prefs.contains("uid_${uid}_wifi") || prefs.contains("uid_${uid}_mobile")) &&
             !prefs.getBoolean("uid_${uid}_quarantine_default", false)
 
-    fun isQuarantineDefault(uid: Int): Boolean =
-        prefs.getBoolean("uid_${uid}_quarantine_default", false)
-
     fun setQuarantineDefault(uid: Int) {
         prefs.edit()
             .putBoolean("uid_${uid}_wifi", false)

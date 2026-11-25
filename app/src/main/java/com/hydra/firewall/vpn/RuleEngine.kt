@@ -86,9 +86,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
             isFullConnectivityAllowed(uid, currentNetwork) ||
             isProtectedCompatibility(uid, packageName)
 
-    fun isCustomProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
-        customProtectionForUid(uid, packageName) != null
-
     fun isTlsSniProtectionEnabled(uid: Int, packageName: String? = null): Boolean =
         customProtectionForUid(uid, packageName)?.tlsSniFilter ?: true
 
@@ -136,15 +133,6 @@ class RuleEngine(private val store: RuleStore, context: Context) {
         /** Small factual context (domain, port rule, network, threat name); never a guessed explanation. */
         val reasonDetail: String? = null
     )
-
-    fun evaluateApplicationPolicy(
-        uid: Int,
-        network: NetworkKind,
-        protocol: String? = null,
-        port: Int? = null,
-        destination: InetAddress? = null,
-        flowId: String? = null
-    ): Decision = evaluateApplicationPolicyDetailed(uid, network, protocol, port, destination, flowId).decision
 
     fun evaluateApplicationPolicyDetailed(
         uid: Int,

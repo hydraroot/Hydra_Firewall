@@ -296,12 +296,6 @@ object NotificationHelper {
         accessNotificationIds.remove(token)
     }
 
-    fun clearAccessRequestNotifications(context: Context) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(8999)
-        for (id in 9000..14150) manager.cancel(id)
-    }
-
     private fun accessRequestNotificationId(token: String): Int {
         // Allocate unique in-process ids so two different UUID tokens cannot
         // accidentally overwrite each other's pending prompt notification.

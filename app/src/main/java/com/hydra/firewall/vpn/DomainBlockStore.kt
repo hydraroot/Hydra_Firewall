@@ -85,12 +85,6 @@ object DomainBlockStore {
         get() = prefsOrNull?.getBoolean(KEY_ENABLED, true) ?: true
         set(value) { prefsOrNull?.edit()?.putBoolean(KEY_ENABLED, value)?.apply() }
 
-    /** True if a downloaded (user-updated) list file exists and is in use. */
-    fun usingDownloadedList(): Boolean {
-        val prefs = prefsOrNull ?: return false
-        return downloadedListFile()?.exists() == true && prefs.getString(KEY_ACTIVE_SOURCE, "") == "downloaded"
-    }
-
     fun activeListInfo(): ListInfo {
         val prefs = prefsOrNull ?: return ListInfo("", 0, "bundled")
         return ListInfo(
@@ -248,15 +242,6 @@ object DomainBlockStore {
         } else {
             Log.e(TAG, "Failed to load bundled blocklist asset")
         }
-    }
-
-    /** Bundled asset's own date, for comparison against a remote check result. */
-    fun bundledListDate(): String {
-        val context = ctxOrNull() ?: return ""
-        return runCatching {
-            val metaJson = context.assets.open(ASSET_META).bufferedReader().use { it.readText() }
-            Regex("\"listDate\"\\s*:\\s*\"([^\"]+)\"").find(metaJson)?.groupValues?.get(1) ?: ""
-        }.getOrDefault("")
     }
 
     /**

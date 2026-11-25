@@ -52,7 +52,6 @@ object AppUpdater {
     fun isAutoEnabled(c: Context) = prefs(c).getBoolean(KEY_AUTO, true)
     fun setAutoEnabled(c: Context, v: Boolean) { prefs(c).edit().putBoolean(KEY_AUTO, v).apply() }
     fun lastCheck(c: Context) = prefs(c).getLong(KEY_LAST_CHECK, 0L)
-    fun lastMessage(c: Context): String = prefs(c).getString(KEY_LAST_MSG, "").orEmpty()
     fun setMessage(c: Context, m: String) { prefs(c).edit().putString(KEY_LAST_MSG, m).apply() }
     fun currentVersion(): String = BuildConfig.VERSION_NAME
 

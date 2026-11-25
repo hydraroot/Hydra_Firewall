@@ -1,7 +1,6 @@
 package com.hydra.firewall.vpn
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 
 /** Lightweight user-facing app preferences. Uses SharedPreferences only for small sets. */
 class AppFavoritesStore(context: Context) {

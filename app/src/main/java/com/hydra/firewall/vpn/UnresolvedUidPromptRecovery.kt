@@ -5,7 +5,6 @@ import android.os.Process
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
 
 /**
  * Recovers the first-connection prompt when Android 7 exposes a TUN flow before

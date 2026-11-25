@@ -50,17 +50,6 @@ object DnsIpCorrelationStore {
      * Returns UIDs that recently resolved this destination IP. The caller must
      * apply its own policy before using a candidate for attribution.
      */
-    fun candidateUids(address: InetAddress): List<Int> {
-        val hostKey = hostKey(address)
-        val bucket = reverse[hostKey] ?: return emptyList()
-        val now = SystemClock.elapsedRealtime()
-        val out = ArrayList<Int>(bucket.size)
-        for ((uid, expiry) in bucket.entries) {
-            if (expiry >= now) out += uid else bucket.remove(uid, expiry)
-        }
-        if (bucket.isEmpty()) reverse.remove(hostKey, bucket)
-        return out
-    }
 
     private fun purge(now: Long) {
         for ((k, v) in map.entries) {

@@ -3,8 +3,6 @@ package com.hydra.firewall.vpn
 import com.hydra.firewall.tr
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Process
 import android.util.Log
@@ -69,19 +67,6 @@ object DiagnosticLogger {
                 java.io.File(d, "hydra-diagnostic.log.1").delete()
             }
         }
-    }
-
-    fun setLevel(newLevel: Level) { level = newLevel }
-    fun getLevel(): Level = level
-
-    fun logTcpSyn(key: SessionKey, resolution: UidResolver.Resolution, mss: Int?, windowScale: Int?, window: Int) {
-        if (!enabled(Level.NORMAL)) return
-        val text = if (resolution.uid == Process.INVALID_UID) {
-            "TCP SYN | uid=INVALID | src=${formatAddr(key.srcAddr, key.srcPort)} | dst=${formatAddr(key.dstAddr, key.dstPort)} | uid_resolution=FAILED | resolver=${resolution.resolvedVia}"
-        } else {
-            "TCP SYN | uid=${resolution.uid} | pkg=${resolution.packageName ?: "unknown"} | src=${formatAddr(key.srcAddr, key.srcPort)} | dst=${formatAddr(key.dstAddr, key.dstPort)} | mss=${mss ?: "-"} | ws=${windowScale ?: "-"} | win=$window | resolver=${resolution.resolvedVia}"
-        }
-        emit(text, Level.NORMAL)
     }
 
     fun logUdpFirstSeen(
@@ -336,6 +321,5 @@ object DiagnosticLogger {
         }, "HydraLogWriter").apply { isDaemon = true; priority = Thread.MIN_PRIORITY; start() }
     }
 
-    fun getBufferedLines(): List<String> = buffer.toList()
     fun clearBuffer() = buffer.clear()
 }

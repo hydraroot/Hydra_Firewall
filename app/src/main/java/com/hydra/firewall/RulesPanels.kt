@@ -1,76 +1,33 @@
 package com.hydra.firewall
 
-import android.Manifest
 import com.hydra.firewall.ui.theme.HydraCard
-import android.app.ActivityManager
-import android.app.usage.UsageStatsManager
-import android.content.ClipData
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
-import android.net.VpnService
-import android.os.Build
-import android.os.PowerManager
-import android.os.Bundle
-import android.os.Process
-import android.os.Handler
-import android.os.Looper
-import android.widget.ImageView
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.Canvas
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import com.hydra.firewall.ui.theme.FirewallLocalTheme
-import com.hydra.firewall.security.AppIntegrity
-import com.hydra.firewall.security.ProtectionStatus
 import com.hydra.firewall.vpn.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import java.util.Locale
 
 @Composable
 internal fun IpRulesPanel(context: Context, english: Boolean, store: IpBlockStore, version: Int, onChanged: () -> Unit) {
@@ -402,66 +359,6 @@ internal fun PortRulesPanel(
             confirmButton = {
                 TextButton({ selectedRule = null }) { Text(tr(context, "close")) }
             }
-        )
-    }
-}
-
-@Composable
-internal fun AdvancedRulesEditor(context: Context, apps: List<AppEntry>, store: AdvancedRuleStore, version: Int, onChanged: () -> Unit, english: Boolean) {
-    var selectedUid by remember { mutableStateOf<Int?>(null) }
-    var protocol by remember { mutableStateOf("TCP") }
-    var portText by remember { mutableStateOf("443") }
-    var allow by remember { mutableStateOf(false) }
-    var selectedRule by remember { mutableStateOf<AdvancedRuleStore.Rule?>(null) }
-    val rules = remember(version) { store.getAll() }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        var expanded by remember { mutableStateOf(false) }
-        Box { TextButton({ expanded = true }) { Text(apps.firstOrNull { it.uid == selectedUid }?.label ?: if(english) "Choose app" else "Elegir app") }; DropdownMenu(expanded, { expanded=false }) { apps.take(80).forEach { a -> DropdownMenuItem(text={Text(a.label)}, onClick={selectedUid=a.uid; expanded=false}) } } }
-        Spacer(Modifier.width(4.dp)); HydraChoiceButton(protocol == "TCP", "TCP", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick={ protocol="TCP" }, modifier=Modifier.height(30.dp)); Spacer(Modifier.width(4.dp)); HydraChoiceButton(protocol == "UDP", "UDP", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onClick={ protocol="UDP" }, modifier=Modifier.height(30.dp))
-    }
-    Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
-        OutlinedTextField(portText,{portText=it},Modifier.weight(1f),singleLine=true,label={Text(if(english) "Port or range (443 or 8000-8080)" else "Puerto o rango (443 o 8000-8080)")})
-        Spacer(Modifier.width(6.dp)); HydraChoiceButton(allow, if(allow) (if(english)"Allow" else "Permitir") else (if(english)"Block" else "Bloquear"), if (allow) Color(0xFFD5F5E3) else Color(0xFFF1D0D0), if (allow) Color(0xFF145A32) else Color(0xFF7A1E1E), onClick={allow=!allow}, modifier=Modifier.height(30.dp))
-        Spacer(Modifier.width(6.dp)); Button({ val uid=selectedUid; val parts=portText.trim().split('-'); val a=parts.firstOrNull()?.toIntOrNull(); val b=(if(parts.size>1)parts[1].toIntOrNull() else a); if(uid!=null&&a!=null&&b!=null&&a in 0..65535&&b in a..65535){store.set(uid,protocol,a,b,allow); onChanged()} }) { Text(tr(context,"add")) }
-    }
-    Spacer(Modifier.height(8.dp))
-    Text(if (english) "Configured port rules" else "Reglas de puertos configuradas", style = MaterialTheme.typography.titleSmall)
-    if (rules.isEmpty()) {
-        Text(if (english) "No configured port rules." else "No hay reglas de puertos configuradas.", style = MaterialTheme.typography.bodySmall)
-    } else {
-        rules.forEach { r ->
-            key(r.uid, r.protocol, r.startPort, r.endPort, r.allowed) {
-                val appLabel = apps.firstOrNull { it.uid == r.uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(r.uid)
-                HydraCard(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { selectedRule = r }) {
-                    Row(Modifier.fillMaxWidth().padding(9.dp),verticalAlignment=Alignment.CenterVertically){
-                        AppIcon(apps.firstOrNull { it.uid == r.uid }, Modifier.size(40.dp).padding(end = 8.dp))
-                        Column(Modifier.weight(1f)){
-                            Text(appLabel, style=MaterialTheme.typography.titleSmall)
-                            Text("${r.protocol} ${r.startPort}${if(r.endPort!=r.startPort)"-${r.endPort}" else ""}",fontFamily=FontFamily.Monospace,fontSize=11.sp)
-                            Text(if(r.allowed)(if(english)"ALLOW" else "PERMITIR") else (if(english)"BLOCK" else "BLOQUEAR"),style=MaterialTheme.typography.bodySmall)
-                        }
-                        TextButton({selectedRule=r}){Text(if(english)"Details" else "Detalles")}
-                    }
-                }
-            }
-        }
-    }
-    selectedRule?.let { rule ->
-        val appLabel = apps.firstOrNull { it.uid == rule.uid }?.label ?: com.hydra.firewall.vpn.AppNames.label(rule.uid)
-        AlertDialog(
-            containerColor = hydraDialogColors().first,
-            titleContentColor = hydraDialogColors().second,
-            textContentColor = hydraDialogColors().third,
-            onDismissRequest = { selectedRule = null },
-            title = { Text(if(english) "Port rule details" else "Detalles de regla de puerto") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(appLabel, style=MaterialTheme.typography.titleSmall)
-                Text("UID ${rule.uid}", style=MaterialTheme.typography.bodySmall)
-                Text("${rule.protocol} • ${rule.startPort}${if(rule.endPort!=rule.startPort)"-${rule.endPort}" else ""}", fontFamily=FontFamily.Monospace)
-                Text(if(rule.allowed)(if(english)"Action: ALLOW" else "Acción: PERMITIR") else (if(english)"Action: BLOCK" else "Acción: BLOQUEAR"))
-            } },
-            dismissButton = { TextButton({ store.remove(rule); onChanged(); selectedRule=null }) { Text(if(english) "Delete rule" else "Eliminar regla") } },
-            confirmButton = { TextButton({ selectedRule = null }) { Text(tr(context,"close")) } }
         )
     }
 }

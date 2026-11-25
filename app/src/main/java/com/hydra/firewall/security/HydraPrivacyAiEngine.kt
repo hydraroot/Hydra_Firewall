@@ -1,7 +1,6 @@
 package com.hydra.firewall.security
 
 import android.content.Context
-import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.exp
 import kotlin.math.ln

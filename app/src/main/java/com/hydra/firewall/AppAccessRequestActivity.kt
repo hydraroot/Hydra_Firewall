@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -36,8 +35,6 @@ import com.hydra.firewall.ui.theme.FirewallLocalTheme
 import com.hydra.firewall.vpn.ConnectionContext
 import com.hydra.firewall.vpn.CustomProtectionProfileStore
 import com.hydra.firewall.vpn.DecisionRequestManager
-import com.hydra.firewall.vpn.EssentialAppsStore
-import com.hydra.firewall.vpn.NetworkKind
 import com.hydra.firewall.vpn.RuleStore
 
 class AppAccessRequestActivity : ComponentActivity() {

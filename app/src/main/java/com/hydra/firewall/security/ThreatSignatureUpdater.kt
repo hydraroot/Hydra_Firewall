@@ -8,7 +8,6 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import java.io.ByteArrayOutputStream
-import javax.net.ssl.HttpsURLConnection
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 
@@ -34,11 +33,6 @@ object ThreatSignatureUpdater {
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_FEED_URL, "")?.trim().orEmpty()
         return custom.ifBlank { com.hydra.firewall.BuildConfig.THREAT_FEED_URL.trim() }
-    }
-
-    fun setFeedUrl(context: Context, url: String) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_FEED_URL, url.trim()).apply()
     }
 
     private val updatingFlag = java.util.concurrent.atomic.AtomicBoolean(false)

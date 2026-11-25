@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.7.6] - 2026-11-24
+
+### Maintenance
+- Removed 25 functions that nothing called (verified by a project-wide search, including tests): unused UI helpers (`hydraNeon`, `CaveatRow`, `AdvancedRulesEditor`), unused store/diagnostic accessors and a test-only file reader in `ProcNetUidResolver`. About 160 lines less; no behavior change.
+- Removed about 400 unused imports across 31 files, most of them left over from the 3.7.5 `MainActivity.kt` split.
+
+### Documentation
+- `docs/LIMITATIONS.md` (EN/ES) now documents the real TCP/UDP timeouts and the retransmission backoff introduced in 3.7.4. `docs/FEATURES.md` describes the diagnostic report and its aggregate TCP counters.
+
+### Validation
+- No permission, rule or policy changes. Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions (brace/parenthesis balance of every edited file was checked against 3.7.5).
+
 ## [3.7.5] - 2026-11-24
 
 ### Diagnostics

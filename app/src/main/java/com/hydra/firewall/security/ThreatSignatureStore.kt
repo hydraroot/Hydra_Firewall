@@ -5,12 +5,10 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
-import java.util.zip.ZipFile
 
 /**
  * Local threat-signature database. It never trusts a downloaded pack until the

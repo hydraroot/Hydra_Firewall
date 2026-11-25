@@ -2,7 +2,6 @@ package com.hydra.firewall.vpn
 
 import android.content.Context
 import org.json.JSONArray
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.ArrayDeque
 import java.util.Date
@@ -129,11 +128,6 @@ object AppNetworkProfileStore {
     fun dismissAnomaly(id: Long) {
         anomalies.removeAll { it.id == id }
     }
-
-    @Synchronized
-    fun clearAnomalies() = anomalies.clear()
-
-    fun baselineSize(packageName: String): Int = baselineCache[packageName]?.size ?: loadBaseline(packageName).size
 
     private fun addAnomaly(pkg: String, host: String, port: Int, daysSinceUpdate: Double) {
         val event = UpdateAnomaly(

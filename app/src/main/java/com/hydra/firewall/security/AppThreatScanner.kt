@@ -71,7 +71,6 @@ object AppThreatScanner {
 
     fun isFullScanRunning(): Boolean = fullScanRunning.get()
     fun lastFullScan(context: Context): Long = prefs(context).getLong(KEY_LAST_FULL, 0L)
-    fun lastFullScanPack(context: Context): String = prefs(context).getString(KEY_LAST_PACK, "").orEmpty()
 
     fun findings(context: Context): List<Finding> {
         migrateOnce(context)

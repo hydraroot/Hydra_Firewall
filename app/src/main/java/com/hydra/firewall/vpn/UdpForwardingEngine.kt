@@ -5,7 +5,6 @@ import android.net.VpnService
 import android.os.Process
 import com.hydra.firewall.security.ThreatSignatureStore
 import com.hydra.firewall.security.SecurityEventStore
-import com.hydra.firewall.security.Severity
 import android.util.Log
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -13,7 +12,6 @@ import java.nio.channels.DatagramChannel
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.net.InetSocketAddress
-import java.nio.channels.ClosedChannelException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean

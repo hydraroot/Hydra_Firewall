@@ -18,5 +18,4 @@ object DirectBootState {
     }
 
     fun pending(context: Context): Boolean = prefs(context).getBoolean(KEY_PENDING, false)
-    fun lastLockedBoot(context: Context): Long = prefs(context).getLong(KEY_LAST_LOCKED, 0L)
 }

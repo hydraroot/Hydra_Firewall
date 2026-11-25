@@ -120,9 +120,6 @@ object AppCompatibilityPolicyStore {
     fun isProtectedCompatibility(packageName: String?): Boolean =
         getMode(packageName) == AppCompatibilityMode.ESSENTIAL
 
-    fun isExcluded(packageName: String?): Boolean =
-        getMode(packageName) == AppCompatibilityMode.EXCLUDED
-
     fun excludedPackages(): Set<String> {
         if (!::prefs.isInitialized) return emptySet()
         return prefs.all
@@ -133,12 +130,6 @@ object AppCompatibilityPolicyStore {
                 } else null
             }.toSet()
     }
-
-    fun isKnownReference(packageName: String?): Boolean =
-        packageName?.trim()?.let { knownReferencePackages.containsKey(it) } == true
-
-    fun referenceReason(packageName: String?): String? =
-        packageName?.trim()?.let { knownReferencePackages[it] }
 
     fun snapshot(): Map<String, Boolean> =
         snapshotModes().mapValues {
