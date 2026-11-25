@@ -2,7 +2,6 @@ package com.hydra.firewall.security
 
 import android.content.Context
 import java.io.File
-import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 
@@ -63,7 +62,7 @@ object ThreatIntelDomainStore {
                     w.newLine()
                 }
             }
-            val digest = sha256(tmp)
+            val digest = ThreatSignatureStore.sha256(tmp)
             tmpMeta.writeText(digest, Charsets.US_ASCII)
             if (!tmp.renameTo(target)) {
                 tmp.copyTo(target, overwrite = true)
@@ -74,7 +73,7 @@ object ThreatIntelDomainStore {
                 tmpMeta.delete()
             }
             // Re-read and verify the exact bytes we activated.
-            require(sha256(target).equals(digest, ignoreCase = true))
+            require(ThreatSignatureStore.sha256(target).equals(digest, ignoreCase = true))
             domains.set(cleaned.toHashSet())
             info.set(Info(cleaned.size, source.take(240), date.take(240)))
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -115,7 +114,7 @@ object ThreatIntelDomainStore {
         val meta = File(ctx.filesDir, META_NAME)
         if (!target.isFile || !meta.isFile) return
         val expected = runCatching { meta.readText(Charsets.US_ASCII).trim() }.getOrNull().orEmpty()
-        if (expected.isBlank() || !sha256(target).equals(expected, ignoreCase = true)) return
+        if (expected.isBlank() || !ThreatSignatureStore.sha256(target).equals(expected, ignoreCase = true)) return
         val set = runCatching {
             target.bufferedReader(Charsets.UTF_8).useLines { lines ->
                 lines.map(::normalize).filter { it.isNotBlank() }.take(MAX_DOMAINS + 1).toSet()
@@ -129,16 +128,4 @@ object ThreatIntelDomainStore {
 
     private fun normalize(value: String): String = value.trim().trimEnd('.').lowercase(Locale.US).removePrefix(".")
 
-    private fun sha256(file: File): String {
-        val md = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buf = ByteArray(64 * 1024)
-            while (true) {
-                val n = input.read(buf)
-                if (n <= 0) break
-                md.update(buf, 0, n)
-            }
-        }
-        return md.digest().joinToString("") { "%02x".format(it) }
-    }
 }

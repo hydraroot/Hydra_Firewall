@@ -1,5 +1,6 @@
 package com.hydra.firewall.vpn
 
+import com.hydra.firewall.notifyRulesChanged
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,12 +13,12 @@ class AlertActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_BLOCK -> {
                 val a = AlertStore.block(context, id) ?: return
-                notifyRules(context)
+                notifyRulesChanged(context)
                 NotificationHelper.notifyBlockUndo(context, a)
             }
             ACTION_UNDO -> {
                 AlertStore.unblock(context, id, AlertStore.Status.PENDING)
-                notifyRules(context)
+                notifyRulesChanged(context)
                 NotificationHelper.cancelBlockAlert(context, id)
             }
             ACTION_DISMISS -> {
@@ -25,11 +26,6 @@ class AlertActionReceiver : BroadcastReceiver() {
                 NotificationHelper.cancelBlockAlert(context, id)
             }
         }
-    }
-
-    private fun notifyRules(context: Context) {
-        if (!FirewallVpnService.isRunning) return
-        context.startService(Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_RULES_CHANGED })
     }
 
     companion object {

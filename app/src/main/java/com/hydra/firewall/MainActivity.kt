@@ -108,10 +108,9 @@ class MainActivity : AppCompatActivity() {
         ConnectionHistory.init(this)
         TempAllowManager.revertExpired(this)
         TrafficAnalyzerStore.init(this)
-        AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)
-        // Limpieza de datos locales de funciones retiradas (baseline de comportamiento y huellas TLS).
-        runCatching { deleteSharedPreferences("hydra_behavior_baselines"); deleteSharedPreferences("tls_fingerprint_store") }
+        // Limpieza de datos locales de funciones retiradas (baseline de comportamiento, huellas TLS y vigilancia de updates).
+        runCatching { deleteSharedPreferences("hydra_behavior_baselines"); deleteSharedPreferences("tls_fingerprint_store"); deleteSharedPreferences("app_network_profile") }
         appLocked = lockStore.enabled && lockStore.configured
         setContent {
             if (appLocked) {

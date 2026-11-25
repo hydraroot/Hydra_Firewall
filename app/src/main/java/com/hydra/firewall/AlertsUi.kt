@@ -1,7 +1,6 @@
 package com.hydra.firewall
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -32,17 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hydra.firewall.ui.theme.HydraCard
 import com.hydra.firewall.vpn.AlertStore
-import com.hydra.firewall.vpn.FirewallVpnService
 import com.hydra.firewall.vpn.IpBlockStore
 import kotlinx.coroutines.delay
 
 private val AlertRed = Color(0xFFF87171)
 private val AlertAmber = Color(0xFFFBBF24)
-
-private fun rulesChanged(context: Context) {
-    if (!FirewallVpnService.isRunning) return
-    context.startService(Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_RULES_CHANGED })
-}
 
 /**
  * Botón de acción reversible: al tocarlo ejecuta [onAction] y durante 5 s pasa a "Deshacer (n)". Si se toca, llama a
@@ -138,8 +131,8 @@ fun HomeAlertsCard(context: Context, english: Boolean) {
                                 english = english,
                                 actionLabel = if (english) "Block" else "Bloquear",
                                 color = AlertRed,
-                                onAction = { AlertStore.block(context, a.id); rulesChanged(context) },
-                                onUndo = { AlertStore.unblock(context, a.id, AlertStore.Status.PENDING); rulesChanged(context); rev++ },
+                                onAction = { AlertStore.block(context, a.id); notifyRulesChanged(context) },
+                                onUndo = { AlertStore.unblock(context, a.id, AlertStore.Status.PENDING); notifyRulesChanged(context); rev++ },
                                 onFinish = { rev++ }
                             )
                             if (a.status == AlertStore.Status.PENDING) {
@@ -203,13 +196,13 @@ fun BlockedDestinationsSection(context: Context, english: Boolean) {
                             onAction = {
                                 if (e.alertId != null) AlertStore.unblock(context, e.alertId) else IpBlockStore(context).remove(e.ip)
                                 held = held + (e.key to e)
-                                rulesChanged(context)
+                                notifyRulesChanged(context)
                                 rev++
                             },
                             onUndo = {
                                 if (e.alertId != null) AlertStore.block(context, e.alertId) else IpBlockStore(context).add(e.ip)
                                 held = held - e.key
-                                rulesChanged(context)
+                                notifyRulesChanged(context)
                                 rev++
                             },
                             onFinish = { held = held - e.key; rev++ }

@@ -330,27 +330,6 @@ object DecisionRequestManager {
      * self-test so a stale notification from the restart race cannot survive
      * and ask the user about HYDRA itself.
      */
-    fun cancelUid(uid: Int) {
-        val removed = synchronized(this) {
-            val targets = byToken.values.filter { it.uid == uid }.distinctBy { it.token }
-            targets.forEach { request ->
-                request.sessionKeys.forEach { byKey.remove(it) }
-                byPromptKey.remove(request.promptKey)
-                byToken.remove(request.token)
-                endRequest(request.token)
-            }
-            targets
-        }
-        if (removed.isNotEmpty()) {
-            val ctx = contextRef
-            removed.forEach { request ->
-                ctx?.let { NotificationHelper.clearAccessRequestNotification(it, request.token) }
-            }
-            DiagnosticLogger.logServiceEvent(
-                "ACCESS_PROMPTS_CANCELLED_UID uid=$uid count=${removed.size}"
-            )
-        }
-    }
 
     /** Re-publish all pending request notifications after the VPN service is recreated.
      * The requests themselves remain in memory while the app process is alive; the
@@ -581,8 +560,4 @@ object DecisionRequestManager {
         }
     }
 
-    private fun formatEndpoint(addr: java.net.InetAddress, port: Int): String {
-        val host = addr.hostAddress ?: "?"
-        return if (host.contains(':')) "[$host]:$port" else "$host:$port"
-    }
 }

@@ -158,7 +158,6 @@ class FirewallVpnService : VpnService() {
                 if (result.success && !result.skipped && running.get()) refreshPolicyEngines()
             }
         }
-        AppNetworkProfileStore.init(this)
         ServiceTamperMonitor.init(this)
         quarantineManager = QuarantineManager(this)
         dozeAnomalyMonitor = DozeAnomalyMonitor(this)

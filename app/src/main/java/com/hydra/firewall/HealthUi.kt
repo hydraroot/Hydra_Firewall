@@ -237,7 +237,7 @@ fun AppNotWorkingAssistant(context: Context, english: Boolean, onDismiss: () -> 
                                         TextButton(onClick = {
                                             ruleStore.setWifiAllowed(g.uid, true)
                                             ruleStore.setMobileAllowed(g.uid, true)
-                                            notifyRules(context)
+                                            notifyRulesChanged(context)
                                             done = done + g.uid
                                         }) { Text(if (english) "Allow app" else "Permitir app", fontSize = 12.sp) }
                                         TextButton(onClick = {
@@ -265,12 +265,5 @@ fun AppNotWorkingAssistant(context: Context, english: Boolean, onDismiss: () -> 
         dismissButton = {
             if (step < 2) TextButton(onClick = onDismiss) { Text(if (english) "Cancel" else "Cancelar") }
         }
-    )
-}
-
-private fun notifyRules(context: Context) {
-    if (!FirewallVpnService.isRunning) return
-    context.startService(
-        android.content.Intent(context, FirewallVpnService::class.java).apply { action = FirewallVpnService.ACTION_RULES_CHANGED }
     )
 }

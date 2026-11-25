@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.7.7] - 2026-11-24
+
+### Removed
+- **Update watch** (Security Center toggle, "Flagged new destinations" list and its 1-30 day window). It never worked: the code that records each app's destinations was never connected to the network engines, so the list was always empty. The feature, its storage (`AppNetworkProfileStore`) and the related lifecycle hooks are gone, and its leftover local preferences are deleted on start.
+- Dead code with no callers: `DecisionRequestManager.cancelUid` (left over from a removed self-test) and `ThreatSignatureStore.lookupSha256` (the scanner already looks hashes up itself).
+
+### Deduplicated
+- `formatEndpoint` (5 identical copies) is now one shared function; `sha256(file)` (2 copies) and the "rules changed" notifier (3 copies) are single implementations. The IPv4/IPv6 TCP and UDP engines are intentionally untouched.
+
+### Help and documentation
+- In-app Help (English and Spanish): removed every mention of Update watch, documented that the diagnostic report now includes aggregate TCP counters, and added the TCP idle timeouts and large-upload notes to "If an app does not work". README (EN/ES) and `docs/FEATURES.md` updated to match.
+
+### Validation
+- No permission or rule changes. Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions (brace/parenthesis balance of every edited file was checked against 3.7.6; unused imports were cleaned again).
+
 ## [3.7.6] - 2026-11-24
 
 ### Maintenance

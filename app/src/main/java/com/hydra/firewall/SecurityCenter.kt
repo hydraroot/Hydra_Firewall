@@ -59,8 +59,8 @@ fun SecurityCenterTab(context: Context, language: AppLanguage, advancedMode: Boo
             Spacer(Modifier.height(4.dp))
             Text(
                 if (advancedMode) {
-                    if (english) "Protection status, quarantine, update watch, APK scanner (experimental), traffic correlation and Doze."
-                    else "Estado de la protección, cuarentena, vigilancia de updates, analizador APK (experimental), correlación de tráfico y Doze."
+                    if (english) "Protection status, quarantine, APK scanner (experimental), traffic correlation and Doze."
+                    else "Estado de la protección, cuarentena, analizador APK (experimental), correlación de tráfico y Doze."
                 } else {
                     if (english) "Is your phone protected, and which apps deserve a look."
                     else "Si tu teléfono está protegido y qué apps conviene revisar."
@@ -80,9 +80,8 @@ fun SecurityCenterTab(context: Context, language: AppLanguage, advancedMode: Boo
                 statusSection(this, context, english, quarantineManager, refreshTrigger, advancedMode)
                 tamperNotice(this, english, refreshTrigger) { refreshTrigger++ }
                 if (!advancedMode) {
-                    // One screen for everyone else: quarantine and update watch live right here.
+                    // One screen for everyone else: quarantine lives right here.
                     quarantineSection(this, context, english, quarantineManager, refreshTrigger) { refreshTrigger++ }
-                    updateWatchSection(this, context, english, refreshTrigger) { refreshTrigger++ }
                 }
                 securityHistory(this, context, english, refreshTrigger)
                 if (!advancedMode) {
@@ -104,7 +103,6 @@ fun SecurityCenterTab(context: Context, language: AppLanguage, advancedMode: Boo
             SecuritySection.APK_SCANNER -> apkScannerSection(this, context, english, refreshTrigger)
             SecuritySection.BEHAVIOR -> behaviorSection(this, context, english, refreshTrigger)
             SecuritySection.QUARANTINE -> quarantineSection(this, context, english, quarantineManager, refreshTrigger) { refreshTrigger++ }
-            SecuritySection.UPDATE_WATCH -> updateWatchSection(this, context, english, refreshTrigger) { refreshTrigger++ }
             SecuritySection.DOZE -> dozeSection(this, english, refreshTrigger)
         }
 
@@ -501,7 +499,7 @@ private fun ControlPanelCard(context: Context, english: Boolean, refreshTrigger:
     }
 }
 
-private enum class SecuritySection { STATUS, QUARANTINE, UPDATE_WATCH, APK_SCANNER, BEHAVIOR, DOZE }
+private enum class SecuritySection { STATUS, QUARANTINE, APK_SCANNER, BEHAVIOR, DOZE }
 
 private val TOOL_SECTIONS = listOf(SecuritySection.APK_SCANNER, SecuritySection.BEHAVIOR, SecuritySection.DOZE)
 
@@ -523,8 +521,7 @@ private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun SecuritySectionPicker(current: SecuritySection, english: Boolean, onPick: (SecuritySection) -> Unit) {
     val main = listOf(
         SecuritySection.STATUS to (if (english) "Protection" else "Protección"),
-        SecuritySection.QUARANTINE to (if (english) "Quarantine" else "Cuarentena"),
-        SecuritySection.UPDATE_WATCH to (if (english) "Update watch" else "Vigilar updates")
+        SecuritySection.QUARANTINE to (if (english) "Quarantine" else "Cuarentena")
     )
     val toolLabels = mapOf(
         SecuritySection.APK_SCANNER to (if (english) "APK scanner (experimental)" else "Analizar APK (experimental)"),
@@ -822,62 +819,6 @@ private fun quarantineSection(
                     OutlinedButton(onClick = { manager.review(context, entry.packageName, entry.uid, false, false); onChanged() }) {
                         Text(if (english) "Keep blocked" else "Mantener bloqueada", fontSize = 12.sp)
                     }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 3) Post-update destination-anomaly watch
-// ---------------------------------------------------------------------------
-private fun updateWatchSection(
-    scope: androidx.compose.foundation.lazy.LazyListScope,
-    context: Context,
-    english: Boolean,
-    refreshTrigger: Int,
-    onChanged: () -> Unit
-) = with(scope) {
-    item {
-        var enabled by remember { mutableStateOf(AppNetworkProfileStore.isEnabled()) }
-        var windowDays by remember { mutableStateOf(AppNetworkProfileStore.reviewWindowDays) }
-        SectionCard {
-            RowSwitch(if (english) "Watch apps after they update" else "Vigilar apps después de actualizarse", enabled) {
-                enabled = it; AppNetworkProfileStore.setEnabled(context, it)
-            }
-            Text(
-                if (english) "Builds a baseline of destinations each app normally talks to. If it contacts a destination it's never used before, shortly after an update, that's flagged here for review."
-                else "Arma un perfil de a qué destinos habla normalmente cada app. Si contacta un destino que nunca usó antes, poco después de actualizarse, queda marcado acá para revisar.",
-                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(if (english) "Review window: $windowDays days after update" else "Ventana de revisión: $windowDays días después del update", fontSize = 11.sp)
-            Slider(
-                value = windowDays.toFloat(), onValueChange = { windowDays = it.toInt() },
-                valueRange = 1f..30f, steps = 28,
-                onValueChangeFinished = { AppNetworkProfileStore.reviewWindowDays = windowDays }
-            )
-        }
-    }
-    val anomalies = AppNetworkProfileStore.anomalySnapshot()
-    item {
-        Spacer(Modifier.height(8.dp))
-        Text(if (english) "Flagged new destinations (${anomalies.size})" else "Destinos nuevos marcados (${anomalies.size})", style = MaterialTheme.typography.titleSmall)
-    }
-    if (anomalies.isEmpty()) {
-        item { Text(if (english) "Nothing flagged." else "Nada marcado.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    } else {
-        items(anomalies.take(80)) { a ->
-            SmallCard(background = MaterialTheme.colorScheme.surfaceVariant) {
-                Text(a.packageName, fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                Text("${a.destination}:${a.port}", fontSize = 12.sp)
-                Text(
-                    if (english) "${"%.1f".format(a.daysSinceUpdate)} days after update • ${a.time}"
-                    else "${"%.1f".format(a.daysSinceUpdate)} días después del update • ${a.time}",
-                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = { AppNetworkProfileStore.dismissAnomaly(a.id); onChanged() }) {
-                    Text(if (english) "Dismiss" else "Descartar", fontSize = 11.sp)
                 }
             }
         }

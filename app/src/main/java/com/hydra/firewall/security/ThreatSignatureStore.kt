@@ -164,12 +164,6 @@ object ThreatSignatureStore {
         return "${pack.version}|${pack.generatedAt}"
     }
 
-    fun lookupSha256(context: Context, hash: String): ThreatSignatureMatch? {
-        init(context)
-        if (!isEnabled(context)) return null
-        return active.get().sha256[hash.trim().lowercase(Locale.US)]
-    }
-
     fun matchDomain(context: Context, domain: String): NetworkMatch? {
         init(context)
         if (!isNetworkBlockEnabled(context)) return null
@@ -460,7 +454,7 @@ object ThreatSignatureStore {
         }
     }
 
-    private fun sha256(file: File): String {
+    internal fun sha256(file: File): String {
         val md = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
             val buf = ByteArray(64 * 1024)

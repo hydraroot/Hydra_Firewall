@@ -764,9 +764,4 @@ class Ipv6UdpForwardingEngine(
         DiagnosticLogger.logUdpRuntime(session.key, session.uid, session.packageName, "CLOSED")
     }
 
-    private fun formatEndpoint(addr: java.net.InetAddress, port: Int): String {
-        val host = addr.hostAddress ?: "?"
-        return if (host.contains(':')) "[$host]:$port" else "$host:$port"
-    }
-
 }

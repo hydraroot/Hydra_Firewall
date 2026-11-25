@@ -1,5 +1,6 @@
 package com.hydra.firewall
 
+import com.hydra.firewall.vpn.formatEndpoint
 import android.os.Bundle
 import com.hydra.firewall.ui.theme.HydraCard
 import android.widget.ImageView
@@ -611,9 +612,4 @@ private fun settingsTheme(context: android.content.Context): ThemeMode {
             .getString("theme_mode", ThemeMode.DARK.name)
             ?.let(ThemeMode::valueOf)
     }.getOrNull() ?: ThemeMode.DARK
-}
-
-private fun formatEndpoint(addr: java.net.InetAddress, port: Int): String {
-    val host = addr.hostAddress ?: "?"
-    return if (host.contains(':')) "[$host]:$port" else "$host:$port"
 }

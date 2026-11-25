@@ -10,9 +10,9 @@ import com.hydra.firewall.security.AppThreatScanner
  * Dynamically-registered receiver (manifest-declared PACKAGE_ADDED/REPLACED
  * receivers are heavily restricted on modern Android, so this is registered
  * for the lifetime of the VPN service instead) that feeds two independent
- * features from the same two system broadcasts:
+ * features from the same system broadcasts:
  *  - QuarantineManager: brand-new installs start blocked until reviewed.
- *  - AppNetworkProfileStore: app updates start a "watch for new destinations" window.
+ *  - AppThreatScanner: apps are re-scanned when installed or updated and forgotten when removed.
  */
 class AppLifecycleWatcher(
     private val context: Context,
@@ -54,13 +54,11 @@ class AppLifecycleWatcher(
                 if (!quarantineScanScheduled) AppThreatScanner.onPackageChanged(ctx, packageName)
             }
             Intent.ACTION_PACKAGE_REPLACED -> {
-                AppNetworkProfileStore.onAppUpdated(packageName)
                 AppThreatScanner.onPackageChanged(ctx, packageName)
                 onRulesChanged()
             }
             Intent.ACTION_PACKAGE_FULLY_REMOVED -> {
                 quarantineManager.onPackageRemoved(packageName)
-                AppNetworkProfileStore.onAppRemoved(packageName)
                 AppThreatScanner.onPackageRemoved(ctx, packageName)
                 onRulesChanged()
             }

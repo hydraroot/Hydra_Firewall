@@ -16,7 +16,7 @@
 </p>
 
 
-> **Status: beta / pre-release validation** (version `3.7.6`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
+> **Status: beta / pre-release validation** (version `3.7.7`, see [`docs/VERSIONING.md`](docs/VERSIONING.md)). Test it on a non-critical device before relying on it.
 > **Hydra is a firewall, not an antivirus.** Read [What Hydra does NOT do](#what-hydra-does-not-do) before relying on it.
 
 ---
@@ -112,7 +112,7 @@ Short overview below. Every feature is explained in detail in [`docs/FEATURES.md
 - **PIN** of **5 to 8 digits** (PBKDF2, 120,000 iterations). **Fingerprint unlock is optional and OFF by default**; it becomes available only after Protect app with PIN is enabled. Wrong attempts add growing delays (15 s up to 5 min) that survive restarts and cannot be shortened by changing the phone's clock. PINs of 4 digits created by older versions keep working until you change them. `allowBackup=false`.
 - **Tamper and recovery monitoring**: a notification and a card when the VPN stops by itself, Doze correlation (Advanced), restart after boot. Redundant IP/port rules are cleaned up in *Apps → IP and ports → Cleanup* (Advanced).
 - **Configuration export/import** (rules, schedules, advanced rules, IP exceptions) as a file that is portable by app name, with automatic undo.
-- **Normal and Advanced mode**, English/Spanish UI, six visual themes with light/dark/system appearance, battery options. **Normal mode is deliberately simple**: Security is one screen (status, suspicious apps with a plain-language reason, quarantine, update watch and security history), the first-connection prompt has just *Allow* / *Block* (everything else under *More options*), and Settings shows only the basics. A short first-run guide explains the three things that matter. **Advanced mode** adds IP and ports, Profiles, the Analyzer, the experimental APK scanner, traffic correlation, Doze and the technical settings.
+- **Normal and Advanced mode**, English/Spanish UI, six visual themes with light/dark/system appearance, battery options. **Normal mode is deliberately simple**: Security is one screen (status, suspicious apps with a plain-language reason, quarantine and security history), the first-connection prompt has just *Allow* / *Block* (everything else under *More options*), and Settings shows only the basics. A short first-run guide explains the three things that matter. **Advanced mode** adds IP and ports, Profiles, the Analyzer, the experimental APK scanner, traffic correlation, Doze and the technical settings.
 
 ## Updates and network activity
 

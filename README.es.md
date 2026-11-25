@@ -16,7 +16,7 @@
 </p>
 
 
-> **Estado: beta / validación previa a publicación** (versión `3.7.6`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
+> **Estado: beta / validación previa a publicación** (versión `3.7.7`, ver [`docs/es/VERSIONING.md`](docs/es/VERSIONING.md)). Probala en un dispositivo no crítico antes de confiar en ella.
 > **Hydra es un firewall, no un antivirus.** Leé [Lo que Hydra NO hace](#lo-que-hydra-no-hace) antes de confiar en ella.
 
 ---
@@ -111,7 +111,7 @@ Resumen corto. Cada función está explicada en detalle en [`docs/FEATURES.md`](
 - **PIN de 5 a 8 dígitos** (PBKDF2, 120.000 iteraciones). La **huella es opcional y viene desactivada**; solo se puede habilitar después de activar Proteger app con PIN. Los intentos fallidos agregan esperas crecientes (de 15 s hasta 5 min) que sobreviven a reinicios y no se pueden acortar cambiando el reloj del teléfono. Los PIN de 4 dígitos creados por versiones anteriores siguen funcionando hasta que los cambies. `allowBackup=false`.
 - **Monitoreo de manipulación y recuperación**: una notificación y una tarjeta cuando la VPN se detiene sola, correlación con Doze (Avanzado), reinicio tras el arranque. Las reglas de IP/puerto redundantes se limpian en *Apps → IP y puertos → Limpieza* (Avanzado).
 - **Exportar/importar configuración** (reglas, horarios, reglas avanzadas, excepciones de IP) como un archivo portable por nombre de app, con deshacer automático.
-- **Modo Normal y Avanzado**, interfaz en español/inglés, seis temas visuales con apariencia clara/oscura/según el sistema y opciones de batería. **El modo Normal es simple a propósito**: Seguridad es una sola pantalla (estado, apps sospechosas con el motivo en lenguaje simple, cuarentena, vigilancia de updates e historial de seguridad), el aviso de primera conexión tiene solo *Permitir* / *Bloquear* (lo demás en *Más opciones*) y Ajustes muestra solo lo básico. Una guía corta la primera vez explica lo esencial. El **modo Avanzado** agrega IP y puertos, Perfiles, el Analizador, el analizador APK experimental, la correlación de tráfico, Doze y los ajustes técnicos.
+- **Modo Normal y Avanzado**, interfaz en español/inglés, seis temas visuales con apariencia clara/oscura/según el sistema y opciones de batería. **El modo Normal es simple a propósito**: Seguridad es una sola pantalla (estado, apps sospechosas con el motivo en lenguaje simple, cuarentena e historial de seguridad), el aviso de primera conexión tiene solo *Permitir* / *Bloquear* (lo demás en *Más opciones*) y Ajustes muestra solo lo básico. Una guía corta la primera vez explica lo esencial. El **modo Avanzado** agrega IP y puertos, Perfiles, el Analizador, el analizador APK experimental, la correlación de tráfico, Doze y los ajustes técnicos.
 
 ## Qué hace la IA incorporada
 

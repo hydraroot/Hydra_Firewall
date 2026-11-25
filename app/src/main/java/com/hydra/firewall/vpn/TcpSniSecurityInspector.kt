@@ -115,8 +115,4 @@ internal object TcpSniSecurityInspector {
         return true
     }
 
-    private fun formatEndpoint(address: java.net.InetAddress, port: Int): String {
-        val host = address.hostAddress ?: "?"
-        return if (host.contains(':')) "[$host]:$port" else "$host:$port"
-    }
 }
