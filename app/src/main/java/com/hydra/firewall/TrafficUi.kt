@@ -91,29 +91,44 @@ internal fun LiveTrafficChart(history: List<Pair<Float, Float>>) {
 }
 
 @Composable
-internal fun TrafficTotalsBarChart(allowedBytes: Long, blockedBytes: Long) {
+internal fun TrafficTotalsBarChart(allowedTxBytes: Long, allowedRxBytes: Long, blockedBytes: Long) {
     val context = LocalContext.current
-    val allowedColor = Color(0xFF2E7D32)
+    val english = AppSettings(context).language.isEnglish()
+    val allowedOutColor = Color(0xFF2E7D32)
+    val allowedInColor = Color(0xFF1B5E20)
     val blockedColor = Color(0xFFC62828)
+    val allowedBytes = allowedTxBytes + allowedRxBytes
     val max = maxOf(allowedBytes, blockedBytes, 1L).toDouble()
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(if (AppSettings(context).language.isEnglish()) "Traffic volume" else "Volumen de tráfico", style = MaterialTheme.typography.titleSmall)
+        Text(if (english) "Traffic volume" else "Volumen de tráfico", style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(8.dp).height(24.dp).background(allowedColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
+            Box(Modifier.width(8.dp).height(24.dp).background(allowedOutColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
             Spacer(Modifier.width(6.dp))
-            Text(if (AppSettings(context).language.isEnglish()) "Allowed" else "Permitido", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
+            Text(if (english) "Allowed" else "Permitido", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.weight(1f).height(24.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth((allowedBytes.toDouble() / max).toFloat()).background(allowedColor))
+                Row(Modifier.fillMaxHeight().fillMaxWidth((allowedBytes.toDouble() / max).toFloat())) {
+                    if (allowedTxBytes > 0L) Box(Modifier.fillMaxHeight().weight(allowedTxBytes.toFloat()).background(allowedOutColor))
+                    if (allowedRxBytes > 0L) Box(Modifier.fillMaxHeight().weight(allowedRxBytes.toFloat()).background(allowedInColor))
+                }
             }
             Spacer(Modifier.width(8.dp))
             Text(formatBytes(allowedBytes), style = MaterialTheme.typography.labelSmall)
+        }
+        Row(Modifier.fillMaxWidth().padding(start = 86.dp, top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(8.dp).height(8.dp).background(allowedOutColor, androidx.compose.foundation.shape.CircleShape))
+            Spacer(Modifier.width(4.dp))
+            Text((if (english) "Outgoing " else "Saliente ") + formatBytes(allowedTxBytes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.width(8.dp).height(8.dp).background(allowedInColor, androidx.compose.foundation.shape.CircleShape))
+            Spacer(Modifier.width(4.dp))
+            Text((if (english) "Incoming " else "Entrante ") + formatBytes(allowedRxBytes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(8.dp).height(24.dp).background(blockedColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
             Spacer(Modifier.width(6.dp))
-            Text(if (AppSettings(context).language.isEnglish()) "Blocked" else "Bloqueado", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
+            Text(if (english) "Blocked" else "Bloqueado", Modifier.width(72.dp), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.weight(1f).height(24.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth((blockedBytes.toDouble() / max).toFloat()).background(blockedColor))
             }

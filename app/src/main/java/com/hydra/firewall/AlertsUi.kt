@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -138,7 +140,7 @@ fun HomeAlertsCard(context: Context, english: Boolean) {
                             if (a.status == AlertStore.Status.PENDING) {
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    if (english) "Leave" else "Dejar",
+                                    if (english) "Ignore" else "Ignorar",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
                                     modifier = Modifier.clip(RoundedCornerShape(50)).clickable { AlertStore.ignore(context, a.id); rev++ }
                                         .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -156,7 +158,7 @@ private data class BlockedEntry(val key: String, val title: String, val sub: Str
 
 /**
  * Sección de Reglas: todo lo que Hydra bloqueó por aviso o por IP manual, con "Desbloquear" que durante 5 s pasa a
- * "Deshacer". Se oculta si no hay nada bloqueado.
+ * "Deshacer". Si no hay nada bloqueado muestra un aviso; "Limpiar" desbloquea todo tras confirmar.
  */
 @Composable
 fun BlockedDestinationsSection(context: Context, english: Boolean) {
@@ -173,14 +175,56 @@ fun BlockedDestinationsSection(context: Context, english: Boolean) {
         fromAlerts + manual
     }
     val shown = entries + held.values.filter { h -> entries.none { it.key == h.key } }
-    if (shown.isEmpty()) return
-    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+    var confirmClear by remember { mutableStateOf(false) }
+    if (shown.isEmpty()) {
+        HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp)) {
             Text(
-                (if (english) "BLOCKED DESTINATIONS" else "DESTINOS BLOQUEADOS") + " · ${entries.size}",
-                style = MaterialTheme.typography.labelSmall,
+                if (english) "No blocked destinations." else "Sin destinos bloqueados.",
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+        return
+    }
+    if (confirmClear) {
+        AlertDialog(
+            containerColor = hydraDialogColors().first,
+            titleContentColor = hydraDialogColors().second,
+            textContentColor = hydraDialogColors().third,
+            onDismissRequest = { confirmClear = false },
+            title = { Text(if (english) "Clear blocked destinations?" else "¿Limpiar destinos bloqueados?", color = hydraDialogColors().second) },
+            text = {
+                Text(
+                    if (english) "All ${entries.size} blocked destinations will be unblocked." else "Se van a desbloquear los ${entries.size} destinos bloqueados.",
+                    color = hydraDialogColors().third
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    entries.forEach { e ->
+                        if (e.alertId != null) AlertStore.unblock(context, e.alertId) else IpBlockStore(context).remove(e.ip)
+                    }
+                    held = emptyMap()
+                    confirmClear = false
+                    notifyRulesChanged(context)
+                    rev++
+                }) { Text(if (english) "Unblock all" else "Desbloquear todo") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(if (english) "Cancel" else "Cancelar") } }
+        )
+    }
+    HydraCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    (if (english) "BLOCKED DESTINATIONS" else "DESTINOS BLOQUEADOS") + " · ${entries.size}",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = { confirmClear = true }) { Text(if (english) "Clear" else "Limpiar") }
+            }
             shown.forEach { e ->
                 key(e.key) {
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {

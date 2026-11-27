@@ -154,7 +154,7 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
         )
 
-    /** "La app X se conecta a Y — ¿la bloqueamos?" con botones Bloquear / Dejar. */
+    /** "La app X se conecta a Y — ¿la bloqueamos?" con botones Bloquear / Ignorar. */
     fun notifyBlockAlert(context: Context, alert: AlertStore.Alert) {
         ensureSecurityChannel(context)
         val english = AppSettings(context).language.isEnglish() ||
@@ -177,7 +177,7 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .addAction(0, if (english) "Block" else "Bloquear", alertActionIntent(context, AlertActionReceiver.ACTION_BLOCK, alert.id))
-            .addAction(0, if (english) "Leave" else "Dejar", alertActionIntent(context, AlertActionReceiver.ACTION_DISMISS, alert.id))
+            .addAction(0, if (english) "Ignore" else "Ignorar", alertActionIntent(context, AlertActionReceiver.ACTION_DISMISS, alert.id))
             .build()
         runCatching { (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(blockAlertNotificationId(alert.id), n) }
     }

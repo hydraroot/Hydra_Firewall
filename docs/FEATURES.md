@@ -225,7 +225,7 @@ notification and a card in Security.
 
 | Mode | Tabs |
 |---|---|
-| **Normal** (default) | Home · Apps (Rules) · Activity (Connections · Statistics) · Security (a single screen) · More (Settings with the basics · Help · About) |
+| **Normal** (default) | Home · Apps (Rules) · Activity (Connections · Blocked · Statistics) · Security (a single screen) · More (Settings with the basics · Help · About) |
 | **Advanced** | Adds IP/Ports (with Cleanup) · Profiles · Analyzer, the Security sections (Quarantine, APK scanner, Traffic correlation, Doze) and the technical settings (global mode, secure DNS, IPv6/roaming/screen-off, performance, permissive apps) |
 
 A short guide is shown the first time Hydra opens; it ends by choosing Normal or Advanced mode.

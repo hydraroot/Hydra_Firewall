@@ -200,13 +200,6 @@ object ThreatSignatureStore {
         return NetworkMatch(match, normalized)
     }
 
-    fun matchUrl(context: Context, url: String): NetworkMatch? {
-        init(context)
-        if (!isNetworkBlockEnabled(context)) return null
-        val normalized = url.trim().lowercase(Locale.US)
-        return active.get().urls[normalized]?.let { NetworkMatch(it, normalized) }
-    }
-
     fun recordNetworkBlock(context: Context) {
         init(context)
         refreshDailyCounter(context)

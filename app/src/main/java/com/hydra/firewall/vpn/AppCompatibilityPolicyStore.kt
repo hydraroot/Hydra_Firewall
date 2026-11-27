@@ -35,24 +35,6 @@ object AppCompatibilityPolicyStore {
 
     private lateinit var prefs: android.content.SharedPreferences
 
-    /**
-     * Public reference candidates based on the behavior documented by
-     * TrackerControl / DuckDuckGo: browsers and some web-content/system apps are
-     * commonly excluded because local VPN interception can break them.
-     * This is NOT an Android system trust list and nothing here is auto-excluded.
-     */
-    private val knownReferencePackages = mapOf(
-        "com.android.chrome" to "Referencia: navegador / posible incompatibilidad VPN",
-        "org.mozilla.firefox" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.microsoft.emmx" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.brave.browser" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.opera.browser" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.sec.android.app.sbrowser" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.duckduckgo.mobile.android" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.vivaldi.browser" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.kiwibrowser.browser" to "Referencia: navegador / posible incompatibilidad VPN",
-        "com.google.android.projection.gearhead" to "Referencia: Android Auto / compatibilidad de red"
-    )
 
     @Synchronized
     fun init(context: Context) {

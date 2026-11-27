@@ -36,7 +36,6 @@ object BlocklistUpdater {
     private const val MAX_COMBINED_DOMAINS = 900_000
 
     private val DATE_PATTERN = Pattern.compile("#\\s*(?:Date|Last modified):\\s*([^\\r\\n]+)")
-    private val COUNT_PATTERN = Pattern.compile("#\\s*Number of (?:unique )?domains?:\\s*([0-9][0-9,]*)", Pattern.CASE_INSENSITIVE)
     private val HOST_PATTERN = Pattern.compile("^0\\.0\\.0\\.0\\s+([^\\s#]+)")
     private val DOMAIN_PATTERN = Pattern.compile("^[a-zA-Z0-9](?:[a-zA-Z0-9\\-_.]*[a-zA-Z0-9])?\\.[a-zA-Z]{2,63}$")
     private val ADGUARD_PATTERN = Pattern.compile("^\\|\\|([^\\^/]+)\\^.*$")

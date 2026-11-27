@@ -213,7 +213,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 enum class RuleFilter { ALL, BLOCKED }
 
-enum class MainTab { PROTECTION, RULES, IP_PORTS, CONNECTIONS, ANALYZER, STATS, PROFILES, SECURITY, SETTINGS, HELP, ABOUT }
+enum class MainTab { PROTECTION, RULES, IP_PORTS, CONNECTIONS, ANALYZER, STATS, PROFILES, SECURITY, SETTINGS, HELP, ABOUT, BLOCKED}
 
 enum class AppListFilter { ALL, USER, SYSTEM, FAVORITES, HIGH_ACTIVITY }
 
@@ -412,7 +412,7 @@ fun FirewallScreen(
     val navGroups = listOf(
         NavGroup("home", 0, listOf(MainTab.PROTECTION)),
         NavGroup("apps", 1, listOf(MainTab.RULES, MainTab.IP_PORTS, MainTab.PROFILES)),
-        NavGroup("activity", 2, listOf(MainTab.CONNECTIONS, MainTab.STATS, MainTab.ANALYZER)),
+        NavGroup("activity", 2, listOf(MainTab.CONNECTIONS, MainTab.BLOCKED, MainTab.STATS, MainTab.ANALYZER)),
         NavGroup("security", 3, listOf(MainTab.SECURITY)),
         NavGroup("more", 4, listOf(MainTab.SETTINGS, MainTab.HELP, MainTab.ABOUT))
     )
@@ -431,6 +431,7 @@ fun FirewallScreen(
         MainTab.IP_PORTS -> tr(context,"ip_ports")
         MainTab.CONNECTIONS -> tr(context,"connections")
         MainTab.ANALYZER -> if (language.isEnglish()) "ANALYZER" else "ANALIZADOR"
+        MainTab.BLOCKED -> if (language.isEnglish()) "BLOCKED" else "BLOQUEADOS"
         MainTab.STATS -> tr(context,"stats")
         MainTab.PROFILES -> tr(context,"profiles")
         MainTab.SECURITY -> if (language.isEnglish()) "SECURITY" else "SEGURIDAD"
@@ -867,9 +868,6 @@ fun FirewallScreen(
                                 )
                             }
                             LazyColumn(Modifier.fillMaxSize(), state = rulesListState) {
-                                item(key = "blocked-destinations") {
-                                    Column(Modifier.padding(bottom = 6.dp)) { BlockedDestinationsSection(context, language.isEnglish()) }
-                                }
                                 items(visibleApps, key = { "${it.packageName}:${it.uid}" }) { app ->
                                     val rule = remember(ruleVersion) { ruleStore.getRule(app.uid) }
                                     val explicitRule = ruleStore.hasExplicitRule(app.uid)
@@ -1582,6 +1580,14 @@ fun FirewallScreen(
                     MainTab.ANALYZER -> {
                         TrafficAnalyzerScreen(context)
                     }
+                    MainTab.BLOCKED -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
+                        ) {
+                            item(key = "blocked-destinations") { BlockedDestinationsSection(context, language.isEnglish()) }
+                        }
+                    }
                     MainTab.STATS -> {
                         var statsRange by remember { mutableStateOf(1) } // 0 = today, 1 = 7 days
                         LazyColumn(
@@ -1603,7 +1609,7 @@ fun FirewallScreen(
                             item {
                                 Text(tr(context,"live_traffic"), style = MaterialTheme.typography.titleMedium)
                                 LiveTrafficChart(trafficHistory)
-                                TrafficTotalsBarChart(trafficTotals.allowedBytes, trafficTotals.blockedBytes)
+                                TrafficTotalsBarChart(trafficTotals.allowedTxBytes, trafficTotals.allowedRxBytes, trafficTotals.blockedBytes)
                                 Spacer(Modifier.height(6.dp))
                                 HydraCard(Modifier.fillMaxWidth()) {
                                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -1645,13 +1651,19 @@ fun FirewallScreen(
                                 val networkSummary = history.groupingBy { it.network.displayName }.eachCount()
                                 val ipv4Count = history.count { !extractHost(it.destination).contains(":") }
                                 val ipv6Count = history.count { extractHost(it.destination).contains(":") }
+                                val ipv6Label = when {
+                                    ipv6Count > 0 -> "IPv6 $ipv6Count"
+                                    blockIpv6 -> if (language.isEnglish()) "IPv6 blocked" else "IPv6 bloqueado"
+                                    isOn && !com.hydra.firewall.vpn.FirewallVpnService.ipv6Routed -> if (language.isEnglish()) "IPv6 n/a" else "IPv6 no disponible"
+                                    else -> "IPv6 0"
+                                }
                                 Text(if (language.isEnglish()) "Today" else "Hoy", style = MaterialTheme.typography.titleSmall)
                                 val today = daily.firstOrNull()
                                 Text(if (language.isEnglish()) "Allowed ${formatBytes(today?.allowed ?: trafficTotals.allowedBytes)} · Blocked ${formatBytes(today?.blocked ?: trafficTotals.blockedBytes)}" else "Permitido ${formatBytes(today?.allowed ?: trafficTotals.allowedBytes)} · Bloqueado ${formatBytes(today?.blocked ?: trafficTotals.blockedBytes)}", style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.height(4.dp))
                                 HydraHorizontalRow(Modifier.fillMaxWidth().height(34.dp)) {
                                     AssistChip(onClick = {}, label = { Text("IPv4 $ipv4Count") }); Spacer(Modifier.width(5.dp))
-                                    AssistChip(onClick = {}, label = { Text("IPv6 $ipv6Count") }); Spacer(Modifier.width(5.dp))
+                                    AssistChip(onClick = {}, label = { Text(ipv6Label) }); Spacer(Modifier.width(5.dp))
                                     protocolSummary.entries.sortedByDescending { it.value }.take(4).forEach { (proto,count) -> AssistChip(onClick = {}, label = { Text("$proto $count") }); Spacer(Modifier.width(5.dp)) }
                                     networkSummary.entries.sortedByDescending { it.value }.take(2).forEach { (net,count) -> AssistChip(onClick = {}, label = { Text("$net $count") }); Spacer(Modifier.width(5.dp)) }
                                 }
@@ -1662,7 +1674,7 @@ fun FirewallScreen(
                                 daily.forEach { day ->
                                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(day.key, style = MaterialTheme.typography.labelSmall)
-                                        Text("↑ ${formatBytes(day.allowed)}  ↓ ${formatBytes(day.blocked)}", style = MaterialTheme.typography.labelSmall)
+                                        Text((if (language.isEnglish()) "Allowed " else "Permitido ") + formatBytes(day.allowed) + " · " + (if (language.isEnglish()) "Blocked " else "Bloqueado ") + formatBytes(day.blocked), style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
                             }
@@ -1678,7 +1690,7 @@ fun FirewallScreen(
                                 if (destinationSummary.isNotEmpty()) {
                                     Text(if (language.isEnglish()) "Most active destinations" else "Destinos más activos", style = MaterialTheme.typography.titleSmall)
                                     destinationSummary.forEach { (destination, count) ->
-                                        Row(Modifier.fillMaxWidth().heightIn(min = 70.dp).padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("${serviceLabel(destination)}  $destination", fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.weight(1f))
                                             Text("$count", style = MaterialTheme.typography.bodySmall)
                                         }

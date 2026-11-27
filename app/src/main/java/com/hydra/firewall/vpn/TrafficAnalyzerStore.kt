@@ -81,10 +81,4 @@ object TrafficAnalyzerStore {
         }
     }
 
-    fun isYoutube(packageName: String?, domain: String?, destination: String?): Boolean {
-        val pkg = packageName?.lowercase(Locale.US).orEmpty()
-        if (pkg == "com.google.android.youtube" || pkg.contains("youtube")) return true
-        val text = (domain.orEmpty() + " " + destination.orEmpty()).lowercase(Locale.US)
-        return text.contains("youtube") || text.contains("googlevideo") || text.contains("ytimg")
-    }
 }

@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.7.8] - 2026-11-27
+
+### Changed
+- Connection alerts: the "Leave" / "Dejar" button is now **Ignore** / **Ignorar**. It always did nothing (the alert is marked as ignored; no allow or block rule is created), and the new name says so. Applies to the notification and to the Home alert card.
+- **Blocked destinations** moved from Rules to a new **Blocked** tab under Activity (Connections, Blocked, Statistics, Analyzer). The list shows a message when empty and has a **Clear** button that unblocks every listed destination after a confirmation dialog (these are active blocks, not a history, so clearing them removes the blocks).
+- Statistics: rows of **Most active destinations** are now compact (the fixed 70 dp minimum height is gone).
+- Statistics: the **IPv6** chip shows "n/a" when Hydra is not routing IPv6 (the network has no global IPv6) and "blocked" when Block IPv6 is on, instead of an ambiguous 0. If IPv6 connections exist, the count is shown as before.
+- **Traffic volume**: allowed traffic is split into outgoing (green) and incoming (darker green) with a legend. Blocked traffic stays a single red bar because Hydra only measures what an app tried to send; blocked incoming traffic never exists.
+- Statistics, last 7 days: the "↑ allowed ↓ blocked" arrows are now written out as "Allowed X · Blocked Y", since the arrows looked like upload/download.
+
+### Removed
+- Code with no callers: `TrafficAnalyzerStore.isYoutube`, `ThreatSignatureStore.matchUrl`, `BlocklistUpdater.COUNT_PATTERN` and `AppCompatibilityPolicyStore.knownReferencePackages`.
+
+### Help and documentation
+- In-app Help (English and Spanish) and `docs/FEATURES.md` describe the Blocked tab, the Ignore button, the split traffic bar and the IPv6 chip states.
+
+### Validation
+- UI only; no network-engine, permission or rule logic changed. Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions (brace/parenthesis balance of every edited file was checked against 3.7.7).
+
 ## [3.7.7] - 2026-11-24
 
 ### Removed

@@ -47,7 +47,6 @@ import com.hydra.firewall.vpn.AppNames
 import com.hydra.firewall.vpn.ConnectionHistory
 import com.hydra.firewall.vpn.DnsIpCorrelationStore
 import com.hydra.firewall.vpn.DomainBlockStore
-import com.hydra.firewall.vpn.FirewallVpnService
 import com.hydra.firewall.vpn.RuleStore
 import com.hydra.firewall.vpn.TempAllowManager
 import java.net.InetAddress

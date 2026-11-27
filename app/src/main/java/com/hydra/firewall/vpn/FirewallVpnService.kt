@@ -55,6 +55,11 @@ class FirewallVpnService : VpnService() {
         var isRunning: Boolean = false
             private set
 
+        /** True while the VPN routes IPv6 (usable global IPv6 on the physical network, or Block IPv6 is on). */
+        @Volatile
+        var ipv6Routed: Boolean = false
+            private set
+
         @Volatile
         var activeTcpSessions: Int = 0
             private set
@@ -310,8 +315,10 @@ class FirewallVpnService : VpnService() {
             // NAT64 (RFC 6052 / RFC 8215): evita fuga en redes DNS64/464XLAT.
             builder.addRoute("64:ff9b::", 96)
             builder.addRoute("64:ff9b:1::", 48)
+            ipv6Routed = true
             DiagnosticLogger.logServiceEvent("VPN IPv6 ENABLED physical_ipv6=true")
         } else {
+            ipv6Routed = false
             DiagnosticLogger.logServiceEvent("VPN IPv6 DISABLED physical_ipv6=false reason=NO_GLOBAL_PHYSICAL_IPV6")
         }
 

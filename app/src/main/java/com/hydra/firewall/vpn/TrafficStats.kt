@@ -125,10 +125,16 @@ object TrafficStatsStore {
     fun totals(): Totals {
         flushPendingDailyUsage()
         var allowed = 0L
+        var allowedTx = 0L
+        var allowedRx = 0L
         var blocked = 0L
         var blockedPackets = 0L
         for (s in stats.values) {
-            allowed += s.txBytes.get() + s.rxBytes.get()
+            val tx = s.txBytes.get()
+            val rx = s.rxBytes.get()
+            allowedTx += tx
+            allowedRx += rx
+            allowed += tx + rx
             blocked += s.blockedBytes.get()
             blockedPackets += s.blocked.get()
         }
@@ -143,13 +149,15 @@ object TrafficStatsStore {
                 lastDailyFlushMs = now
             }
         }
-        return Totals(allowedBytes = allowed, blockedBytes = blocked, blockedPackets = blockedPackets)
+        return Totals(allowedBytes = allowed, blockedBytes = blocked, blockedPackets = blockedPackets, allowedTxBytes = allowedTx, allowedRxBytes = allowedRx)
     }
 
     data class Totals(
         val allowedBytes: Long,
         val blockedBytes: Long,
-        val blockedPackets: Long
+        val blockedPackets: Long,
+        val allowedTxBytes: Long = 0L,
+        val allowedRxBytes: Long = 0L
     )
 
     fun clear() {
