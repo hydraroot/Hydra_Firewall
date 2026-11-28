@@ -1,8 +1,8 @@
 package com.hydra.firewall
 
+import androidx.compose.ui.platform.LocalConfiguration
 import android.content.Context
 import com.hydra.firewall.ui.theme.HydraCard
-import java.util.Locale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun HelpScreen(context: Context, language: AppLanguage) {
-    val en = language.isEnglish() || (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+    val en = language.isEnglish() || (language == AppLanguage.SYSTEM && LocalConfiguration.current.locales[0].language.equals("en", true))
     val title = if (en) "How to use Hydra Firewall" else "Cómo usar Hydra Firewall"
     val intro = if (en) {
         "Hydra Firewall is a no-root Android firewall. It uses Android's local VPN/TUN interface to inspect and filter application traffic. You do not need root access."

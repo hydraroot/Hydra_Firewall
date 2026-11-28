@@ -1,5 +1,6 @@
 package com.hydra.firewall.vpn
 
+import androidx.annotation.RequiresApi
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -694,6 +695,7 @@ class FirewallVpnService : VpnService() {
         super.onRevoke()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotificationChannel() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(

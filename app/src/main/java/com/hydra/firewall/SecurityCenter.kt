@@ -1,5 +1,6 @@
 package com.hydra.firewall
 
+import androidx.compose.ui.platform.LocalConfiguration
 import android.content.Context
 import com.hydra.firewall.ui.theme.HydraCard
 import android.net.Uri
@@ -39,7 +40,7 @@ import java.util.Locale
 @Composable
 fun SecurityCenterTab(context: Context, language: AppLanguage, advancedMode: Boolean = false, onEnableAdvanced: () -> Unit = {}) {
     val english = language.isEnglish() ||
-        (language == AppLanguage.SYSTEM && Locale.getDefault().language.equals("en", true))
+        (language == AppLanguage.SYSTEM && LocalConfiguration.current.locales[0].language.equals("en", true))
     var refreshTrigger by remember { mutableStateOf(0) }
     val ipBlockStore = remember { IpBlockStore(context) }
     val advancedRuleStore = remember { AdvancedRuleStore(context) }
