@@ -305,11 +305,11 @@ object DecisionRequestManager {
         val token = request.token
         if (promptWatchdogs.containsKey(token)) return
         val startedAt = System.currentTimeMillis()
-        val future = promptExecutor.scheduleAtFixedRate({
+        val future = promptExecutor.scheduleWithFixedDelay({
             val live = byToken[token]
             if (live == null || System.currentTimeMillis() - startedAt >= PROMPT_WATCHDOG_MAX_MS) {
                 promptWatchdogs.remove(token)?.cancel(false)
-                return@scheduleAtFixedRate
+                return@scheduleWithFixedDelay
             }
             if (launchPromptActivity(context.applicationContext, token, live, "WATCHDOG")) {
                 promptWatchdogs.remove(token)?.cancel(false)
