@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.9.0] - 2026-11-27
+
+### Build
+- Gradle wrapper `8.11.1` -> `8.14.8` (distribution checksum updated). Gradle 8.14.8 is the latest 8.x patch (2026-11-19) and fixes four security vulnerabilities in Gradle's own dependencies. Android Gradle Plugin 8.10.1 and Kotlin 2.2.21 are unchanged and compatible.
+
+### Fixed
+- First-connection prompt watchdog (`DecisionRequestManager`): it now uses `scheduleWithFixedDelay` instead of `scheduleAtFixedRate`. If Android froze the process, the fixed-rate timer could fire many times in a row after waking up and relaunch the prompt repeatedly; the fixed-delay timer waits the full period after each run.
+
+### Not changed on purpose
+- AndroidX libraries (`core-ktx`, `activity-compose`, `lifecycle-runtime-ktx`, `fragment-ktx`, `appcompat`) stay as they are. `core` 1.18 and later require `compileSdk` 36.1, which Android Gradle Plugin 8.10.1 does not support, and the newer libraries follow that requirement. Moving to them needs a coordinated AGP + `compileSdk` upgrade, not a version bump. Compose 1.11 already pulls the compatible AndroidX versions transitively.
+
+### Validation
+- Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions. If the build reports a Gradle checksum mismatch, `distributionSha256Sum` is the first thing to check.
+
 ## [3.8.1] - 2026-11-27
 
 ### Lint cleanup (no behavior change)
