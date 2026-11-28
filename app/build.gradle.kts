@@ -99,6 +99,10 @@ android {
         buildConfig = true
     }
 
+    lint {
+        lintConfig = file("lint.xml")
+    }
+
     testOptions {
         // DiagnosticLogger calls android.util.Log; return defaults instead of throwing in JVM unit tests.
         unitTests.isReturnDefaultValues = true

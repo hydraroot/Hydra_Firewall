@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Style/modernization noise. Real problems (NewApi, permissions, leaks, dependencies) stay visible. -->
+    <issue id="UseKtx" severity="ignore" />
+    <issue id="ObsoleteSdkInt" severity="ignore" />
+    <issue id="AutoboxingStateCreation" severity="ignore" />
+    <issue id="IconLauncherShape" severity="ignore" />
+    <issue id="IconDuplicates" severity="ignore" />
+    <!-- Process.INVALID_UID and NET_CAPABILITY_NOT_ROAMING are compile-time constants, inlined and safe on older APIs. -->
+    <issue id="InlinedApi" severity="ignore" />
+</lint>

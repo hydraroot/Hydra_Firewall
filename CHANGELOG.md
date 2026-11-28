@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.8.1] - 2026-11-27
+
+### Lint cleanup (no behavior change)
+- `FirewallVpnService.createNotificationChannel` is annotated `@RequiresApi(O)` (its only call site was already guarded), which removes five false `NewApi` errors.
+- Documented the other lint "errors" that are intentional or false positives: `QUERY_ALL_PACKAGES` and `PACKAGE_USAGE_STATS` (`tools:ignore` in the manifest), the VPN foreground service type, and the quick-settings tile's legacy `startActivityAndCollapse` branch (only used below Android 14).
+- New `app/lint.xml` silences pure style noise (`UseKtx`, `ObsoleteSdkInt`, `AutoboxingStateCreation`, launcher icon shape/duplicates, compile-time inlined constants) so the lint report only shows items worth reading.
+
+### Fixed
+- Help and Security Center no longer read the system locale in a non-observable way: with the language set to "System", they now follow a language change while the app is open (`NonObservableLocale`).
+
+### Validation
+- Android/Kotlin compilation and JVM unit tests must be confirmed by GitHub Actions; a new lint report should show no errors.
+
 ## [3.8.0] - 2026-11-27
 
 ### Dependencies
