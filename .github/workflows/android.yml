@@ -59,6 +59,54 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  lint:
+    name: Android lint (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      HYDRA_THREAT_PUBLIC_KEY: ${{ vars.HYDRA_THREAT_PUBLIC_KEY }}
+      HYDRA_THREAT_FEED_URL: ${{ vars.HYDRA_THREAT_FEED_URL }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android platform 36
+        run: sdkmanager "platforms;android-36"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make build scripts executable
+        run: chmod +x ./gradlew ./build.sh
+
+      - name: Run Android lint (findings do not fail the workflow)
+        continue-on-error: true
+        run: ./gradlew --no-daemon lintDebug
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-lint-report
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          if-no-files-found: warn
+          retention-days: 14
+
   python-tools:
     name: Python tools and bundled threat pack
     runs-on: ubuntu-latest

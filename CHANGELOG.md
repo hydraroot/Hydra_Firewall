@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.8.0] - 2026-11-27
+
+### Dependencies
+- Jetpack Compose BOM `2024.10.01` -> `2026.04.01` (Compose 1.7 -> 1.11, Material 3 1.3 -> 1.4), `fragment-ktx` 1.8.5 -> 1.8.9 and `appcompat` 1.7.0 -> 1.7.1. Gradle also lifts any AndroidX library that the newer Compose requires.
+- Intentionally **not** upgraded to Compose 1.12/1.13 (BOM 2026.11.01): from 1.12 on, Compose requires `compileSdk` 37 and Android Gradle Plugin 9. `compileSdk`/`targetSdk` 36, AGP 8.10.1 and Kotlin 2.2.21 are unchanged.
+- The code base was checked beforehand for Compose APIs removed or hidden in the newer releases (`rememberRipple`, `animateItemPlacement`, `menuAnchor`, old `Divider`, experimental opt-ins, ...): none are used.
+
+### CI
+- New **Android lint (report only)** job: runs `lintDebug` and uploads the HTML/XML report as the `hydra-lint-report` artifact. Findings never fail the workflow; it exists to see what is worth fixing.
+
+### Validation
+- No change to permissions, rules or network logic. A dependency jump of this size must be confirmed by GitHub Actions (unit tests + debug APK) and by looking at the app on a device, especially colors, elevation and text fields, since Material 3 changed some defaults between 1.3 and 1.4.
+
 ## [3.7.8] - 2026-11-27
 
 ### Changed
